@@ -20,3 +20,12 @@ python -m pytest -q --tb=short --show-capture=no -p no:cacheprovider --basetemp=
 ```
 
 Lượt kiểm tra đầu phát hiện thiếu `data/DU_LIEU_DEMO.xlsx` do quy tắc bỏ dữ liệu local. Đã bổ sung duy nhất fixture demo này sau khi so sánh đủ sáu sheet với `demo_tables()` trong code, không sửa mã để bỏ qua test. Bộ test toàn bộ được chạy lại và đạt. Các thư mục test/vault thật không được đưa vào commit.
+
+## Clone Linux (cloud), 27/10/2026 — Claude
+
+Python 3.13, venv riêng cài đúng `requirements.txt`. Lệnh như trên với `PYTHONUTF8=1`.
+
+- Lần đầu: 454 đạt, 178 fail, 22 error. Nguyên nhân: 168 test cần DPAPI Windows; 29 test đọc workbook/JSON Supra thật trên Desktop owner. Không có assertion failure do logic.
+- Sửa test: DPAPI giả chỉ trong `tests/conftest.py` khi không phải Windows (app vẫn fail closed); test cần nguồn Supra local skip có lý do.
+- Sau sửa và thêm 2 test đồng bộ rule layer: **627 đạt, 29 skip, 0 fail** (~35 giây).
+- Lưu ý: con số 654/654 ở trên đạt được vì máy owner có sẵn nguồn Supra local; trên clone sạch 29 test đó không chạy được.

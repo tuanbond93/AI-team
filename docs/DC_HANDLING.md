@@ -51,14 +51,6 @@ Cap vẫn 7.500 token/phút, output1.500 Free Pilot, 60 calls/120.000 token dự
 
 ## Control đối chiếu được phép
 
-Staging business-only thật đã được tính trong vault tạm, không production:
-
-| Phần | GHN | Kg đủ điều kiện | VND theo điều khoản, exact |
-|---|---:|---:|---:|
-| Mức 200 | 1.473 | 320.849 | 64.169.800 |
-| Mức 100 | 626 | 124.121,157 | 12.412.115,700 |
-| Subtotal đủ nguồn | 2.099 | 444.970,157 | 76.581.915,700 |
-
-DIRECT excluded 1.841 GHN; giữ riêng 67 GHN (61 thiếu L, 2 invalid L, 2 conflicting L, 2 qua mức giá). Một invalid L thuộc DIRECT không chặn handling. **Tổng component N/A.** J giữ 1.862.473 sản phẩm; eligible kg booking theo rule L cũ giữ 743.374,002 kg (khác subset kg tính handling). Đây không phải tiền đã nghiệm thu/thanh toán. Dữ liệu và catalog thật không đưa vào Git.
+Kết quả đối chiếu với dữ liệu thật đã được kiểm trong vault tạm và chỉ lưu ở bản ghi local của owner (`HANDOVER.md` tại workspace gốc); không ghi số liệu doanh nghiệp vào repo công khai. Tổng component vẫn N/A khi còn nhóm giữ riêng; subtotal không phải tiền nghiệm thu/thanh toán.
 
 Mẫu [SYNTHETIC_DC_HANDLING_REPORT.txt](../outputs/chief-auditor/SYNTHETIC_DC_HANDLING_REPORT.txt) là dữ liệu giả để minh họa subtotal lẻ `0,100 VND` và tổng component N/A.

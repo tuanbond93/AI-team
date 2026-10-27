@@ -28,8 +28,14 @@ def booking_intake(r):
     for m in r.get('booking_rows',[])[:2]:lines.insert(1,m['Chỉ tiêu']+': '+m['Giá trị tính toán']+' '+m['Đơn vị'])
     if w.get('available'):lines.append('Phần đủ tổng L: '+display(w.get('eligible_weight_kg'),'kg')+' kg, chưa thay tổng toàn phạm vi hoặc khối lượng đã giao thành công.')
     if h.get('available'):
+        unit='đợt GHN/ngày' if h.get('grain')=='GHN_BOOKING_E_DAY' else 'GHN'
+        held=(str(h['unresolved_ghn'])+' '+unit+' còn giữ riêng.' if h['unresolved_ghn'] is not None else 'số đợt giữ riêng N/A.')
         lines+=['Bốc xếp DC toàn phạm vi: '+display(h['component_vnd'],'VND theo điều khoản')+' VND theo điều khoản.',
-            'Phần đủ điều kiện: '+display(h['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản; '+str(h['unresolved_ghn'])+' GHN còn giữ riêng.']
+            'Phần đủ điều kiện: '+display(h['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản; '+held]
+        if h.get('reason')=='OWNER_RULE_WINDOW_NOT_COVERING_SCOPE':
+            w=h['rules_window'];lines.append('Quy tắc bốc xếp owner chỉ áp cho '+w['start']+' đến '+w['end']+'; kỳ này nằm ngoài khoảng đó nên bốc xếp để N/A. Cần owner duyệt quy tắc cho cả kỳ.')
+        elif h.get('reason')=='OWNER_RULES_INVALID_OR_STALE':
+            lines.append('Quy tắc bốc xếp owner đã cài không còn khớp nguồn/cấu hình hiện tại nên bốc xếp để N/A, không dùng cách tính cũ. Cần nạp lại quy tắc cho đúng bản nguồn.')
         for b in r['handling_rate_buckets']:
             if b['eligible_ghn']:lines.append('• '+b['rate_vnd_per_kg']+'đ/kg: '+display(b['eligible_kg'],'kg')+' kg → '+display(b['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản.')
     lines+=['Tổng doanh thu B2B: N/A. Total cost/GP/P&L: N/A; chưa đủ doanh thu và chi phí các chặng. Bốc xếp riêng chưa là tiền nghiệm thu/thanh toán.','CẦN ĐỐI CHIẾU:']
@@ -38,7 +44,7 @@ def booking_intake(r):
         if flags:lines.append('• Kg: '+', '.join(flags)+'. Không chọn dòng cuối hoặc chia L theo DO.')
     if q.get('available') and not q.get('complete'):lines.append('• J/khóa GHN+SO+DO thiếu/lỗi/lặp: giữ tổng chưa chốt, không cộng trùng hay điền 0.')
     if h.get('available'):
-        labels={'missing_weight':'thiếu L','invalid_weight':'L lỗi','conflicting_weight':'L mâu thuẫn','mixed_rate':'qua mức giá','mixed_routing':'khác điều kiện phí','unknown_routing':'chưa khớp điều kiện phí','partial_scope':'chưa đủ ngày/kỳ','unknown_rate':'chưa có giá'}
+        labels={'missing_weight':'thiếu L','invalid_weight':'L lỗi','conflicting_weight':'L mâu thuẫn','mixed_rate':'qua mức giá','mixed_routing':'khác điều kiện phí','unknown_routing':'chưa khớp điều kiện phí','partial_scope':'chưa đủ ngày/kỳ','unknown_rate':'chưa có giá','two_leg_unresolved':'chưa rõ liên kết hai chặng AG/S'}
         flags=[str(n)+' '+labels[k] for k,n in h['counters'].items() if n]
         if flags:lines.append('• Bốc xếp: '+', '.join(flags)+'. Subtotal không thay tổng component.')
         lines.append('Điều kiện phí độc lập xe vật lý: TP Lai Châu đi thẳng vẫn thuộc diện bốc xếp theo xác nhận owner; chưa tự tính phí xe/giao theo điểm.')

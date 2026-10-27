@@ -15,7 +15,7 @@ Supra dùng lại app/navigation/design system, shared venv, adapter LLM/strict 
 ## Cấu trúc mã
 
 - `ops_team/supra/ingestion.py`: đọc hai tài liệu được chỉ định, chống file nén quá lớn, kiểm tra sheet/đơn vị/khóa, nguồn file + SHA256 + ô hoặc dòng CSV vật lý. Không thực thi công thức/tài liệu như chỉ dẫn. Formula cache không làm căn cứ xác minh tiền hoặc ACTUAL.
-- `domain.py`, `finance.py`: Decimal, làm tròn 0,01 VND, residual theo largest remainder. Một pool phân bổ một lần; net last-mile đã trừ Ecom không trừ tiếp. Xe 5T hybrid là một pool 57 triệu/tháng, chia các tuyến theo kg. Phí 8T theo chuyến; hub chỉ phân bổ kg qua hub. NCC sensitivity thay pool last-mile, không cộng chồng.
+- `domain.py`, `finance.py`: Decimal, làm tròn 0,01 VND, residual theo largest remainder. Một pool phân bổ một lần; net last-mile đã trừ Ecom không trừ tiếp. Xe 5T hybrid là một pool cố định/tháng theo giá đã duyệt, chia các tuyến theo kg. Phí 8T theo chuyến; hub chỉ phân bổ kg qua hub. NCC sensitivity thay pool last-mile, không cộng chồng.
 - `ledger.py`: API sổ chi tiết doanh thu → pool → dòng phân bổ. Hỗ trợ khách hàng/tỉnh/hub/tuyến/ngày/xe/điểm/đơn. Tổng phân bổ phải bằng pool, ID duy nhất, cùng kỳ vận hành, chi phí 0 cũng cần dòng có nguồn. Drop dùng ID duy nhất để không cộng lặp theo dòng đơn. Các sổ route/day, xe, điểm là sổ thay thế/đối soát, không cộng vào nhau.
 - `reconciliation.py`: 7 kiểm tra baseline, gồm 6 vấn đề yêu cầu và kiểm tổng mạng. Trạng thái CONFIRMED chỉ xác nhận số học tài liệu; CORRECTED_WITH_EVIDENCE là sửa số học kế hoạch, không là xác thực giá/hóa đơn.
 - `capacity.py`, `daily.py`: giới hạn năng lực, tải/Ecom/peak/thể tích, lịch bốc DC, giờ nhận hàng; thiếu đo đạc trả NEEDS_DATA. Quy tắc timeline cho giao trễ, DC trễ, chờ/tồn quá ngưỡng, chi phí chuyến/điểm bất thường, quá tải/thiếu tải và quay vòng muộn. Không tự đặt ngưỡng nghiệp vụ chưa được cấp và không tuyên bố tối ưu toàn cục.
@@ -29,21 +29,16 @@ Supra dùng lại app/navigation/design system, shared venv, adapter LLM/strict 
 
 1. Mở bản review, chọn **Supra Account AI → Đọc hai tài liệu Supra đã chỉ định**. Có thể tải lên đúng một .xlsx và một .docx thay thế. Xem preview, xác nhận nhập/lưu phiên bản.
 2. Nguồn hiện tại có 12 luồng, 130 key điểm tạm, 33.372 kg/ngày. Chưa có mã cửa hàng thật, hóa đơn hoặc nhật ký pilot đã nhập. Mọi con số từ đề án là PLAN/UNVERIFIED, kể cả khi tài liệu có chữ “đã phê duyệt”.
-3. Chọn 26/30 ngày cùng tháng. Chi phí cố định xe 5T giữ 57 triệu/tháng; chỉ phí biến đổi/theo chuyến tăng theo ngày. Không nhân tất cả khoản chi bằng 30/26, không ép kết quả khớp benchmark 240,8.
+3. Chọn 26/30 ngày cùng tháng. Chi phí cố định xe 5T giữ nguyên theo tháng; chỉ phí biến đổi/theo chuyến tăng theo ngày. Không nhân tất cả khoản chi bằng 30/26, không ép kết quả khớp benchmark cũ.
 4. Xem Route P&L, phân bổ pool, nguồn từng ô, kiểm tra baseline; tải JSON nghiệp vụ đầy đủ. Chi phí/drop actual để trống khi chưa có drop. Chi phí/xe kế hoạch-ngày là tổng chi phí tài khoản chia 13 xe-ngày kế hoạch, không giả là P&L từng biển số. Chi phí/điểm PLAN chia đều trong tuyến được ghi rõ là giả định, không phải CTS cửa hàng thực.
 5. Hồ sơ chỉ nêu tải danh định, thiếu giấy tờ tải hợp pháp, thể tích, GPS/vòng quay, giờ nhận điểm và báo giá/SLA. Bảng capacity không xác nhận tính khả thi thực tế từ công suất lý thuyết.
 6. Trong Executive Overview có **Nguồn lịch sử Supra sẵn có**: chủ động đọc snapshot 10/2026 từ project nguồn, kiểm tra rồi liên kết bản đọc riêng. Snapshot có dữ liệu quan sát và chi phí mô hình, không là ACTUAL Finance hoặc pilot tương lai. Nguồn tháng 10 được cập nhật 16/10/2026 và chưa xác nhận đủ kỳ; tập B2B thiếu customer ID độc lập. Không trộn vào các KPI PLAN, sổ ACTUAL hoặc tự gửi lịch sử này tới LLM.
 
-Kết quả Decimal đối chiếu workbook hiện tại:
-
-| Kỳ PLAN | Doanh thu VND | Chi phí VND | Lãi/lỗ VND |
-|---|---:|---:|---:|
-| 26 ngày | 484.160.976,00 | 626.848.728,80 | -142.687.752,80 |
-| 30 ngày | 558.647.280,00 | 714.517.764,00 | -155.870.484,00 |
+Kết quả Decimal đối chiếu workbook PLAN: Kết quả đối chiếu với dữ liệu thật đã được kiểm trong vault tạm và chỉ lưu ở bản ghi local của owner (`HANDOVER.md` tại workspace gốc); không ghi số liệu doanh nghiệp vào repo công khai.
 
 Đây là P&L phạm vi chi phí khai báo, chưa là lợi nhuận ròng kế toán/thuế. Contribution margin PLAN tạm coi mọi pool ngoài 5T là biến đổi; cơ cấu hub/cost behavior phải Finance xác nhận. Sổ chi tiết trả CM trống nếu cost behavior chưa rõ.
 
-Giá xe 8T: 1.474.307 × 2 / 13.713 = khoảng 215,02 VND/kg; nếu mẫu số 13.700 kg là khoảng 215,23. Không dùng 178 và không cộng khoản sửa lần hai vì pool 8T đã lấy nguyên cước/chuyến. Khoảng cách 18/36 km, lịch chuyến 2 lấy thẳng, điều khoản NCC và tải Ecom vẫn mở.
+Giá xe 8T/kg: dùng nguyên cước/chuyến đã duyệt chia kg kế hoạch của chính pool; không dùng số cũ và không cộng khoản sửa lần hai. Khoảng cách, lịch chuyến lấy thẳng, điều khoản NCC và tải Ecom vẫn mở. Giá cụ thể nằm ở bản ghi local.
 
 ## ACTUAL và quyền trong phiên
 

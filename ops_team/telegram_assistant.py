@@ -585,7 +585,7 @@ class AssistantResponder:
                 context = {"label": validation.label+"; SHA256 "+source["digest"]+"; phạm vi "+signature,
                     "scope": result["scope"], "metrics": metric_context(result), "chief_result": result}
             elif isinstance(validation, BookingData):
-                context = booking_context(validation, period, warehouses, cutoff, source)
+                context = self._booking_context(validation, period, warehouses, cutoff, source)
                 if not context["rows"]:
                     raise ValueError("Chưa có booking trong kỳ/cutoff đã chọn.")
                 context["label"] += "; phạm vi "+signature
@@ -604,6 +604,8 @@ class AssistantResponder:
         if context and context.get('vehicle'):label+='; pair '+json.dumps(context['cache_identity'])
         if context and context.get('handling_quality',{}).get('available'):
             label += '; handling-catalog '+context['handling_quality']['catalog_sha256']
+            if context['handling_quality'].get('grain')=='GHN_BOOKING_E_DAY':
+                label += '; owner-rules '+str(context['handling_quality'].get('rules_sha256'))+' '+context['handling_quality']['reason']
         if self._agent is None or getattr(self, "_agent_label", None) != label:
             if self._agent:
                 self._agent.clear()
@@ -626,10 +628,46 @@ class AssistantResponder:
             self._vehicle_cache=vehicle_evidence(data,period,cutoff);self._vehicle_cache_key=key
         return self._vehicle_cache
 
-    def _booking_report(self, data, source, facts, period, warehouses, cutoff):
+    def _rule_handling(self,data,source,facts,period,cutoff):
+        """DC handling from the active owner rule layer, so /run, /chief and model context match /chiphi.
+
+        Returns None when no layer is installed (legacy engine unchanged). An
+        installed but stale/invalid layer holds the component as N/A.
+        """
+        if not getattr(data,'vehicle_pair',None) or not getattr(data,'handling_catalog',None):return None
+        evidence=self._vehicle_evidence(data,period,cutoff)
+        if not evidence.get('available'):return None
+        from .telegram_rule_layer import FILENAME as RULES_FILENAME,load_rules
+        if not (self.state.root/RULES_FILENAME).exists():return None
+        from .supra.booking_handling import handling_summary
+        try:
+            rules,rules_sha=load_rules(self.state,data,source,facts,self.owner)
+            from .telegram_secrets import load_protected
+            from .telegram_manual_cost_policy import FILENAME as COST_POLICY_FILENAME
+            from .supra.vehicle_cost import booking_rule_handling
+            policy=json.loads(load_protected(self.state.root/COST_POLICY_FILENAME))
+            result=booking_rule_handling(data,evidence,period,cutoff,rules,rules_sha,policy)
+        except (ValueError,OSError,KeyError,TypeError):
+            result=None;rules_sha=None
+        if result is None:
+            # Fail closed: never present the legacy GHN-wide figure as the owner-rule result.
+            dates=data.rows.dispatch_date
+            scoped=data.rows[dates.map(lambda d:d is not None and d.strftime('%Y-%m')==period and d<=cutoff.date())]
+            result=handling_summary(data,scoped,period,cutoff)
+            if not result['available']:return result
+            result.update(complete=False,component_vnd=None,eligible_vnd=None,eligible_kg=None,eligible_transfer_ghn=None,
+                direct_excluded_ghn=None,unresolved_ghn=None,reason='OWNER_RULES_INVALID_OR_STALE',grain='GHN_BOOKING_E_DAY',rules_sha256=rules_sha,
+                rate_buckets=[{**b,'eligible_ghn':0,'eligible_kg':None,'eligible_vnd':None} for b in result['rate_buckets']])
+        return result
+
+    def _booking_context(self,data,period,warehouses,cutoff,source):
         from .supra.booking import booking_context
+        facts,_,_=self._effective_facts()
+        return booking_context(data,period,warehouses,cutoff,source,handling=self._rule_handling(data,source,facts,period,cutoff))
+
+    def _booking_report(self, data, source, facts, period, warehouses, cutoff):
         self._report_details = None
-        context = booking_context(data, period, warehouses, cutoff, source)
+        context = self._booking_context(data, period, warehouses, cutoff, source)
         if source.get("name") in ("GOOGLE_CONNECTOR_SNAPSHOT", "GOOGLE_BROWSER_VIEWER_SNAPSHOT") and time.time()-source["created"] > 900:
             return "Em chưa lập được báo cáo mới vì bản nhận dữ liệu đã quá 15 phút. Anh cần đọc lại đúng nguồn; em chưa gọi AI hoặc dùng số cũ thay bản mới."
         if not context["rows"]:
@@ -667,7 +705,7 @@ class AssistantResponder:
         from .chief.agent import metric_context
         data, source, facts, period, warehouses, cutoff, _ = self._scoped()
         if isinstance(data, BookingData):
-            context = booking_context(data, period, warehouses, cutoff, source)
+            context = self._booking_context(data, period, warehouses, cutoff, source)
             warnings = []
             if time.time()-source.get("created", time.time()) > 900:
                 warnings.append("Bản chụp nguồn đã quá 15 phút; cần đọc lại nguồn trước báo cáo mới, không coi đây là dữ liệu trực tuyến.")

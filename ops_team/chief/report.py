@@ -18,7 +18,7 @@ def display(value, unit=""):
     if value is None:
         return "N/A — chưa đủ dữ liệu" if unit != "%" else "N/A — thiếu dữ liệu hoặc doanh thu bằng 0"
     value = Decimal(str(value))
-    digits = 0 if unit in ("VND", "kiện", "thùng", "sản phẩm", "dòng", "mã GHN") else 3 if unit=='kg' else 2
+    digits = 0 if unit in ("VND", "kiện", "thùng", "sản phẩm", "dòng", "mã GHN", "đợt GHN/ngày") else 3 if unit=='kg' else 2
     if unit=='VND theo điều khoản':
         digits=max(3,-value.as_tuple().exponent)
     return f"{value:,.{digits}f}".replace(",", "_").replace(".", ",").replace("_", ".")
@@ -150,10 +150,13 @@ def booking_review(context, extra_warnings=()):
         labels={'partial_scope':'GHN thiếu phạm vi ngày/kỳ/cutoff','unknown_routing':'GHN điều kiện phí chưa khớp',
             'mixed_routing':'GHN có các điều kiện phí khác nhau','unknown_rate':'GHN chưa có một giá hiệu lực',
             'mixed_rate':'GHN qua nhiều mức giá E','missing_weight':'GHN thuộc diện phí thiếu tổng L',
-            'invalid_weight':'GHN thuộc diện phí có L lỗi','conflicting_weight':'GHN thuộc diện phí có tổng L mâu thuẫn'}
+            'invalid_weight':'GHN thuộc diện phí có L lỗi','conflicting_weight':'GHN thuộc diện phí có tổng L mâu thuẫn',
+            'two_leg_unresolved':'GHN chưa rõ liên kết hai chặng AG/S'}
+        unit='đợt GHN/ngày' if handling.get('grain')=='GHN_BOOKING_E_DAY' else 'mã GHN'
         for k,label in labels.items():
-            rows.append({'Chỉ tiêu':label,'Giá trị tính toán':display(handling['counters'][k],'mã GHN'),
-                'Đơn vị':'mã GHN','Đánh giá sơ bộ':'Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn'})
+            if k not in handling['counters']:continue
+            rows.append({'Chỉ tiêu':label,'Giá trị tính toán':display(handling['counters'][k],unit),
+                'Đơn vị':unit,'Đánh giá sơ bộ':'Các loại lỗi có thể trùng một nhóm; không cộng các counter để suy số đơn'})
         if handling['missing_id_rows']:
             rows.append({'Chỉ tiêu':'Dòng thiếu GHN cho bốc xếp','Giá trị tính toán':display(handling['missing_id_rows'],'dòng'),
                 'Đơn vị':'dòng','Đánh giá sơ bộ':'Chưa thể gán vào một nhóm, không điền chi phí 0'})

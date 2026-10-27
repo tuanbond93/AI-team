@@ -44,7 +44,14 @@ Không coi các cảnh báo cũ đã được quy tắc mới giải quyết là
 
 ## Giới hạn cần giữ rõ
 
-Lớp rule mới áp dụng phép tính thủ công `/chiphi` và `/xe`. Việc đưa cùng kết quả vào model context hoặc báo cáo lịch là một hạng mục cần kiểm tra riêng; không khẳng định đã đồng bộ mọi đường đi của ứng dụng. Không tự đổi approved plan hoặc bật lịch để hoàn thành hạng mục đó.
+Lớp rule áp dụng `/chiphi` và `/xe`. Từ 27/10/2026 (Claude), **bốc xếp DC** trong `/run`/báo cáo lịch, `/chief` và model context cũng lấy từ lớp rule qua `AssistantResponder._booking_context` → `vehicle_cost.booking_rule_handling` (đợt GHN + ngày E, cùng resolver hai chặng). Quy tắc:
+
+- Chưa cài lớp rule: giữ nguyên engine cũ (GHN cả kỳ).
+- Lớp rule đã cài nhưng stale/sai binding: bốc xếp N/A với lý do `OWNER_RULES_INVALID_OR_STALE`; không quay về cách tính cũ.
+- Kỳ báo cáo (đầu tháng → cutoff) vượt `window` của rule: bốc xếp N/A với lý do `OWNER_RULE_WINDOW_NOT_COVERING_SCOPE`. Muốn có số cho cả kỳ, owner cần duyệt rule có window phủ kỳ.
+- Approved plan, lịch, source identity không đổi. Nhãn cache model thêm SHA rule để không dùng context cũ.
+
+Các khoản khác của `/chiphi` (điểm, FTL, GXT, overlay doanh thu) **chưa** đưa vào báo cáo lịch/model context; vẫn là hạng mục riêng.
 
 Current manual subtotal là phần đủ nguồn, không là tổng chi phí hoặc GP cuối. Không công bố số tiền mới dựa trên repo không có dữ liệu thật. Việc thay layer có thể làm invalid bindings; phải kiểm hash source, catalog, base/forecast/overlay và owner/group theo schema.
 

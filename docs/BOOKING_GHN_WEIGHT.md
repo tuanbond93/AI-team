@@ -35,6 +35,6 @@ Auditor nhận nguyên answer/requests và đúng task version. Không nâng cap
 
 35 ca mới kiểm grain một lần/GHN, anchor lặp, blank trong nhóm, toàn nhóm thiếu, `#REF!`, conflict, cutoff/khác kỳ/unknown date, Decimal/zero, không fallback AB, độc lập J/L, v2 migration/source/policy/hash/cancel, full CSV multiline và connector numeric+None, restart/plan13h/0HTTP. Adapter thật với HTTP/đồng hồ giả kiểm ba lượt Operations có history và Operations→Auditor, metadata khôi phục đầy đủ và exact review task. Các kiểm tra cũ về quantity/cap/429 tiếp tục giữ.
 
-Control staging được phép, kiểm trong vault tạm: tháng 10 có **9.453 dòng DO / 4.007 GHN / 1.862.473 sản phẩm**. **3.941 GHN đủ kg**, subtotal **743.374,002 kg**; 61 GHN thiếu tổng, 3 GHN có lỗi, 2 GHN có tổng mâu thuẫn, không có partial-scope GHN trong lượt control. Tổng kg toàn phạm vi **N/A**. Raw hash staging `aa4ab5c585f4af5fa0672d464d8a74478f7178524f5cac8f71ea553b9ca72fdb`. Đây là kiểm tính đúng quy tắc từ nguồn, không phải đối soát tài chính hoặc activation production. Không đưa staging/dữ liệu thật vào Git.
+Control staging được phép đã kiểm trong vault tạm; tổng kg toàn phạm vi N/A khi còn GHN thiếu/lỗi/mâu thuẫn. Kết quả đối chiếu với dữ liệu thật đã được kiểm trong vault tạm và chỉ lưu ở bản ghi local của owner (`HANDOVER.md` tại workspace gốc); không ghi số liệu doanh nghiệp vào repo công khai.
 
 Mẫu [SYNTHETIC_GHN_WEIGHT_REPORT.txt](../outputs/chief-auditor/SYNTHETIC_GHN_WEIGHT_REPORT.txt) chỉ là dữ liệu tổng hợp để xem cách hiển thị N/A và subtotal riêng.

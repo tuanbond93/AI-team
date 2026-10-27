@@ -134,3 +134,28 @@ def vehicle_cost_status(data, evidence, text=''):
         booking_digest=pair['booking_digest'],handling_catalog_sha256=data.handling_catalog_sha256,
         total_cost_vnd=None,gross_profit_vnd=None)
     return result
+
+
+def booking_rule_handling(data,evidence,period,cutoff,rules,rules_sha,policy):
+    """Rule-layer DC result for the whole booking scope (period start..cutoff).
+
+    Used by scheduled/model booking contexts so they match /chiphi and /xe.
+    A scope outside the approved rule window holds the component as N/A
+    instead of falling back to the legacy GHN-wide grain.
+    """
+    from calendar import monthrange
+    from datetime import date
+    from .booking_handling import HANDLING_POLICY,catalog_digest
+    first=date.fromisoformat(period+'-01')
+    last=min(date(first.year,first.month,monthrange(first.year,first.month)[1]),cutoff.date())
+    text=f'{first} {last}'
+    result=vehicle_cost_by_day(data,evidence,text,rules,policy)
+    if not result.get('available'):return None
+    catalog=data.handling_catalog
+    result.update(policy_version=HANDLING_POLICY['version'],catalog_version=catalog['version'],catalog_sha256=catalog_digest(catalog),
+        verification='OWNER_TERMS_CALCULATION_NOT_SETTLED_COST',rules_sha256=rules_sha,rules_window=dict(rules['window']))
+    if not rules['window']['start']<=str(first)<=str(last)<=rules['window']['end']:
+        result.update(complete=False,component_vnd=None,eligible_vnd=None,eligible_kg=None,eligible_transfer_ghn=None,direct_excluded_ghn=None,
+            unresolved_ghn=None,reason='OWNER_RULE_WINDOW_NOT_COVERING_SCOPE',
+            rate_buckets=[{**b,'eligible_kg':None,'eligible_vnd':None,'eligible_ghn':0} for b in result['rate_buckets']])
+    return result

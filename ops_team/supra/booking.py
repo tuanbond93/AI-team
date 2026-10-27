@@ -94,7 +94,8 @@ def parse_booking(frame, *, quantity_rules=None, weight_rules=None, handling_pol
     return BookingData(safe, quantity_rules, weight_rules,handling_policy,handling_catalog,handling_catalog_sha256)
 
 
-def booking_context(data, period, warehouses, cutoff, source):
+def booking_context(data, period, warehouses, cutoff, source, handling=None):
+    """``handling`` is an owner rule-layer DC result for this exact scope; None keeps the legacy GHN engine."""
     tab = source.get("tab", "DC PHÚ THỌ")
     if len(warehouses) != 1 or normalized(warehouses[0]) != normalized(tab):
         raise ValueError("Booking được khóa theo tab/DC xuất hàng; warehouses phải đúng tên tab, không lọc theo tỉnh nhận.")
@@ -159,20 +160,24 @@ def booking_context(data, period, warehouses, cutoff, source):
             'sum eligible GHN totals only; not whole-scope kg' if key=='eligible_weight_kg' else 'count GHN/rows: '+key,
             period,scope,'OWNER SOURCE / chưa đối soát; không xác nhận giao đúng hạn',sorted(set(sources)))
     from .booking_handling import handling_summary
-    handling=handling_summary(data,scoped,period,cutoff)
+    if handling is None:
+        handling=handling_summary(data,scoped,period,cutoff)
+    by_event=handling.get('grain')=='GHN_BOOKING_E_DAY'
     if handling['available']:
         all_refs=sorted(set(data.rows.loc[data.rows.order_id.isin(set(scoped.order_id)-{''}),'_source']))
+        group='đợt GHN/ngày' if by_event else 'mã GHN'
         entries=[('component_vnd','Bốc xếp DC — toàn component','VND theo điều khoản'),
             ('eligible_vnd','Bốc xếp DC — subtotal đủ nguồn, không phải tổng','VND theo điều khoản'),
             ('eligible_kg','Kg đủ điều kiện bốc xếp','kg'),
-            ('eligible_transfer_ghn','GHN tính được bốc xếp','mã GHN'),
-            ('direct_excluded_ghn','GHN không áp dụng bốc xếp','mã GHN'),
-            ('unresolved_ghn','GHN chưa chốt component bốc xếp','mã GHN')]
+            ('eligible_transfer_ghn',('Đợt GHN/ngày' if by_event else 'GHN')+' tính được bốc xếp',group),
+            ('direct_excluded_ghn',('Đợt GHN/ngày' if by_event else 'GHN')+' không áp dụng bốc xếp',group),
+            ('unresolved_ghn',('Đợt GHN/ngày' if by_event else 'GHN')+' chưa chốt component bốc xếp',group)]
+        formula=('DC fee: L once per GHN + Booking E day event, rate by E, owner rule layer; no borrowing L across days; not settlement/total cost' if by_event else
+            'DC fee: eligible L/GHN once, one E rate, full scope; not physical mode/settlement/total cost')
         for key,label,unit in entries:
             metric_key='booking.dc_handling_'+key
             sources=(handling['issue_sources'] if key=='unresolved_ghn' else handling['sources_by_metric'].get(key,all_refs))
-            metrics[metric_key]=Metric(metric_key,label,handling[key],unit,
-                'DC fee: eligible L/GHN once, one E rate, full scope; not physical mode/settlement/total cost',
+            metrics[metric_key]=Metric(metric_key,label,handling[key],unit,formula,
                 period,scope,'OWNER SOURCE / chưa đối soát; không xác nhận giao đúng hạn',sorted(set(sources)))
         for i,b in enumerate(handling['rate_buckets'],1):
             for suffix,unit in (('kg','kg'),('vnd','VND theo điều khoản')):
@@ -191,6 +196,7 @@ def booking_context(data, period, warehouses, cutoff, source):
     provenance['source_version']=source['digest']
     if handling['available']:
         provenance.update(handling_policy_version=handling['policy_version'],handling_catalog_version=handling['catalog_version'],handling_catalog_sha256=handling['catalog_sha256'])
+        if by_event:provenance.update(handling_grain=handling['grain'],owner_rules_sha256=handling['rules_sha256'])
     limitations=("J là sản phẩm trong thùng, L là tổng kg/GHN; hai grain độc lập. L thiếu/lỗi/mâu thuẫn hoặc GHN chỉ thuộc một phần kỳ/cutoff thì tổng kg N/A, subtotal giữ nhãn riêng. Không suy kiện/thùng/CBM/chuyến/drop, tải xe/chi phí hoặc SLA. delivered chỉ là trạng thái nguồn, chưa đối soát hoặc xác nhận giao thành công. Không cộng/điền xuống tổng gộp. PII không gửi." if weights['available'] else
         "Qty(Units), khi đủ mapping và khóa đã xác nhận, là sản phẩm bên trong thùng, không phải kiện/thùng. Thiếu/lỗi/trùng khóa được cách ly, toàn phạm vi N/A khi chưa đủ; không suy sản phẩm từ PCS/lot. Chưa tính kg/CBM/xe/chuyến/drop/chi phí/OT/SLA/tải sử dụng: thiếu khóa trip/drop, quy tắc tổng theo lot/xe, cam kết và chứng từ. delivered là trạng thái nguồn, không phải SLA. Không cộng/forward-fill tổng ô gộp. Tên tài xế, SĐT, biển số, tên siêu thị và địa chỉ không nằm trong payload/model/report.")
     return {"label": "BOOKING DC — OWNER SOURCE / UNVERIFIED; SHA256 "+source["digest"], "scope": scope,
@@ -199,7 +205,7 @@ def booking_context(data, period, warehouses, cutoff, source):
             "quantity_quality": {k:v for k,v in quantities.items() if k not in ('by_ghn','issue_sources')},
             "weight_quality": {k:v for k,v in weights.items() if k not in ('group_evidence','issue_sources','metric_sources')},
             "weight_issue_sources": sorted(set(weights['issue_sources'])),
-            "handling_quality":{k:v for k,v in handling.items() if k not in ('issue_sources','group_evidence','sources_by_metric','rate_buckets')},
+            "handling_quality":{k:v for k,v in handling.items() if k not in ('issue_sources','group_evidence','sources_by_metric','rate_buckets','eligible_events','scope')},
             "handling_rate_buckets":[{k:v for k,v in b.items() if k!='sources'} for b in handling['rate_buckets']],
             "handling_issue_sources":sorted(set(handling['issue_sources'])),
             "limitations": limitations}

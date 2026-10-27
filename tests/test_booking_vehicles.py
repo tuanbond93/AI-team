@@ -1679,3 +1679,60 @@ def test_fleet_actual_provider_adapter_caps_history_and_aggregate_privacy(monkey
         assert 'Tỷ lệ' in text and ctx['source_provenance']['raw_retrieved_at'] in text
     assert len(bodies)==4 and len(bodies[3]['conversation'])==3 and max(reservations)<=7500
     assert agent._budget.attempts==4
+
+
+def _rule_layer_fixture(tmp_path,window):
+    from ops_team.telegram_rule_layer import ingest_rules
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    first=book('SYN_SPAN',date='10/10/2026',do='D1');first[8]='5'
+    second=book('SYN_SPAN',date='11/10/2026',do='D2');second[8]='7'
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path,custom_books=[first,second],
+        custom_raws=[event('SYN_SPAN'),event('SYN_SPAN',date='2026-10-11',trip=124)])
+    cfg['window']=dict(window)
+    _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+    rules=synthetic_owner_rules(state,data);rules['window']=dict(window)
+    path,desc=stage_rule_layer(tmp_path,rules);ingest_rules(path,desc,state,123)
+    return state,facts,data,source,rules,desc['sha256']
+
+
+def test_scheduled_report_and_model_context_use_owner_rule_layer_like_chiphi(tmp_path,monkeypatch):
+    from ops_team.telegram_rule_layer import FILENAME
+    state,facts,data,source,rules,sha=_rule_layer_fixture(tmp_path,{'start':'2026-10-01','end':'2026-10-31'})
+    try:
+        legacy=booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        assert legacy['metrics']['booking.dc_handling_eligible_vnd']['value'] is None  # GHN-wide grain sees two L totals
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('code paths cannot call model'))
+        context=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        m=context['metrics']
+        assert Decimal(m['booking.dc_handling_eligible_vnd']['value'])==1200 and m['booking.dc_handling_eligible_transfer_ghn']['value']==2
+        assert m['booking.dc_handling_eligible_transfer_ghn']['unit']=='đợt GHN/ngày'
+        assert context['handling_quality']['grain']=='GHN_BOOKING_E_DAY' and context['source_provenance']['owner_rules_sha256']==sha
+        assert 'eligible_events' not in context['handling_quality']  # no raw GHN list in model-facing quality record
+        a.answer(Incoming(GROUP_ID,123,1,None,'chiphi','2026-10-01 2026-10-31'))
+        report=a._code_details[(GROUP_ID,None,123)]['report']
+        assert Decimal(report['dc']['eligible_vnd'])==Decimal(m['booking.dc_handling_eligible_vnd']['value'])
+        text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
+        assert '1.200,000' in text and 'đợt GHN/ngày' in text
+        stale=deepcopy(rules);stale['booking_digest']='f'*64
+        save_protected(state.root/FILENAME,json.dumps(stale,ensure_ascii=False).encode())
+        held=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        assert held['handling_quality']['reason']=='OWNER_RULES_INVALID_OR_STALE'
+        assert all(held['metrics'][k]['value'] is None for k in ('booking.dc_handling_component_vnd','booking.dc_handling_eligible_vnd'))
+        assert 'không còn khớp' in a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
+        (state.root/FILENAME).unlink()
+        assert a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)['metrics']==legacy['metrics']
+    finally:state.close()
+
+
+def test_rule_window_shorter_than_report_scope_holds_handling_na(tmp_path,monkeypatch):
+    state,facts,data,source,rules,sha=_rule_layer_fixture(tmp_path,{'start':'2026-10-10','end':'2026-10-20'})
+    try:
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        context=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        assert context['handling_quality']['reason']=='OWNER_RULE_WINDOW_NOT_COVERING_SCOPE'
+        assert context['metrics']['booking.dc_handling_eligible_vnd']['value'] is None
+        assert context['metrics']['booking.dc_handling_unresolved_ghn']['value'] is None
+        text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
+        assert '2026-10-10 đến 2026-10-20' in text and 'N/A' in text
+    finally:state.close()
