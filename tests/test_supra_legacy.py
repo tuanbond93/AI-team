@@ -11,9 +11,12 @@ from ops_team.supra.domain import Principal
 
 ROOT = Path.home()/"Desktop"/"Super Tracking chi phí Supra"
 VIEWER = Principal("reader")
+needs_source = pytest.mark.skipif(not (ROOT/"src/data/multiMonthSupraData.json").exists() or not (ROOT/"Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx").exists(),
+    reason="Cần nguồn Supra local của owner; repo sạch không chứa dữ liệu thật.")
 ANALYST = Principal("Supra Account AI", permissions=frozenset({"VIEW_PNL", "ANALYZE"}))
 
 
+@needs_source
 def test_read_existing_snapshot_reuses_engine_and_scopes_only_phu_tho():
     path = ROOT/"src/data/multiMonthSupraData.json"
     original = path.read_bytes()
@@ -28,6 +31,7 @@ def test_read_existing_snapshot_reuses_engine_and_scopes_only_phu_tho():
     assert path.read_bytes() == original
 
 
+@needs_source
 @pytest.mark.parametrize("month", ["2026-06", "2026-08", "2026-01"])
 def test_old_unreconciled_snapshot_cannot_be_accepted(month):
     with pytest.raises(ValueError):
@@ -43,6 +47,7 @@ def test_changed_engine_blocked_without_running_source(tmp_path):
     assert not marker.exists()
 
 
+@needs_source
 def test_legacy_snapshot_kept_separate_and_versioned():
     dataset = read_workbook((ROOT/"Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx").read_bytes(), "plan.xlsx")
     service, store = SupraService(dataset), EventStore()

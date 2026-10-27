@@ -7,11 +7,13 @@ from ops_team.supra.domain import allocate, number, Principal
 from ops_team.supra.finance import forecast, actual_pnl
 from ops_team.supra.service import SupraService
 
-SOURCE = Path(r"C:\Users\Son-Tuan Nguyen\Desktop\Super Tracking chi phí Supra")
+SOURCE = Path.home()/"Desktop"/"Super Tracking chi phí Supra"
 
 
 @pytest.fixture(scope="module")
 def dataset():
+    if not (SOURCE/"Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx").exists():
+        pytest.skip("Cần nguồn Supra local của owner; repo sạch không chứa dữ liệu thật.")
     return read_workbook((SOURCE/"Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx").read_bytes(), "Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx")
 
 

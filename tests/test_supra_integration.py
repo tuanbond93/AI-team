@@ -21,7 +21,8 @@ from ops_team.supra.agent import analyze_account, CustomerOperationsAgent
 from ops_team.providers import ModelConfig, ProviderError
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = Path(r"C:\Users\Son-Tuan Nguyen\Desktop\Super Tracking chi phí Supra\Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx")
+SOURCE = Path.home()/"Desktop"/"Super Tracking chi phí Supra"/"Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx"
+needs_source = pytest.mark.skipif(not SOURCE.exists(), reason="Cần nguồn Supra local của owner; repo sạch không chứa dữ liệu thật.")
 READER = Principal("viewer")
 AI = Principal("Supra Account AI", permissions=frozenset({"VIEW_PNL", "ANALYZE", "NOTIFY_MOCK"}))
 MANAGER = Principal("finance-manager", permissions=frozenset({"VIEW_PNL", "APPROVE", "EXECUTE_SHADOW", "IMPORT_ACTUAL", "VERIFY_FINANCE"}))
@@ -29,6 +30,8 @@ MANAGER = Principal("finance-manager", permissions=frozenset({"VIEW_PNL", "APPRO
 
 @pytest.fixture(scope="module")
 def dataset():
+    if not SOURCE.exists():
+        pytest.skip("Cần nguồn Supra local của owner; repo sạch không chứa dữ liệu thật.")
     return read_workbook(SOURCE.read_bytes(), SOURCE.name)
 
 
@@ -193,6 +196,7 @@ def test_customer_agent_consent_secrets_and_exact_audit(dataset):
         CustomerOperationsAgent.resolve("OTHER", "PHU_THO")
 
 
+@needs_source
 def test_supra_embedded_ui_source_to_report_and_finance_gate(tmp_path, monkeypatch):
     import ops_team.supra.ui as ui
     monkeypatch.setattr(ui, "ROOT", tmp_path)

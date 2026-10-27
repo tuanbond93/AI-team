@@ -315,6 +315,8 @@ def test_warehouse_snapshot_is_frozen_and_team_reuses_existing_orchestrator(monk
     assert "vẫn còn điểm chưa chốt" in result and "PARTIAL" in result
 
 
+@pytest.mark.skipif(not (Path.home()/"Desktop"/"Super Tracking chi phí Supra"/"Supra_Phu_Tho_PnL_CostToServe_Pilot14Ngay.xlsx").exists(),
+    reason="Cần nguồn Supra local của owner; repo sạch không chứa dữ liệu thật.")
 def test_supra_question_uses_existing_account_and_exact_auditor_contract():
     from ops_team.supra.ingestion import read_workbook
     from ops_team.supra.service import SupraService
