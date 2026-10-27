@@ -1,0 +1,110 @@
+# Câu hỏi còn mở để chạy tự động
+
+Lập ngày 27/10/2026 từ các lý do code đang giữ N/A. Không lặp lại quy tắc owner đã chốt (xem `ENGINEERING_HANDOFF.md`). Mỗi câu có phương án; **(đề xuất)** là mặc định an toàn nếu chưa trả lời. Trả lời dạng `3B` hoặc ghi rõ. Câu trả lời thành quy tắc chung trong code/policy được duyệt; ví dụ và số liệu thật không ghi vào file này.
+
+Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyên; ℹ cải thiện.
+
+## A. Lấy dữ liệu tự động
+
+1. ⛔ File Google Sheets Booking/Raw: ai là chủ file và công ty cho phép cách nào?
+   A. Chủ file cấp quyền **Viewer cho một service account** của app (đọc trực tiếp, không cần xuất tay) **(đề xuất)**
+   B. Chủ file cài **Apps Script** trong file, đẩy CSV đúng tab theo lịch tới endpoint của app
+   C. Không được; vẫn xuất CSV bằng tay (khi đó không thể tự động 100%)
+2. ⛔ Lịch: báo cáo ngày gửi lúc mấy giờ, chốt dữ liệu đến giờ nào, Raw thường cập nhật xong lúc nào? Nếu đến giờ gửi mà Raw chưa mới trong 15 phút thì:
+   A. Gửi phần Booking, ghi rõ Raw cũ, xe/chi phí N/A **(đề xuất)**
+   B. Chờ thêm tối đa N phút rồi mới gửi
+   C. Không gửi, báo lỗi cho owner
+
+## B. Bốc xếp DC (đợt GHN + ngày E)
+
+3. ⚠ Đợt thiếu kg cột L:
+   A. Giữ N/A, chờ bổ sung **(đề xuất)**
+   B. Dùng kg Raw DELIVER (J gram/1.000) của **cùng GHN, cùng ngày** nếu đủ và duy nhất
+   C. Khác: …
+4. ⚠ Cùng GHN cùng ngày có nhiều giá trị L khác nhau (hiện chỉ cộng khi có ngoại lệ từng case). Có tiêu chí chung không?
+   A. Không; vẫn duyệt từng case **(đề xuất nếu không có quy luật rõ)**
+   B. Cộng khi các dòng thuộc **SO khác nhau** (mỗi SO một phần hàng)
+   C. Cộng khi các dòng thuộc **DO khác nhau**
+   D. Lấy giá trị theo nguồn cân/đóng hàng: … (cho biết nguồn)
+5. ℹ L sai định dạng (`#REF!`, chữ): A. giữ N/A và báo dòng **(đề xuất)** B. khác: …
+6. ⚠ Một đợt vừa có dòng thuộc diện bốc xếp vừa có dòng đi thẳng (khác cửa hàng/huyện):
+   A. Giữ N/A, hỏi từng case **(đề xuất)**
+   B. Cả đợt tính bốc xếp nếu có ít nhất một dòng thuộc diện
+   C. Tính bốc xếp, nhưng chỉ phần kg của các dòng thuộc diện (cần kg theo dòng; hiện L là tổng GHN)
+7. ⚠ Cửa hàng/huyện mới chưa có trong danh mục điều kiện phí:
+   A. Giữ N/A, báo owner bổ sung danh mục **(đề xuất)**
+   B. Áp mặc định theo tỉnh: … (ghi mặc định cho từng tỉnh)
+
+## C. Hai chặng GXT (AG về GXT, S giao khách)
+
+8. ⚠ Đơn GXT có Booking AG nhưng **Raw không có dòng DELIVER** hoặc có nhiều xe S khác nhau:
+   A. Giữ N/A **(đề xuất)**
+   B. Không có Raw thì coi AG giao thẳng; nhiều S thì giữ N/A
+9. ⚠ Giá chặng AG (DC → GXT) khi đã xác định hai chặng:
+   A. Nằm trong pool xe trung chuyển dùng chung đã có giá; không tính riêng **(đề xuất nếu đúng hợp đồng)**
+   B. Có giá riêng theo chuyến/tải; gửi biểu giá
+   C. Khác: …
+10. ⚠ Raw DELIVER thiếu hoặc sai biển S:
+    A. Giữ N/A, báo dòng **(đề xuất)**
+    B. Lấy biển từ dòng Raw khác cùng **mã chuyến + ngày** nếu duy nhất
+11. ℹ Raw dùng biển đại diện (không phải xe thật): nguồn nào cho biết xe thật? A. không có, giữ N/A **(đề xuất)** B. …
+
+## D. Xe, loại tải T và FTL
+
+12. ⛔ Loại tải T chưa có giá FTL: gửi **bảng giá đủ mọi loại tải** đang dùng (theo tuyến/tỉnh, hiệu lực từ ngày). Nếu Booking ghi loại chưa có trong bảng:
+    A. Giữ N/A, báo owner **(đề xuất)**
+    B. Dùng giá loại tải nhỏ nhất ≥ loại ghi trên Booking
+13. ⛔ Cùng xe AG/ngày có nhiều loại T (anh đã không cho tự suy một lượt cho mỗi loại). Số lượt thật lấy từ đâu để tự động?
+    A. Bảng kê/nhật trình NCC (gửi mẫu cột) **(đề xuất)**
+    B. Số mã chuyến Raw của xe S/ngày tương ứng
+    C. Vẫn xác nhận từng case
+14. ⚠ Booking thiếu T hoặc thiếu biển AG: A. giữ N/A, báo dòng **(đề xuất)** B. lấy từ … (nguồn)
+15. ⚠ Kg vượt tải của loại có cách tính "một lượt nếu trong tải":
+    A. Giữ N/A **(đề xuất)**
+    B. Tính thêm lượt theo làm tròn lên kg/tải
+16. ⚠ Một GHN nằm trên nhiều xe/ngày: A. giữ N/A **(đề xuất)** B. chia kg theo Raw gram từng xe
+
+## E. NCC vùng xa, km và đơn đặc biệt
+
+17. ⛔ Km thực tế và biểu giá km NCC: gửi **mẫu nhật trình** (cột: ngày, biển, tuyến/đơn, km…) và đơn giá theo hợp đồng. Em làm schema nhập + kiểm nguồn. Cần ai cung cấp, bao lâu một lần?
+18. ⛔ Đơn đặc biệt (như đơn khai trương FTL 8T): làm sao nhận diện tự động thay vì nạp ngoại lệ từng đơn?
+    A. Thêm một cột "Ngoại lệ" trong Booking (vd. `FTL_8T`), owner/điều phối điền **(đề xuất)**
+    B. Dựa vào ghi chú/tên đơn có sẵn: … (cột nào)
+    C. Vẫn nạp ngoại lệ từng đơn
+19. ⚠ Hai trường hợp BC/GXT còn chờ: quy luật chung khi **đơn BC đi chung xe GXT cùng ngày**?
+    A. Tính BC theo điểm, xe GXT không phân bổ cho đơn đó
+    B. Tính theo GXT (xe/ngày theo kg + lương giao), không tính phí điểm BC
+    C. Từng case **(đề xuất cho tới khi có quy luật)**
+
+## F. Phí giao theo điểm
+
+20. ⚠ Cùng cửa hàng/ngày có dòng thuộc hai loại phí điểm (vd. BC và Lai Châu) hoặc chưa có giá: A. giữ N/A **(đề xuất)** B. ưu tiên loại: …
+
+## G. Doanh thu, VAT, thực chi và lãi lỗ
+
+21. ⛔ VAT: báo cáo cuối dùng trước hay sau VAT? Thuế suất áp cho doanh thu và từng loại chi phí?
+22. ⛔ Thực chi: nguồn nào là số thực trả (hóa đơn/bảng kê NCC, kế toán)? Định dạng, ai gửi, khi nào chốt tháng? Có thì em đối soát dự kiến với thực chi; chưa có thì P&L cuối vẫn N/A.
+23. ⚠ Khi nào được công bố "tổng chi phí/lãi lỗ" cho một kỳ?
+    A. Chỉ khi mọi khoản trong phạm vi đủ nguồn và đã có thực chi **(đề xuất)**
+    B. Khi đủ nguồn dự kiến, ghi rõ "dự kiến"
+
+## H. KPI, SLA và nhân sự (phạm vi app nhưng chưa có nguồn)
+
+24. ⚠ SLA: nguồn nào có giờ giao thực tế và cam kết (delivered chưa phải SLA)? Định nghĩa đúng hạn là gì?
+25. ℹ Hiệu quả nhân sự kho/bốc xếp: có chấm công/giờ công/sản lượng theo ca không? Chưa có thì phần này N/A.
+
+## I. Vận hành tự động
+
+26. ⛔ Khi lịch chạy mà có dữ liệu thiếu:
+    A. Gửi báo cáo phần đủ nguồn vào nhóm + danh sách `/thieu` gửi riêng owner **(đề xuất)**
+    B. Gửi cả danh sách thiếu vào nhóm
+27. ⛔ Owner trả lời câu hỏi/ngoại lệ ngay trên Telegram (vd. nút "Đúng, cộng hai phần kg") để bot lưu thành quy tắc có ràng buộc nguồn, thay cho nạp file DPAPI:
+    A. Đồng ý, chỉ owner, có xem lại trước khi lưu và ghi audit **(đề xuất)**
+    B. Không, vẫn qua bước nạp file đã duyệt
+28. ℹ Chạy 24/7 trên Cloudflare Workers Paid: đồng ý để em làm **thiết kế + cấu hình mẫu + test local** (chưa deploy, chưa chuyển secrets/dữ liệu)? A. Đồng ý **(đề xuất)** B. Chưa
+29. ℹ Kg cũng hiển thị bỏ số 0 thập phân như tiền (vd. `27,5 kg` thay vì `27,500 kg`)? A. Có **(đề xuất)** B. Giữ 3 số
+
+## Ghi nhận câu trả lời
+
+| Câu | Trả lời | Ngày | Đã đưa vào code/policy |
+|---|---|---|---|
