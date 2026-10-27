@@ -650,7 +650,9 @@ class AssistantResponder:
         from .telegram_rule_layer import FILENAME as RULES_FILENAME,load_rules
         if not (self.state.root/RULES_FILENAME).exists():return None
         from .supra.booking_handling import handling_summary
+        stale=getattr(self,'_raw_stale',False)
         try:
+            if stale:raise ValueError('Raw stale: two-leg evidence cannot be used')
             rules,rules_sha=load_rules(self.state,data,source,facts,self.owner)
             from .telegram_secrets import load_protected
             from .telegram_manual_cost_policy import FILENAME as COST_POLICY_FILENAME
@@ -666,7 +668,7 @@ class AssistantResponder:
             result=handling_summary(data,scoped,period,cutoff)
             if not result['available']:return result
             result.update(complete=False,component_vnd=None,eligible_vnd=None,eligible_kg=None,eligible_transfer_ghn=None,
-                direct_excluded_ghn=None,unresolved_ghn=None,reason='OWNER_RULES_INVALID_OR_STALE',grain='GHN_BOOKING_E_DAY',rules_sha256=rules_sha,
+                direct_excluded_ghn=None,unresolved_ghn=None,reason='RAW_STALE' if stale else 'OWNER_RULES_INVALID_OR_STALE',grain='GHN_BOOKING_E_DAY',rules_sha256=rules_sha,
                 rate_buckets=[{**b,'eligible_ghn':0,'eligible_kg':None,'eligible_vnd':None} for b in result['rate_buckets']])
         return result
 
@@ -791,6 +793,7 @@ class AssistantResponder:
             self.state.set_control("schedule_enabled", False)
             self.state.set_control("last_error", "Kỳ/phạm vi hoặc giả định kế hoạch đã đổi; owner cần xem /plan và /enable lại.")
             return {"state": "PLAN_CHANGED"}
+        raw_stale = False
         if facts.get("source_id") in ("snapshot", "browser_snapshot"):
             try:
                 _, source = self._load()
@@ -799,13 +802,13 @@ class AssistantResponder:
                     return {"state": "AWAITING_BROWSER_EXPORT_PIPELINE"}
                 if now.timestamp()-source["created"] > 900 and (external_snapshot or (now-due).total_seconds() <= 600):
                     return {"state": "AWAITING_FRESH_SOURCE"}
-                if 'vehicle_raw_created' in source and now.timestamp()-source['vehicle_raw_created']>900:
-                    return {"state": "AWAITING_FRESH_SOURCE"}
+                # Owner rule 27/10/2026: stale Raw does not block; Booking part is sent, Raw-based parts N/A.
+                raw_stale = 'vehicle_raw_created' in source and now.timestamp()-source['vehicle_raw_created']>900
             except Exception:
                 return {"state": "SOURCE_UNAVAILABLE"}
         if external_snapshot:
             _, current_code, missing = self.plan()
-            blocking = [m for m in missing if not (m.startswith("không có dòng nghiệp vụ") or m.startswith("kho chưa có dòng"))]
+            blocking = [m for m in missing if not (m.startswith("không có dòng nghiệp vụ") or m.startswith("kho chưa có dòng") or m.startswith("paired Raw cần lượt đọc mới"))]
             if blocking or current_code != code:
                 return {"state": "PLAN_OR_SCOPE_NOT_READY"}
         job = f"daily:{due.date().isoformat()}:{hour:02}{minute:02}:{code}"
@@ -814,7 +817,11 @@ class AssistantResponder:
         if (now-due).total_seconds() > 3600:
             self.state.delivery(job, "SKIPPED")
             return {"state": "MISSED_WINDOW", "job": job}
-        report = self.report()
+        self._raw_stale = raw_stale
+        try:
+            report = self.report()
+        finally:
+            self._raw_stale = False
         if not self.safe_to_send(report):
             report = "Đã chặn báo cáo chứa nội dung riêng của phiên."
         try:

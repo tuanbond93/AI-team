@@ -210,7 +210,7 @@ def test_pair_atomic_roundtrip_and_code_commands_zero_http(tmp_path,monkeypatch)
         monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('code-only command called model'))
         for cmd in ('vehicles','xe'):
             text=a.answer(Incoming(GROUP_ID,123,1,None,cmd,''))
-            assert '1,250kg hàng Supra' in text and '3,750kg hàng khác' in text
+            assert '1,25kg hàng Supra' in text and '3,75kg hàng khác' in text
         assert v['raw_digest'] not in a.answer(Incoming(GROUP_ID,123,2,None,'details',''))
         assert v['raw_digest'] in a.answer(Incoming(GROUP_ID,123,2,None,'details','audit'))
         assert 'Chỉ chủ sở hữu' in a.answer(Incoming(GROUP_ID,456,3,None,'details',''))
@@ -290,7 +290,7 @@ def test_primary_refresh_keeps_raw_age_plan_identity_and_invalidates_cache(tmp_p
 
 
 @pytest.mark.parametrize('rawfresh',[False,True])
-def test_scheduled_pair_requires_both_sources_fresh_before_claim_or_send(tmp_path,monkeypatch,rawfresh):
+def test_scheduled_pair_sends_booking_even_when_raw_is_stale(tmp_path,monkeypatch,rawfresh):
     state=BusinessState(tmp_path/'vault');pins(state)
     try:
         now=datetime.now(TZ).replace(hour=13,minute=0,second=0,microsecond=0)
@@ -302,11 +302,9 @@ def test_scheduled_pair_requires_both_sources_fresh_before_claim_or_send(tmp_pat
         sent=[];monkeypatch.setattr('ops_team.telegram_assistant.time.time',lambda:now.timestamp())
         monkeypatch.setattr(a,'report',lambda:'SYNTHETIC REPORT')
         result=a.tick(lambda *args:sent.append(args),now=now,external_snapshot=True)
-        assert result['state']==('SENT' if rawfresh else 'AWAITING_FRESH_SOURCE')
-        assert bool(sent)==rawfresh and state.control('schedule_enabled')
-        if not rawfresh:
-            fresh=payload(stamp=now.isoformat());path,d=stage(tmp_path,fresh);ingest_minimized_snapshot(path,d,state,123)
-            assert a.tick(lambda *args:sent.append(args),now=now,external_snapshot=True)['state']=='SENT'
+        # Owner rule 27/10/2026: stale Raw no longer blocks; the Booking report is sent once.
+        assert result['state']=='SENT' and len(sent)==1 and state.control('schedule_enabled')
+        assert a.tick(lambda *args:sent.append(args),now=now,external_snapshot=True)['state']=='DUPLICATE_JOB' and len(sent)==1
     finally:state.close()
 
 
@@ -356,7 +354,7 @@ def test_no_observation_is_not_reported_as_zero_or_no_delivery():
     v=presentation_evidence()
     for query in ('2026-10-30','2026-10-10 V999'):
         text=vehicle_view(v,query)
-        assert 'chưa có ghi nhận' in text.lower() and '0,000kg' not in text and 'chưa chạy' not in text
+        assert 'chưa có ghi nhận' in text.lower() and '0kg hàng' not in text and 'chưa chạy' not in text
     data=parsed(raws=[])
     empty=vehicle_view(vehicle_evidence(data,'2026-10',CUTOFF))
     assert 'chưa có ghi nhận' in empty.lower() and 'N/A' not in empty
@@ -386,15 +384,15 @@ def test_range_uses_weighted_total_and_distinct_supra_cohort_without_crossing_bo
     main=vehicle_view(v,query,scope_quality=quality)
     details=vehicle_view(v,query,details=True,source_pin=RAW_PIN,scope_quality=quality)
     assert len(main)<=1000 and len(details)<=1800
-    assert '10/10/2026–11/10/2026' in main and '1.000,000kg hàng Supra' in main and '4.000,000kg hàng khác' in main
+    assert '10/10/2026–11/10/2026' in main and '1.000kg hàng Supra' in main and '4.000kg hàng khác' in main
     assert 'tỷ trọng Supra 20,00%' in main and 'kể cả xe/ngày không ghi nhận Supra' in main
     assert '2 dòng thiếu/sai biển; 1 dòng biển đại diện' in main and 'thiếu ngày' in main
     assert '1 nhóm xe/ngày' in main and '12/10 đến 14/10' not in main and '26/10' not in main
-    assert 'Nhóm 2 xe/ngày có ghi nhận Supra' in details and '1.000,000kg hàng khác cùng xe/ngày' in details
+    assert 'Nhóm 2 xe/ngày có ghi nhận Supra' in details and '1.000kg hàng khác cùng xe/ngày' in details
     assert 'tỷ trọng 50,00%' in details and '12/10–14/10' not in details
-    assert '9.000,000kg' not in main and '9.000,000kg' not in details and v==original
+    assert '9.000kg' not in main and '9.000kg' not in details and v==original
     default_quality=vehicle_scope_quality(data,v,'');default=vehicle_view(v,scope_quality=default_quality)
-    assert '10/10/2026–12/10/2026' in default and '10.000,000kg hàng Supra' in default
+    assert '10/10/2026–12/10/2026' in default and '10.000kg hàng Supra' in default
     assert 'tỷ trọng Supra 71,43%' in default and default_quality['missing_plate']==3
 
 
@@ -422,7 +420,7 @@ def test_range_rejects_reversed_invalid_out_of_scope_or_unbounded_filters(query)
 def test_range_single_day_empty_held_and_raw_coverage_are_explicit():
     data=parsed([book(date='14/10/2026')],range_rows());v=vehicle_evidence(data,'2026-10',CUTOFF)
     day10=vehicle_view(v,'2026-10-10',scope_quality=vehicle_scope_quality(data,v,'2026-10-10'))
-    assert '100,000kg hàng Supra' in day10 and '3.900,000kg hàng khác' in day10 and '2,50%' in day10
+    assert '100kg hàng Supra' in day10 and '3.900kg hàng khác' in day10 and '2,50%' in day10
     held=next(g['vehicle_alias'] for g in v['groups'] if g['plate']=='99D12345')
     held_text=vehicle_view(v,'2026-10-10 2026-10-11 '+held,scope_quality=vehicle_scope_quality(data,v,'2026-10-10 2026-10-11 '+held))
     assert 'chưa đủ dữ liệu để tính tỷ trọng' in held_text and '0,00%' not in held_text
@@ -553,8 +551,8 @@ def test_cost_presentation_prioritizes_terms_and_estimate_gaps_without_promoting
     assert '23/10' not in details and '26/10' not in details and '100k/điểm' not in details
     assert not any(s in main+details+audit for s in ('SYN_PRIVATE_ORDER','99A12345','99B12345','GHN_FULL'))
     assert main in audit and cost['handling_catalog_sha256'] in audit and cost['booking_digest'] in audit
-    assert 'Giá 200đ/kg: 1 GHN; 2,500kg; 500đ' in audit
-    assert 'Giá 100đ/kg: 2 GHN; 3,250kg; 325đ' in audit
+    assert 'Giá 200đ/kg: 1 GHN; 2,5kg; 500đ' in audit
+    assert 'Giá 100đ/kg: 2 GHN; 3,25kg; 325đ' in audit
     assert 'có thể trùng một GHN, không cộng làm tổng' in audit and cost['total_cost_vnd'] is None
 
 
@@ -1088,7 +1086,7 @@ def test_overlay_trace_and_missing_plate_gxt_only(tmp_path,monkeypatch):
         monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('manual calculation must not call a model'))
         main=a.answer(Incoming(GROUP_ID,123,1,None,'chiphi','2026-10-10 2026-10-20'))
         record=a._code_details[(GROUP_ID,None,123)];audit=a.answer(Incoming(GROUP_ID,123,2,None,'details','audit'))
-        assert 'Doanh thu dự kiến' in main and 'Chi phí đã tính' in main and 'Chưa là lợi nhuận cuối' in main
+        assert 'Doanh thu dự kiến' in main and 'Chi phí đã tính' in main and 'Chưa có tổng dự kiến vì' in main
         assert main in audit and d['sha256'] in audit and record['report']['overlay']['available']
         from ops_team.supra.manual_cost_report import render_cost_report
         partial=deepcopy(record['report']);partial['overlay']['revenue']['complete']=False
@@ -1776,3 +1774,39 @@ def test_money_drops_only_zero_decimals_and_never_rounds():
     assert _vi_money('40.000')=='40' and _vi_money('2840')=='2.840' and _vi_money('12412115.700')=='12.412.115,7'
     assert _vi_money('0.105')=='0,105' and _vi_money('0')=='0'
     assert display('76581915.700','VND theo điều khoản')=='76.581.915,7' and display('100','VND theo điều khoản')=='100'
+
+
+def _complete_report(**changes):
+    report={'overlay':{'available':True,'revenue':{'complete':True,'component_vnd':'1000'},'known_cost_subtotal':'700',
+            'missing_s_gxt_rows':0,'scope_exclusions':{'categories':['WAREHOUSE_RENT']}},
+        'points':{'held':[],'complete':True},'ftl':{'held':[]},'gxt':{'held':[],'complete':True},
+        'dc':{'component_vnd':'50'},'dc_overlap_unknown_sources':[],'upstream':{'available':True,'full_pool_vnd':'10'},
+        'warehouse':{'shared_pool_vnd':'5'},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],'opening_unpriced_events':0,'remote':None}
+    for path,value in changes.items():
+        target=report;keys=path.split('.')
+        for k in keys[:-1]:target=target[k]
+        target[keys[-1]]=value
+    return report
+
+
+@pytest.mark.parametrize('path,value,blocker',[('ftl.held',[{'reason':'unpriced_class','sources':[]}],'FTL'),
+    ('dc.component_vnd',None,'bốc xếp'),('opening_unpriced_events',1,'khai trương'),('overlay.scope_exclusions',None,'thuê kho'),
+    ('overlay.revenue.complete',False,'doanh thu'),('remote',{'km_extra_vnd':None},'km NCC')])
+def test_projected_total_only_when_every_part_complete(path,value,blocker):
+    from ops_team.supra.manual_cost_overlay import projected_totals
+    assert projected_totals(_complete_report())==('700','300',[])
+    total,gp,blockers=projected_totals(_complete_report(**{path:value}))
+    assert total is None and gp is None and any(blocker in b for b in blockers)
+
+
+def test_scheduled_report_with_stale_raw_holds_rule_handling_only(tmp_path,monkeypatch):
+    state,facts,data,source,rules,sha=_rule_layer_fixture(tmp_path,{'start':'2026-10-01','end':'2026-10-31'})
+    try:
+        a=responder(state);a._raw_stale=True
+        context=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        assert context['handling_quality']['reason']=='RAW_STALE' and context['metrics']['booking.dc_handling_eligible_vnd']['value'] is None
+        assert context['metrics']['booking.product_units']['value']==20
+        assert 'Raw chưa có bản mới' in a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
+        a._raw_stale=False
+        assert Decimal(a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)['metrics']['booking.dc_handling_eligible_vnd']['value'])==1200
+    finally:state.close()

@@ -101,6 +101,8 @@ def missing_checklist(report):
     quality = g.get('unassigned_quality') or {}
     if quality.get('missing_plate'):
         items.append(f'• {quality["missing_plate"]} dòng Raw DELIVER thiếu/sai biển xe. Cần: biển S thực chở; không suy từ biển AG.')
+    if quality.get('representative'):
+        items.append(f'• {quality["representative"]} dòng Raw DELIVER dùng biển đại diện, chưa biết xe thật. Cần: biển S thực chở.')
     overlay = report.get('overlay') or {}
     if overlay.get('missing_s_gxt_sources'):
         items.append(f'• Dòng GXT thiếu biển S — {_rows_text(overlay["missing_s_gxt_sources"])}. Cần: biển S thực chở.')

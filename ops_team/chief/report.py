@@ -19,7 +19,7 @@ def display(value, unit=""):
         return "N/A — chưa đủ dữ liệu" if unit != "%" else "N/A — thiếu dữ liệu hoặc doanh thu bằng 0"
     value = Decimal(str(value))
     digits = 0 if unit in ("VND", "kiện", "thùng", "sản phẩm", "dòng", "mã GHN", "đợt GHN/ngày") else 3 if unit=='kg' else 2
-    if unit=='VND theo điều khoản':
+    if unit in ('VND theo điều khoản','kg'):
         # Exact amount: drop zero decimals only, never round a real fraction.
         digits=0 if value==value.to_integral_value() else max(0,-value.normalize().as_tuple().exponent)
     return f"{value:,.{digits}f}".replace(",", "_").replace(".", ",").replace("_", ".")

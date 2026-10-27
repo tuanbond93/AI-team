@@ -324,6 +324,23 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             'total_cost_vnd': None, 'gross_profit_vnd': None}
 
 
+def _complete_lead(report):
+    from .manual_cost_overlay import projected_totals
+    if projected_totals(report)[0] is not None:
+        return 'Kết luận: đã đủ nguồn để tính tổng chi phí và lãi/lỗ DỰ KIẾN trước VAT; số thực chi chờ hóa đơn/bảng kê NCC cuối tháng.'
+    return 'Kết luận: không còn dòng giữ riêng, nhưng tổng dự kiến chưa chốt vì còn khoản chưa có quy tắc hoặc chưa có giá (xem dưới).'
+
+
+def _projected_line(report, money):
+    from .manual_cost_overlay import projected_totals
+    total, gp, blockers = projected_totals(report)
+    overlay = report['overlay']
+    if total is not None:
+        return 'TỔNG DỰ KIẾN trước VAT: chi phí '+money(total)+'; lãi/lỗ dự kiến '+money(gp)+'. Chưa đối soát hóa đơn/bảng kê NCC.'
+    return ('Chi phí đã tính: '+money(overlay['known_cost_subtotal'])+'; chênh lệch: '+money(overlay['revenue_minus_known_costs'])+
+            '. Chưa có tổng dự kiến vì: '+'; '.join(blockers[:3])+('…' if len(blockers)>3 else '')+'.')
+
+
 def render_cost_report(report, *, details=False, audit=False, answered_text=None):
     if not report.get('available'):
         return 'Chưa tính được bảng chi phí: chính sách hoặc nguồn chưa được nạp và đối chiếu đúng kỳ.'
@@ -348,7 +365,7 @@ def render_cost_report(report, *, details=False, audit=False, answered_text=None
         revenue=overlay['revenue']
         lines=[f"DỰ KIẾN TRƯỚC VAT {_vi_day(start,year=True)}–{_vi_day(end,year=True)} — phần đủ nguồn.",
             'Doanh thu dự kiến '+('đủ nguồn trong phạm vi' if revenue['complete'] else 'phần đủ nguồn, chưa đủ toàn phạm vi')+': '+money(revenue['eligible_vnd'])+' ('+str(revenue['eligible_units'])+' sản phẩm).',
-            'Chi phí đã tính: '+money(overlay['known_cost_subtotal'])+'; chênh lệch: '+money(overlay['revenue_minus_known_costs'])+'. Chưa là lợi nhuận cuối.',
+            _projected_line(report,money),
             'Giao điểm: '+money(p['eligible_vnd'])+('; NCC vùng xa cơ bản: '+money(remote['eligible_vnd']) if remote else '')+'; FTL: '+money(f['eligible_vnd'])+' ('+str(f['eligible_trips'])+' chuyến dự kiến).',
             'Xe GXT phân bổ theo kg: '+money(g['vehicle_supra_vnd'])+'; lương giao: '+money(g['wage_supra_vnd'])+'.',
             'Bốc xếp DC theo đơn giá gốc: '+money(dc.get('eligible_vnd'))+'; đã gồm trong gói: '+money(report['dc_included_vnd'])+'; ngoài gói: '+money(report['dc_incremental_vnd'])+'.',
@@ -410,5 +427,5 @@ def render_cost_report(report, *, details=False, audit=False, answered_text=None
         from .missing_data import missing_checklist
         count,_=missing_checklist(report)
         lines.insert(0,('Kết luận: mới tính được phần đủ nguồn; còn '+str(count)+' nhóm dữ liệu thiếu nên chưa có tổng chi phí/lãi lỗ. Việc cần làm: gửi /thieu để xem từng dòng cần bổ sung.') if count else
-            'Kết luận: các khoản đã có quy tắc đều đủ nguồn; tổng chi phí/lãi lỗ vẫn chưa chốt vì VAT, phụ phí và khoản chưa có quy tắc.')
+            _complete_lead(report))
     return '\n\n'.join(lines)

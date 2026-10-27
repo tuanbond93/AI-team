@@ -34,6 +34,8 @@ def booking_intake(r):
             'Phần đủ điều kiện: '+display(h['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản; '+held]
         if h.get('reason')=='OWNER_RULE_WINDOW_NOT_COVERING_SCOPE':
             window=h['rules_window'];lines.append('Quy tắc bốc xếp owner chỉ áp cho '+window['start']+' đến '+window['end']+'; kỳ này nằm ngoài khoảng đó nên bốc xếp để N/A. Cần owner duyệt quy tắc cho cả kỳ.')
+        elif h.get('reason')=='RAW_STALE':
+            lines.append('Raw chưa có bản mới trong 15 phút trước giờ gửi: phần Booking vẫn gửi, bốc xếp theo quy tắc hai chặng để N/A tới lượt Raw mới.')
         elif h.get('reason')=='OWNER_RULES_INVALID_OR_STALE':
             lines.append('Quy tắc bốc xếp owner đã cài không còn khớp nguồn/cấu hình hiện tại nên bốc xếp để N/A, không dùng cách tính cũ. Cần nạp lại quy tắc cho đúng bản nguồn.')
         for b in r['handling_rate_buckets']:
@@ -85,7 +87,7 @@ def _vi_number(value,places=3):
 
 
 def _vi_money(value):
-    """Exact VND: no decimals when whole, otherwise every significant decimal (never rounded)."""
+    """Exact VND/kg: no decimals when whole, otherwise every significant decimal (never rounded)."""
     number=Decimal(str(value))
     places=max(0,-number.normalize().as_tuple().exponent) if number!=number.to_integral_value() else 0
     return _vi_number(number,places)
@@ -219,7 +221,7 @@ def _vehicle_summary(v,selected,scope,quality,cost,forecast):
     lines.append(_handling_line(cost)+' Tổng chi phí/lãi lỗ chưa đủ.')
     lines.append(_forecast_line(forecast))
     if ratio is not None:
-        lines.append(('Xe/ngày đủ dữ liệu của mã đã chọn: ' if aliases else 'Tất cả xe/ngày đủ dữ liệu, kể cả xe/ngày không ghi nhận Supra: ')+_vi_number(supra)+'kg hàng Supra, '+_vi_number(other)+
+        lines.append(('Xe/ngày đủ dữ liệu của mã đã chọn: ' if aliases else 'Tất cả xe/ngày đủ dữ liệu, kể cả xe/ngày không ghi nhận Supra: ')+_vi_money(supra)+'kg hàng Supra, '+_vi_money(other)+
             'kg hàng khác; tỷ trọng Supra '+_vi_number(ratio,2)+'% tính theo tổng kg.')
     elif selected:lines.append('Các ghi nhận xe trong khoảng này chưa đủ dữ liệu để tính tỷ trọng.')
     else:lines.append('Chưa có ghi nhận xe đọc được trong khoảng này'+(' cho mã '+aliases[0] if aliases else '')+'.')
@@ -269,14 +271,14 @@ def _vehicle_actions(v,scope,selected,quality,source_pin,cost,forecast):
         'Mẫu khi có: [ngày/kỳ] | [hiệu lực] | [mã chuyến/ca] | [biển/tuyến] | [giá/số tiền NCC] | [chuyến/ca/ngày/tháng/điểm] | [đã gồm] | [số lượng] | [chứng từ].',
         'Dự kiến không là thực chi. Khi đối chiếu: ngày, mã chuyến/ca/kỳ, biển/tuyến, tiền NCC, đơn vị, khoản đã gồm và chứng từ. Gửi Codex kiểm tra; Telegram chưa nhập riêng file xe/chi phí.',
         ((('Xe/ngày đủ dữ liệu của mã đã chọn: ' if aliases else 'Tất cả xe/ngày đủ dữ liệu, kể cả nhóm không ghi nhận Supra: ')+
-         'Supra '+_vi_number(supra)+'kg; hàng khác '+_vi_number(other)+'kg; tỷ trọng Supra '+_vi_number(ratio,2)+'% theo tổng kg.') if ratio is not None else 'Khoảng này chưa có xe/ngày đủ dữ liệu để tính tỷ trọng.'),
+         'Supra '+_vi_money(supra)+'kg; hàng khác '+_vi_money(other)+'kg; tỷ trọng Supra '+_vi_number(ratio,2)+'% theo tổng kg.') if ratio is not None else 'Khoảng này chưa có xe/ngày đủ dữ liệu để tính tỷ trọng.'),
         'Giữ riêng '+str(sum(g['share'] is None for g in selected))+' nhóm xe/ngày chưa đủ dữ liệu. '+quality_text,
         'Xe/ngày và mã Vn: /details audit.']
     cohort=[g for g in eligible if Decimal(g['supra_kg'])>0]
     if cohort:
         _,cs,co,cr=_scope_totals(cohort)
         raw_index=next(i for i,line in enumerate(lines) if line.startswith(('Xe/ngày đủ dữ liệu của mã','Tất cả xe/ngày đủ dữ liệu','Khoảng này chưa có xe/ngày')))
-        lines.insert(raw_index+1,'Nhóm '+str(len(cohort))+' xe/ngày có ghi nhận Supra: '+_vi_number(cs)+'kg Supra + '+_vi_number(co)+'kg hàng khác cùng xe/ngày; tỷ trọng '+_vi_number(cr,2)+'% theo kg của nhóm này.')
+        lines.insert(raw_index+1,'Nhóm '+str(len(cohort))+' xe/ngày có ghi nhận Supra: '+_vi_money(cs)+'kg Supra + '+_vi_money(co)+'kg hàng khác cùng xe/ngày; tỷ trọng '+_vi_number(cr,2)+'% theo kg của nhóm này.')
     lines+=['Anh có quyền xem; nếu mở rộng sau: CSV raw_current nguyên tab, giữ đủ 25 cột, cả Supra và hàng khác; kỳ này xem được ngay.',
         ('Nguồn raw_current:\n'+url if url else 'Chưa đủ thông tin để tạo link nguồn tin cậy; cần kiểm tra lại nguồn đã duyệt.')]
     rows=[];sha=v.get('raw_digest','')
@@ -323,7 +325,7 @@ def vehicle_view(v,text='',details=False,*,audit=False,source_pin=None,answered_
         'Phạm vi xem: '+_scope_label(scope)+(('; xe '+aliases[0]) if aliases else '')+'.',
         f"Booking đến {_vi_day(v['booking_last_day'],year=True)}; Raw DELIVER {_vi_day(v['raw_first_day'],year=True)}–{_vi_day(v['raw_last_day'],year=True)}; nhận Raw {_vi_received(v['raw_retrieved_at'])} (giờ Việt Nam).",
         f"Trong phạm vi: {len(selected)} nhóm xe-ngày, {len(selected)-len(eligible)} nhóm giữ riêng; không coi là số chuyến/ca thực hiện.",
-        'Phần đủ nguồn: Supra '+_vi_number(supra)+'kg; hàng khác '+_vi_number(other)+'kg; tỷ trọng theo tổng kg '+(_vi_number(ratio,2)+'%' if ratio is not None else 'N/A')+'.',
+        'Phần đủ nguồn: Supra '+_vi_money(supra)+'kg; hàng khác '+_vi_money(other)+'kg; tỷ trọng theo tổng kg '+(_vi_number(ratio,2)+'%' if ratio is not None else 'N/A')+'.',
         ('Chất lượng theo khoảng ngày (không thể gán dòng thiếu biển cho một mã xe): '+str(scope_quality) if scope_quality is not None else 'Chưa có số dòng thiếu biển theo riêng khoảng ngày.'),
         f"Hiện tối đa {limit} nhóm (alias theo phiên nguồn)."]
     lines.append('CHI PHÍ BOOKING THEO NGÀY XUẤT TRONG PHẠM VI: '+_handling_line(cost_record))
@@ -335,7 +337,7 @@ def vehicle_view(v,text='',details=False,*,audit=False,source_pin=None,answered_
             '; đối chiếu theo E và L/GHN, không dùng kg Raw. Total cost/GP chưa tính.')
         for b in cost_record['rate_buckets']:
             if b['eligible_ghn']:
-                lines.append('Giá '+b['rate_vnd_per_kg']+'đ/kg: '+str(b['eligible_ghn'])+' GHN; '+_vi_number(b['eligible_kg'])+
+                lines.append('Giá '+b['rate_vnd_per_kg']+'đ/kg: '+str(b['eligible_ghn'])+' GHN; '+_vi_money(b['eligible_kg'])+
                     'kg; '+_vi_money(b['eligible_vnd'])+'đ theo điều khoản.')
         lines.append('Cờ bốc xếp (có thể trùng một GHN, không cộng làm tổng): '+str(cost_record['counters'])+
             '; thiếu mã: '+str(cost_record['missing_id_rows'])+' dòng; qua biên khoảng: '+str(cost_record['boundary_ghn'])+' GHN.')
@@ -360,7 +362,7 @@ def vehicle_view(v,text='',details=False,*,audit=False,source_pin=None,answered_
         lines.append('Chỉ là dự kiến dùng chung; phần chưa hiển thị không được coi là đã giải quyết. Không cộng vào total cost/GP.')
     for g in selected[:limit]:
         ratio='N/A — '+', '.join(FLAG_LABELS.get(f,f) for f in g['issues']) if g['share'] is None else _vi_number(Decimal(g['share'])*100,2)+'%'
-        lines.append(f"• {_vi_day(g['day'],year=True)} {g['vehicle_alias']}: Supra {_vi_number(g['supra_kg'])}kg / khác {_vi_number(g['other_kg'])}kg; tỷ lệ S-source {ratio}.")
+        lines.append(f"• {_vi_day(g['day'],year=True)} {g['vehicle_alias']}: Supra {_vi_money(g['supra_kg'])}kg / khác {_vi_money(g['other_kg'])}kg; tỷ lệ S-source {ratio}.")
         if details:lines.append('  Nguồn: '+'; '.join(g['sources'][:10])+f" (mẫu ≤10/{len(g['sources'])})")
         if g['issues']:lines.append('  Mã chất lượng nhóm: '+', '.join(g['issues']))
     lines+=['AG upstream/NCC: share N/A khi không có mẫu số hàng khác của chính AG. Không gán tỷ lệ S cho AG, không suy 100% từ đi thẳng; không coi thiếu quan sát là chưa chạy/giao.',
@@ -374,7 +376,7 @@ def vehicle_view(v,text='',details=False,*,audit=False,source_pin=None,answered_
         if isinstance(source_pin,dict) and set(source_pin)==set(RAW_PIN) and all(str(source_pin[k])==str(RAW_PIN[k]) for k in RAW_PIN):
             lines.append('Nguồn raw_current:\n'+f"https://docs.google.com/spreadsheets/d/{RAW_PIN['spreadsheet_id']}/edit#gid={RAW_PIN['gid']}")
         lines.append('Nếu sau này xuất Raw: giữ đủ 25 cột gốc, cả Supra và hàng khác; kiểm tra load_date(B), trip_code(E), order_code(F), weight(J, gram), type(P), truck_plate_number(S). Không tự sửa Sheet; gửi Codex để kiểm tra trước khi nạp.')
-        lines+=['Metadata toàn kỳ bản chụp, ngoài số liệu phạm vi xem: '+str(v['source_s_groups'])+' nhóm xe/ngày, '+str(v['source_s_vehicles'])+' định danh S; Supra '+_vi_number(v['supra_kg'])+'kg, hàng khác '+_vi_number(v['other_kg'])+'kg.',
+        lines+=['Metadata toàn kỳ bản chụp, ngoài số liệu phạm vi xem: '+str(v['source_s_groups'])+' nhóm xe/ngày, '+str(v['source_s_vehicles'])+' định danh S; Supra '+_vi_money(v['supra_kg'])+'kg, hàng khác '+_vi_money(v['other_kg'])+'kg.',
             'Mã vai trò toàn kỳ: '+str(v['role_vehicle_counts']), 'Cờ mapping toàn kỳ: '+str(v['mapping_quality']), 'Chất lượng toàn kỳ và dòng thiếu ngày chưa gán kỳ: '+str(v['quality'])]
         lines+=['Versions: Booking '+v['booking_digest']+'; Raw '+v['raw_digest']+'; policy/catalog '+v['catalog_sha256'],
             'Toàn bộ nhóm, quan hệ nhiều chặng và evidence giữ trong bản RAM; nguồn business đầy đủ trong DPAPI. Các dòng chưa hiển thị không được coi là đã giải quyết.']

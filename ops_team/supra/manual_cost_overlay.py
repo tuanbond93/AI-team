@@ -82,3 +82,31 @@ def calculate_overlay(data,evidence,report,base,config,sha):
         'missing_s_gxt_rows':missing_gxt,'missing_s_gxt_sources':missing_refs,
         'scope_exclusions':dict(exclusion) if applies else None,
         'total_cost_vnd':None,'gross_profit_vnd':None}
+
+
+def projected_totals(report):
+    """Owner rule (27/10/2026): publish projected pre-VAT total/GP only when every in-scope part is complete.
+
+    Returns (total, gross_profit, blockers). Values stay None while any blocker remains;
+    actual settled cost is a separate, later reconciliation and is never implied here.
+    """
+    overlay=report.get('overlay') or {}
+    if not overlay.get('available'):return None,None,['chưa có chính sách doanh thu/phân bổ']
+    checks=[(overlay['revenue']['complete'],'doanh thu chưa đủ nguồn'),
+        (report['points'].get('complete',not report['points']['held']) and not report['points']['held'],'phí điểm còn nhóm giữ riêng'),
+        (not report['ftl']['held'],'FTL còn nhóm giữ riêng'),
+        (not report['gxt']['held'] and report['gxt'].get('complete',True),'xe GXT còn nhóm giữ riêng'),
+        (report['dc'].get('component_vnd') is not None and not report['dc_overlap_unknown_sources'],'bốc xếp DC chưa chốt'),
+        (not report['upstream'].get('available') or report['upstream'].get('full_pool_vnd') is not None,'xe trung chuyển chưa đủ nguồn'),
+        (report['warehouse'].get('shared_pool_vnd') is not None,'nhân sự kho GXT chưa có'),
+        (not report['unpriced_booking_sources'] and not report['unpriced_ncc_routes'],'còn tuyến chưa có giá'),
+        (not report.get('opening_unpriced_events'),'đơn khai trương chưa có km/giá'),
+        (not report.get('remote') or report['remote'].get('km_extra_vnd') is not None,'phí km NCC chưa có'),
+        (not overlay['missing_s_gxt_rows'],'dòng GXT thiếu biển S'),
+        (overlay.get('scope_exclusions') is not None,'thuê kho, điện/nước, chờ xe, phụ phí chưa được loại hoặc tính')]
+    blockers=[text for ok,text in checks if not ok]
+    if blockers or overlay['known_cost_subtotal'] is None:return None,None,blockers or ['chưa có chi phí']
+    with localcontext() as ctx:
+        ctx.prec=140
+        total=Decimal(overlay['known_cost_subtotal'])
+        return str(total),str(Decimal(overlay['revenue']['component_vnd'])-total),[]

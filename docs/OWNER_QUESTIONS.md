@@ -108,3 +108,32 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 
 | Câu | Trả lời | Ngày | Đã đưa vào code/policy |
 |---|---|---|---|
+| 1 | B — Apps Script; công ty không cấp Viewer cho service account | 27/10/2026 | Chờ thiết kế (xem câu hỏi bổ sung) |
+| 2 | A | 27/10/2026 | Có: lịch vẫn gửi phần Booking khi Raw cũ; bốc xếp theo quy tắc hai chặng N/A (`RAW_STALE`) |
+| 3 | Lấy khối lượng của mã GHN | 27/10/2026 | Chờ làm rõ nguồn (Raw hay ngày khác) |
+| 4 | A | 27/10/2026 | Giữ nguyên |
+| 5 | A | 27/10/2026 | Giữ nguyên; `/thieu` báo dòng |
+| 6 | A, báo owner check và đưa phương án | 27/10/2026 | `/thieu` báo dòng |
+| 7 | A | 27/10/2026 | Giữ nguyên |
+| 8 | Theo GHN chắc chắn phải có Raw; không có thì báo owner | 27/10/2026 | `/thieu` báo dòng (`two_leg_unresolved`) |
+| 9 | A | 27/10/2026 | Không tính giá AG riêng |
+| 10 | A, bắt owner bổ sung | 27/10/2026 | `/thieu` báo dòng |
+| 11 | Không có; bắt owner bổ sung | 27/10/2026 | `/thieu` báo dòng biển đại diện |
+| 12 | A, bắt owner bổ sung | 27/10/2026 | `/thieu` báo dòng |
+| 13 | Cước theo loại tải cột T của chuyến | 27/10/2026 | Chờ làm rõ cách đếm lượt |
+| 14 | A, bắt owner bổ sung | 27/10/2026 | `/thieu` báo dòng |
+| 15 | A, bắt owner thông tin lại | 27/10/2026 | `/thieu` báo dòng |
+| 16 | B | 27/10/2026 | Chờ làm rõ (AG Booking vs S Raw) |
+| 17 | NCC gửi, mỗi tháng một lần | 27/10/2026 | Chờ file mẫu |
+| 18 | Cột Y ghi chú: Khai trương, CHKT, KT… | 27/10/2026 | Chờ làm rõ tên cột/từ khóa/quy tắc |
+| 19 | Báo owner check, xác nhận từng xe | 27/10/2026 | Giữ N/A + báo |
+| 20 | Báo owner | 27/10/2026 | Giữ N/A + báo |
+| 21 | Trước VAT; VAT 8% | 27/10/2026 | Báo cáo trước VAT |
+| 22 | Hóa đơn/bảng kê NCC, gửi cuối tháng | 27/10/2026 | Chờ file mẫu |
+| 23 | B | 27/10/2026 | Có: `/chiphi` hiện TỔNG DỰ KIẾN trước VAT chỉ khi mọi phần đủ nguồn |
+| 24 | Phú Thọ D+1; Sơn La, Điện Biên, Lai Châu D+2 từ cột E | 27/10/2026 | Chờ nguồn giờ giao thực tế |
+| 25 | Không có chấm công | 27/10/2026 | Nhân sự N/A |
+| 26 | A | 27/10/2026 | Nhóm nhận Kết luận + số nhóm thiếu; danh sách dòng chỉ qua `/thieu` của owner |
+| 27 | A | 27/10/2026 | Việc tiếp theo |
+| 28 | B — chưa làm Cloudflare | 27/10/2026 | Không làm |
+| 29 | A | 27/10/2026 | Có: kg bỏ số 0 thập phân |
