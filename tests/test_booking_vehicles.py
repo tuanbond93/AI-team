@@ -545,16 +545,16 @@ def test_cost_presentation_prioritizes_terms_and_estimate_gaps_without_promoting
     details=vehicle_view(v,query,details=True,scope_quality=quality,cost_record=cost,source_pin=RAW_PIN)
     audit=vehicle_view(v,query,details=True,audit=True,scope_quality=quality,cost_record=cost,source_pin=RAW_PIN,answered_text=main)
     assert len(main)<=1000 and len(details)<=1800
-    assert '825,000đ' in main and '8 GHN cần đối chiếu' in main and 'tổng khoản chưa chốt' in main
+    assert '825đ' in main and '8 GHN cần đối chiếu' in main and 'tổng khoản chưa chốt' in main
     assert details.index('Bốc xếp')<details.index('DỰ KIẾN xe')<details.index('xe/ngày đủ dữ liệu')
-    assert all(s in details for s in ('825,000đ','8 GHN cần đối chiếu','chưa nối tính','DỰ KIẾN giao',
+    assert all(s in details for s in ('825đ','8 GHN cần đối chiếu','chưa nối tính','DỰ KIẾN giao',
         'lương/kho/phát sinh','Giá doanh thu đã chốt','chưa nối tính','bảng giá cũ','không điền 0',
         '[giá/số tiền NCC]','[chứng từ]','Dự kiến không là thực chi','Telegram chưa nhập riêng'))
     assert '23/10' not in details and '26/10' not in details and '100k/điểm' not in details
     assert not any(s in main+details+audit for s in ('SYN_PRIVATE_ORDER','99A12345','99B12345','GHN_FULL'))
     assert main in audit and cost['handling_catalog_sha256'] in audit and cost['booking_digest'] in audit
-    assert 'Giá 200đ/kg: 1 GHN; 2,500kg; 500,000đ' in audit
-    assert 'Giá 100đ/kg: 2 GHN; 3,250kg; 325,000đ' in audit
+    assert 'Giá 200đ/kg: 1 GHN; 2,500kg; 500đ' in audit
+    assert 'Giá 100đ/kg: 2 GHN; 3,250kg; 325đ' in audit
     assert 'có thể trùng một GHN, không cộng làm tổng' in audit and cost['total_cost_vnd'] is None
 
 
@@ -563,7 +563,7 @@ def test_cost_vehicle_filter_does_not_assign_range_component_to_alias():
     main=vehicle_view(v,query,cost_record=cost);details=vehicle_view(v,query,details=True,cost_record=cost,source_pin=RAW_PIN)
     audit=vehicle_view(v,query,details=True,audit=True,cost_record=cost,source_pin=RAW_PIN,answered_text=main)
     assert 'Bốc xếp riêng xe: chưa gán được' in main and 'Bốc xếp riêng xe: chưa gán được' in details
-    assert '825,000đ' not in main+details+audit and 'Giá 200đ/kg:' not in audit
+    assert '825đ' not in main+details+audit and 'Giá 200đ/kg:' not in audit
 
 
 def test_cost_trace_replays_range_result_without_reload_or_model(tmp_path,monkeypatch):
@@ -578,7 +578,7 @@ def test_cost_trace_replays_range_result_without_reload_or_model(tmp_path,monkey
         monkeypatch.setattr(a,'_scoped',lambda:pytest.fail('details must use captured cost evidence'))
         details=a.answer(Incoming(GROUP_ID,123,2,None,'details',''))
         audit=a.answer(Incoming(GROUP_ID,123,3,None,'details','audit'))
-        assert '825,000đ' in main and '825,000đ' in details and main in audit
+        assert '825đ' in main and '825đ' in details and main in audit
         assert record['cost_record']['handling_catalog_sha256'] in audit and a._code_details[key]==record
         assert 'Chỉ chủ sở hữu' in a.answer(Incoming(GROUP_ID,456,4,None,'details','audit'))
     finally:state.close()
@@ -1546,7 +1546,7 @@ def test_manual_forecast_is_visible_only_in_manual_views_and_exact_trace(tmp_pat
         monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('manual view must not call a model'))
         query='2026-10-10 2026-10-20';main=a.answer(Incoming(GROUP_ID,123,1,None,'xe',query))
         captured=deepcopy(a._code_details[(GROUP_ID,None,123)])
-        assert len(main)<=1000 and 'DỰ KIẾN xe 7T dùng chung' in main and '2.469.134,000đ' in main
+        assert len(main)<=1000 and 'DỰ KIẾN xe 7T dùng chung' in main and '2.469.134đ' in main
         assert '2 xe/ngày' in main and '5 nhóm' in main and '1 dòng giữ riêng' in main
         assert 'chưa là ca thực chạy hay phân bổ Supra' in main and 'gói/VAT chưa rõ' in main
         assert captured['forecast_record']['full_pool_vnd'] is None and captured['forecast_record']['total_cost_vnd'] is None
@@ -1713,7 +1713,7 @@ def test_scheduled_report_and_model_context_use_owner_rule_layer_like_chiphi(tmp
         report=a._code_details[(GROUP_ID,None,123)]['report']
         assert Decimal(report['dc']['eligible_vnd'])==Decimal(m['booking.dc_handling_eligible_vnd']['value'])
         text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
-        assert '1.200,000' in text and 'đợt GHN/ngày' in text
+        assert '1.200 VND theo điều khoản' in text and 'đợt GHN/ngày' in text
         stale=deepcopy(rules);stale['booking_digest']='f'*64
         save_protected(state.root/FILENAME,json.dumps(stale,ensure_ascii=False).encode())
         held=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
@@ -1768,3 +1768,11 @@ def test_missing_checklist_booking_only_fallback_lists_weight_rows(tmp_path,monk
         assert text.startswith('CẦN ANH BỔ SUNG') and 'Kg cột L thiếu, lỗi hoặc mâu thuẫn — Booking dòng 2, 3' in text
         assert 'SYN_SPAN' not in text
     finally:state.close()
+
+
+def test_money_drops_only_zero_decimals_and_never_rounds():
+    from ops_team.supra.vehicle_report import _vi_money
+    from ops_team.chief.report import display
+    assert _vi_money('40.000')=='40' and _vi_money('2840')=='2.840' and _vi_money('12412115.700')=='12.412.115,7'
+    assert _vi_money('0.105')=='0,105' and _vi_money('0')=='0'
+    assert display('76581915.700','VND theo điều khoản')=='76.581.915,7' and display('100','VND theo điều khoản')=='100'

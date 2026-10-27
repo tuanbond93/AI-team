@@ -24,7 +24,7 @@ Catalog/rates/store IDs chỉ lưu trong **DPAPI business snapshot**; plaintext 
 
 ## Decimal và cách trình bày
 
-Kg và giá được tính bằng Decimal chính xác; không làm tròn DO, GHN hoặc tổng component. Báo cáo VND theo điều khoản hiển thị ít nhất ba chữ số thập phân, nhiều hơn nếu cần để giữ số nguồn. Không áp quy tắc làm tròn thanh toán chưa được xác nhận. Ví dụ số `...915.700` không tự biến thành `...916` và gọi là actual.
+Kg và giá được tính bằng Decimal chính xác; không làm tròn DO, GHN hoặc tổng component. Báo cáo VND bỏ phần thập phân bằng 0 (owner chốt 27/10/2026) và giữ đủ mọi chữ số thập phân khác 0 của số nguồn; không làm tròn. Không áp quy tắc làm tròn thanh toán chưa được xác nhận. Ví dụ số `...915.700` không tự biến thành `...916` và gọi là actual.
 
 Báo cáo giữ J/L cũ, thêm component toàn phạm vi, subtotal đủ nguồn, kg/cost từng mức, DIRECT excluded, số nhóm giữ riêng và nguồn dòng. Phần thoại dùng footer riêng cho handling để không nói “chưa có khối lượng/chi phí nào” sau khi đã trình bày metric code. Toàn bộ vẫn chưa đủ total cost/P&L, kiện/thùng, xe/chuyến/drop hoặc SLA.
 

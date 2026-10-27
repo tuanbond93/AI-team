@@ -84,6 +84,13 @@ def _vi_number(value,places=3):
         return format(number,',.'+str(places)+'f').replace(',','_').replace('.',',').replace('_','.')
 
 
+def _vi_money(value):
+    """Exact VND: no decimals when whole, otherwise every significant decimal (never rounded)."""
+    number=Decimal(str(value))
+    places=max(0,-number.normalize().as_tuple().exponent) if number!=number.to_integral_value() else 0
+    return _vi_number(number,places)
+
+
 def _vi_received(value):
     return datetime.fromisoformat(value).astimezone(ZoneInfo('Asia/Ho_Chi_Minh')).strftime('%H:%M %d/%m/%Y')
 
@@ -160,8 +167,8 @@ def _handling_line(cost):
     if cost['complete'] and not cost['eligible_transfer_ghn'] and cost['direct_excluded_ghn']:
         return ('Bốc xếp: 0đ theo điều khoản; '+str(cost['direct_excluded_ghn'])+
             (' đợt GHN/ngày' if cost.get('grain')=='GHN_BOOKING_E_DAY' else ' GHN')+' không thuộc diện phí. Chưa là tiền thực trả.')
-    subtotal=(_vi_number(cost['eligible_vnd'])+'đ' if cost['eligible_vnd'] is not None else 'chưa có phần đủ nguồn')
-    whole=('tổng khoản '+_vi_number(cost['component_vnd'])+'đ' if cost['component_vnd'] is not None else 'tổng khoản chưa chốt')
+    subtotal=(_vi_money(cost['eligible_vnd'])+'đ' if cost['eligible_vnd'] is not None else 'chưa có phần đủ nguồn')
+    whole=('tổng khoản '+_vi_money(cost['component_vnd'])+'đ' if cost['component_vnd'] is not None else 'tổng khoản chưa chốt')
     missing=('; '+str(cost['missing_id_rows'])+' dòng thiếu mã' if cost['missing_id_rows'] else '')
     if cost.get('unscoped_dates'):missing+='; có dòng thiếu ngày chưa gán kỳ'
     grain=' đợt GHN/ngày' if cost.get('grain')=='GHN_BOOKING_E_DAY' else ' GHN'
@@ -186,16 +193,16 @@ def _forecast_line(forecast):
             hours=(' '+t['shift_hours']+'h' if t['shift_hours'] else '')
             terms=', '.join({'INCLUDED':'gồm','EXCLUDED':'không gồm','UNKNOWN':'chưa rõ'}[t['inclusions'][k]]+' '+label for k,label in (('fuel','dầu'),('driver_wage','lái xe'),('tolls','cầu đường'),('vat','VAT'),('dc_handling','bốc xếp DC')))
             terms_by_tariff.append(terms)
-            parts.append(tons+'T: '+str(t['vehicle_days'])+' xe/ngày × '+t['units_per_vehicle_day']+' '+unit+'/ngày × '+_vi_number(t['rate_vnd'],0)+'đ/'+unit+hours+' = '+_vi_number(t['amount_vnd'])+'đ')
+            parts.append(tons+'T: '+str(t['vehicle_days'])+' xe/ngày × '+t['units_per_vehicle_day']+' '+unit+'/ngày × '+_vi_number(t['rate_vnd'],0)+'đ/'+unit+hours+' = '+_vi_money(t['amount_vnd'])+'đ')
         if len(set(terms_by_tariff))==1:parts.append(terms_by_tariff[0])
         else:parts=[part+' ('+terms+')' for part,terms in zip(parts,terms_by_tariff)]
-        amount=(_vi_number(forecast['eligible_pool_vnd'])+'đ' if forecast['eligible_pool_vnd'] is not None else 'chưa có')
+        amount=(_vi_money(forecast['eligible_pool_vnd'])+'đ' if forecast['eligible_pool_vnd'] is not None else 'chưa có')
         basis=('Theo Booking E/AG, T là loại cước; chưa là ca/chuyến thực chạy hay phân bổ Supra, phát sinh chưa tính.' if forecast.get('booked_class_basis') else 'Theo Booking E/AG, tải T; chưa là thực chạy hay phân bổ Supra, phát sinh chưa tính.')
         return ('DỰ KIẾN xe dùng chung, phần đủ nguồn: '+amount+'; '+'; '.join(parts)+'. '+str(forecast['held_vehicle_days'])+' nhóm và '+str(forecast['unassigned_rows'])+' dòng giữ riêng; '+str(forecast['excluded_other_class_days'])+' nhóm tải khác chưa có giá. '+('Tổng chưa chốt. ' if forecast['full_pool_vnd'] is None else '')+basis+(' Có lượt riêng do owner xác nhận.' if forecast.get('owner_confirmed_booked_trips') else '')+(' Có dòng thiếu ngày chưa gán kỳ.' if forecast.get('undated_unscoped') else ''))
     with localcontext() as ctx:
         ctx.prec=100;tons=Decimal(forecast['declared_class_kg'])/Decimal(1000)
     size=_vi_number(tons,3).rstrip('0').rstrip(',')
-    amount=(_vi_number(forecast['eligible_pool_vnd'])+'đ phần đủ nguồn' if forecast['eligible_pool_vnd'] is not None else 'chưa có phần đủ nguồn')
+    amount=(_vi_money(forecast['eligible_pool_vnd'])+'đ phần đủ nguồn' if forecast['eligible_pool_vnd'] is not None else 'chưa có phần đủ nguồn')
     whole='tổng chưa chốt' if forecast['full_pool_vnd'] is None else 'đủ nguồn theo giả định'
     return ('DỰ KIẾN xe '+size+'T dùng chung: '+amount+'; '+str(forecast['eligible_vehicle_days'])+
         ' xe/ngày × '+forecast['shifts_per_vehicle_day']+' ca/ngày × '+_vi_number(forecast['rate_vnd'],0)+
@@ -329,7 +336,7 @@ def vehicle_view(v,text='',details=False,*,audit=False,source_pin=None,answered_
         for b in cost_record['rate_buckets']:
             if b['eligible_ghn']:
                 lines.append('Giá '+b['rate_vnd_per_kg']+'đ/kg: '+str(b['eligible_ghn'])+' GHN; '+_vi_number(b['eligible_kg'])+
-                    'kg; '+_vi_number(b['eligible_vnd'])+'đ theo điều khoản.')
+                    'kg; '+_vi_money(b['eligible_vnd'])+'đ theo điều khoản.')
         lines.append('Cờ bốc xếp (có thể trùng một GHN, không cộng làm tổng): '+str(cost_record['counters'])+
             '; thiếu mã: '+str(cost_record['missing_id_rows'])+' dòng; qua biên khoảng: '+str(cost_record['boundary_ghn'])+' GHN.')
         refs=list(dict.fromkeys(cost_record['issue_sources']))

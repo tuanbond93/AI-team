@@ -327,9 +327,9 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
 def render_cost_report(report, *, details=False, audit=False, answered_text=None):
     if not report.get('available'):
         return 'Chưa tính được bảng chi phí: chính sách hoặc nguồn chưa được nạp và đối chiếu đúng kỳ.'
-    from .vehicle_report import _vi_number, _forecast_line, _vi_day
+    from .vehicle_report import _vi_money, _forecast_line, _vi_day
     def money(value):
-        return _vi_number(value) + 'đ' if value is not None else 'chưa đủ căn cứ'
+        return _vi_money(value) + 'đ' if value is not None else 'chưa đủ căn cứ'
     p, f, w, dc, g = (report[k] for k in ('points', 'ftl', 'warehouse', 'dc', 'gxt'))
     remote=report.get('remote')
     start, end = report['scope']['start'], report['scope']['end']

@@ -106,7 +106,7 @@ def test_dc_component_uses_once_per_ghn_two_rates_and_store_precedence_exact_dec
     assert ctx['metrics']['booking.product_units']['value']==42
     assert ctx['metrics']['booking.weight_kg']['value'] is None  # DIRECT bad L still affects BOOKING kg, not handling.
     r=booking_review(ctx);text=render(r,telegram=True)
-    assert '246,900 VND theo điều khoản' in text and 'chưa nghiệm thu/thanh toán' in text
+    assert '246,9 VND theo điều khoản' in text and 'chưa nghiệm thu/thanh toán' in text
     assert all(r['totals'][k] is None for k in ('stage1','stage2','stage3','totalCost','revenue','gp','marginPct'))
     assert not finance_available(r)
     assert STORE not in text and 'Province Synthetic' not in text
@@ -211,7 +211,7 @@ def test_v3_roundtrip_restart_plan_same_and_chief_run_zero_http(tmp_path,monkeyp
         monkeypatch.setattr(assistant,'_get_agent',lambda:pytest.fail('handling component must keep Chief intake zero HTTP'))
         for command in ('chief','run'):
             text=assistant.answer(Incoming(GROUP_ID,123,9,None,command,''))
-            assert '246,900 VND theo điều khoản' in text and 'chưa dùng AI' in text and 'Tổng doanh thu B2B: N/A' in text
+            assert '246,9 VND theo điều khoản' in text and 'chưa dùng AI' in text and 'Tổng doanh thu B2B: N/A' in text
         assert state.facts()==before and state.control('approved_plan')==plan and state.control('schedule_enabled')
         assert assistant._plan_code()==plan
     finally:state.close()
