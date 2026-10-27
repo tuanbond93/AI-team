@@ -1,0 +1,5 @@
+"""Customer Operations → Supra Account AI. Local, scoped, shadow by default."""
+CUSTOMER = "SUPRA"
+REGION = "PHU_THO"
+ROLE = "ACCOUNT_OPERATIONS"
+ENGINE = "COST_TO_SERVE"

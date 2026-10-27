@@ -1,0 +1,62 @@
+DỮ LIỆU GIẢ / DEMO — không dùng quyết định thật; UNVERIFIED.
+Đã có số sản phẩm trong thùng theo Qty(Units), cộng các DO trong kỳ theo GHN. Chưa có đủ kg, số kiện/thùng và chi phí phục vụ; doanh thu/P&L tiếp tục N/A, chưa đối soát tài chính.
+1. Báo cáo nhanh
+Số sản phẩm bên trong thùng: 37 sản phẩm; tách riêng kiện/thùng.
+Sản lượng: N/A — chưa đủ dữ liệu kg / N/A — chưa đủ dữ liệu kiện.
+Tổng doanh thu B2B: N/A — chưa đủ dữ liệu VND.
+GP%: N/A — thiếu dữ liệu hoặc doanh thu bằng 0%.
+Trạng thái: VÀNG — PARTIAL / chưa đủ dữ liệu; BOOKING SNAPSHOT; chưa đối soát độc lập.
+Phạm vi: Tab/DC xuất hàng DC PHÚ THỌ; kỳ 2026-10; đến 2026-10-20; không lọc tỉnh đích
+Dữ liệu nhận lúc chưa được cung cấp; ngày xuất mới nhất 15/10/2026. Đây là bản chụp, không phải dữ liệu trực tuyến và chưa đối soát thực tế.
+
+2. Bảng số liệu đã tính
+• Khối lượng B2B: N/A — chưa đủ dữ liệu kg — Chưa đủ dữ liệu
+• Số kiện B2B: N/A — chưa đủ dữ liệu kiện — Chưa đủ dữ liệu
+• Số thùng B2B: N/A — chưa đủ dữ liệu thùng — Chưa đủ dữ liệu
+• Số sản phẩm bên trong thùng: 37 sản phẩm — Phần tính được, chưa đối soát
+• Doanh thu: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Chặng 1 — xe trung chuyển: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Chặng 2 — kho: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Chặng 3 — xe giao + lương: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Tổng cost-to-serve: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Lợi nhuận gộp: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Biên GP: N/A — thiếu dữ liệu hoặc doanh thu bằng 0 % — Chưa đủ dữ liệu
+• Doanh thu/kiện: N/A — chưa đủ dữ liệu VND/kiện — Chưa đủ dữ liệu
+• Chi phí/kiện: N/A — chưa đủ dữ liệu VND/kiện — Chưa đủ dữ liệu
+• GP/kiện: N/A — chưa đủ dữ liệu VND/kiện — Chưa đủ dữ liệu
+• Dòng booking có ngày trong kỳ: 3 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Mã GHN khác nhau đọc được: 2 mã GHN — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Dòng có mã lặp ngoài lần đầu: 1 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Mã có nhiều trạng thái: 0 mã GHN — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Mã chỉ có trạng thái delivered: 1 mã GHN — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Dòng thiếu/sai mã: 0 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Dòng chưa xếp kỳ vì thiếu/sai ngày: 0 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Sản phẩm trong phần đủ khóa — không phải tổng toàn phạm vi: 37 sản phẩm — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng thiếu Qty(Units): 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng Qty(Units) không hợp lệ: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng thiếu khóa GHN/SO/DO cho sản lượng: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng trùng khóa GHN+SO+DO cần làm rõ: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng SO+DO trỏ tới nhiều GHN cần làm rõ: 0 dòng — SO/DO ở nhiều GHN: cảnh báo kiểm tra; chưa tự loại dòng
+• Dòng cách ly khỏi tổng sản phẩm: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+
+3. Các điểm CHƯA ĐƯỢC
+[WARNING] Booking chưa có trọng lượng kèm đơn vị, số kiện/thùng theo grain, cước hiệu lực và chi phí đủ ba chặng.
+Bằng chứng: SYNTHETIC row 2
+Nguyên nhân: Chưa xác minh nguyên nhân gốc.
+Ảnh hưởng: Chưa định lượng; chưa đủ bằng chứng về thiệt hại hoặc ngày lặp lại.
+Câu hỏi kiểm chứng: Nguồn gốc và quy tắc ghi nhận nào giải thích sự kiện này?
+Đề xuất: Cung cấp bảng doanh thu/cước theo tỉnh và ngày hiệu lực, khối lượng kèm g/kg, số kiện/thùng đúng grain và chi phí đủ ba chặng; chủ sở hữu xác nhận phạm vi trước khi dùng. Người làm: Đầu mối Finance/vận hành — đề xuất, chờ xác nhận. Hạn: Trước khi duyệt báo cáo — đề xuất, chờ chốt ngày.
+[WARNING] Mã GHN lặp có thể là dòng chi tiết/lịch sử. Không tự xóa, gộp hoặc chọn dòng cuối; không suy kg/chuyến/SLA từ số đếm. Chưa đủ căn cứ tính chi phí, OT, số kiện, khối lượng, tải xe, chuyến/điểm giao hay SLA. Không cộng hoặc điền xuống các tổng gộp khi chưa rõ quy tắc.
+Bằng chứng: SYNTHETIC row 2
+Nguyên nhân: Chưa xác minh nguyên nhân gốc.
+Ảnh hưởng: Chưa định lượng; chưa đủ bằng chứng về thiệt hại hoặc ngày lặp lại.
+Câu hỏi kiểm chứng: Nguồn gốc và quy tắc ghi nhận nào giải thích sự kiện này?
+Đề xuất: Xác nhận grain của từng dòng và khóa đơn/chuyến với đầu mối vận hành. Người làm: Đầu mối Finance/vận hành — đề xuất, chờ xác nhận. Hạn: Trước khi duyệt báo cáo — đề xuất, chờ chốt ngày.
+Các số và phần thiếu đầu vào được kiểm tra bằng code từ nguồn hiện tại; chưa chạy Chief AI/Auditor (0 HTTP) cho yêu cầu này. Chưa có quyết định kiểm tra chéo AI.
+
+4. Đúng 3 việc cần chủ sở hữu chốt
+1. Đối chiếu Qty thiếu/lỗi, khóa GHN+SO+DO trùng và các cảnh báo SO/DO ở nhiều GHN; giữ riêng ngày và DO của từng đợt giao.
+2. Bổ sung khối lượng theo đơn kèm g/kg và phân biệt sản phẩm, kiện, thùng; không dùng hệ số quy đổi ước tính.
+3. Bổ sung khóa chuyến/chặng, chứng từ chi phí và biểu lương có hiệu lực, cùng phạm vi B2B/B2C để đối chiếu trước P&L.
+
+Bước tiếp theo: anh có thể cung cấp khối lượng theo đơn kèm đơn vị g/kg và chứng từ chi phí để đối chiếu với các DO này không?

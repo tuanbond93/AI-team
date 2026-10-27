@@ -1,0 +1,99 @@
+DỮ LIỆU GIẢ / DEMO — không dùng quyết định thật; UNVERIFIED.
+Đã đọc tổng kg/GHN từ L; tổng kg toàn phạm vi chưa chốt, phần GHN đủ nguồn được trình bày riêng. Sản phẩm J giữ quy tắc riêng; kiện/thùng, doanh thu và P&L tiếp tục N/A, chưa đối soát tài chính. Bốc xếp DC được tính riêng theo điều khoản owner, chỉ cho TRANSFER; chưa là tiền nghiệm thu/thanh toán hoặc tổng chi phí.
+1. Báo cáo nhanh
+Số sản phẩm bên trong thùng: 40 sản phẩm; tách riêng kiện/thùng.
+Sản lượng: N/A — chưa đủ dữ liệu kg / N/A — chưa đủ dữ liệu kiện.
+Tổng doanh thu B2B: N/A — chưa đủ dữ liệu VND.
+GP%: N/A — thiếu dữ liệu hoặc doanh thu bằng 0%.
+Trạng thái: VÀNG — PARTIAL / chưa đủ dữ liệu; BOOKING SNAPSHOT; chưa đối soát độc lập.
+Phạm vi: Tab/DC xuất hàng DC PHÚ THỌ; kỳ 2026-10; đến 2026-10-31; không lọc tỉnh đích
+Dữ liệu nhận lúc chưa được cung cấp; ngày xuất mới nhất 20/10/2026. Đây là bản chụp, không phải dữ liệu trực tuyến và chưa đối soát thực tế.
+
+2. Bảng số liệu đã tính
+• Khối lượng nguồn — toàn phạm vi, một tổng/GHN: N/A — chưa đủ dữ liệu kg — Chưa đủ dữ liệu
+• Số kiện B2B: N/A — chưa đủ dữ liệu kiện — Chưa đủ dữ liệu
+• Số thùng B2B: N/A — chưa đủ dữ liệu thùng — Chưa đủ dữ liệu
+• Số sản phẩm bên trong thùng: 40 sản phẩm — Phần tính được, chưa đối soát
+• Doanh thu: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Chặng 1 — xe trung chuyển: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Chặng 2 — kho: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Chặng 3 — xe giao + lương: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Tổng cost-to-serve: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Lợi nhuận gộp: N/A — chưa đủ dữ liệu VND — Chưa đủ dữ liệu
+• Biên GP: N/A — thiếu dữ liệu hoặc doanh thu bằng 0 % — Chưa đủ dữ liệu
+• Doanh thu/kiện: N/A — chưa đủ dữ liệu VND/kiện — Chưa đủ dữ liệu
+• Chi phí/kiện: N/A — chưa đủ dữ liệu VND/kiện — Chưa đủ dữ liệu
+• GP/kiện: N/A — chưa đủ dữ liệu VND/kiện — Chưa đủ dữ liệu
+• Dòng booking có ngày trong kỳ: 4 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Mã GHN khác nhau đọc được: 3 mã GHN — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Dòng có mã lặp ngoài lần đầu: 1 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Mã có nhiều trạng thái: 0 mã GHN — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Mã chỉ có trạng thái delivered: 2 mã GHN — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Dòng thiếu/sai mã: 0 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Dòng chưa xếp kỳ vì thiếu/sai ngày: 0 dòng — Số nguồn; mã lặp chưa chứng minh lỗi/đơn hợp lệ, delivered chưa phải SLA
+• Sản phẩm trong phần đủ khóa — không phải tổng toàn phạm vi: 40 sản phẩm — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng thiếu Qty(Units): 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng Qty(Units) không hợp lệ: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng thiếu khóa GHN/SO/DO cho sản lượng: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng trùng khóa GHN+SO+DO cần làm rõ: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Dòng SO+DO trỏ tới nhiều GHN cần làm rõ: 0 dòng — SO/DO ở nhiều GHN: cảnh báo kiểm tra; chưa tự loại dòng
+• Dòng cách ly khỏi tổng sản phẩm: 0 dòng — Đơn vị sản phẩm, không phải kiện/thùng; nguồn chưa đối soát
+• Kg phần GHN đủ nguồn — không phải tổng toàn phạm vi: 1,235 kg — Chỉ phần GHN đủ nguồn; không phải tổng kg toàn phạm vi
+• GHN đủ tổng kg: 2 mã GHN — L là tổng kg/GHN; không cộng theo DO, không xác nhận giao thành công
+• GHN không có tổng L: 0 mã GHN — L là tổng kg/GHN; không cộng theo DO, không xác nhận giao thành công
+• GHN có L không hợp lệ: 1 mã GHN — L là tổng kg/GHN; không cộng theo DO, không xác nhận giao thành công
+• GHN có nhiều tổng L khác nhau: 0 mã GHN — L là tổng kg/GHN; không cộng theo DO, không xác nhận giao thành công
+• GHN có DO ngoài kỳ/cutoff hoặc thiếu ngày: 0 mã GHN — L là tổng kg/GHN; không cộng theo DO, không xác nhận giao thành công
+• Dòng chưa có GHN để ghi nhận kg: 0 dòng — L là tổng kg/GHN; không cộng theo DO, không xác nhận giao thành công
+• Bốc xếp DC — toàn component: N/A — chưa đủ dữ liệu VND theo điều khoản — Tính theo điều khoản owner; chưa nghiệm thu/thanh toán, không phải total cost hoặc P&L
+• Bốc xếp DC — subtotal đủ nguồn, không phải tổng: 0,100 VND theo điều khoản — Subtotal đủ điều kiện, không phải tổng toàn component
+• Kg TRANSFER đủ điều kiện bốc xếp: 0,001 kg — Subtotal đủ điều kiện, không phải tổng toàn component
+• GHN TRANSFER tính được bốc xếp: 1 mã GHN — Subtotal đủ điều kiện, không phải tổng toàn component
+• GHN DIRECT không áp dụng bốc xếp: 1 mã GHN — Tính theo điều khoản owner; chưa nghiệm thu/thanh toán, không phải total cost hoặc P&L
+• GHN chưa chốt component bốc xếp: 1 mã GHN — Tính theo điều khoản owner; chưa nghiệm thu/thanh toán, không phải total cost hoặc P&L
+• Bốc xếp 200đ/kg — phần đủ nguồn: N/A — chưa đủ dữ liệu kg — Subtotal đủ điều kiện, không phải tổng toàn component
+• Bốc xếp 200đ/kg — phần đủ nguồn: N/A — chưa đủ dữ liệu VND theo điều khoản — Subtotal đủ điều kiện, không phải tổng toàn component
+• Bốc xếp 100đ/kg — phần đủ nguồn: 0,001 kg — Subtotal đủ điều kiện, không phải tổng toàn component
+• Bốc xếp 100đ/kg — phần đủ nguồn: 0,100 VND theo điều khoản — Subtotal đủ điều kiện, không phải tổng toàn component
+• GHN thiếu phạm vi ngày/kỳ/cutoff: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN routing chưa khớp: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN có cả TRANSFER và DIRECT: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN chưa có một giá hiệu lực: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN qua nhiều mức giá E: 1 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN TRANSFER thiếu tổng L: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN TRANSFER có L lỗi: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+• GHN TRANSFER có tổng L mâu thuẫn: 0 mã GHN — Các loại lỗi có thể trùng một GHN; không cộng các counter để suy số đơn
+
+3. Các điểm CHƯA ĐƯỢC
+[WARNING] Booking chưa có đủ doanh thu và chi phí phục vụ ba chặng; sản phẩm J và tổng kg/GHN L là hai chỉ tiêu nguồn độc lập, chưa đối soát tài chính.
+Bằng chứng: SYNTHETIC row 2; SYNTHETIC row 4; mẫu 2/3 tham chiếu, /details xem truy vết
+Nguyên nhân: Chưa xác minh nguyên nhân gốc.
+Ảnh hưởng: Chưa định lượng; chưa đủ bằng chứng về thiệt hại hoặc ngày lặp lại.
+Câu hỏi kiểm chứng: Nguồn gốc và quy tắc ghi nhận nào giải thích sự kiện này?
+Đề xuất: Cung cấp bảng doanh thu/cước theo tỉnh và ngày hiệu lực, khối lượng kèm g/kg, số kiện/thùng đúng grain và chi phí đủ ba chặng; chủ sở hữu xác nhận phạm vi trước khi dùng. Người làm: Đầu mối Finance/vận hành — đề xuất, chờ xác nhận. Hạn: Trước khi duyệt báo cáo — đề xuất, chờ chốt ngày.
+[WARNING] GHN có nhiều DO/ngày có thể là các đợt giao. Qty J cộng theo DO trong phạm vi; L là tổng kg cả GHN tính một lần. Không cộng L theo DO hoặc phân bổ tổng L cho một phần kỳ/cutoff. Chưa đủ căn cứ tính kiện/thùng/CBM, xe/chuyến/drop/chi phí/OT/tải hoặc SLA.
+Bằng chứng: SYNTHETIC row 2; SYNTHETIC row 4; mẫu 2/3 tham chiếu, /details xem truy vết
+Nguyên nhân: Chưa xác minh nguyên nhân gốc.
+Ảnh hưởng: Chưa định lượng; chưa đủ bằng chứng về thiệt hại hoặc ngày lặp lại.
+Câu hỏi kiểm chứng: Nguồn gốc và quy tắc ghi nhận nào giải thích sự kiện này?
+Đề xuất: Xác nhận grain của từng dòng và khóa đơn/chuyến với đầu mối vận hành. Người làm: Đầu mối Finance/vận hành — đề xuất, chờ xác nhận. Hạn: Trước khi duyệt báo cáo — đề xuất, chờ chốt ngày.
+[WARNING] Tổng kg toàn phạm vi N/A: có GHN thiếu L, L lỗi, nhiều tổng L khác nhau hoặc DO ngoài kỳ/cutoff/thiếu ngày. Subtotal chỉ gồm GHN đủ nguồn; không dùng làm tổng, không chọn first/last/max/sum hay điền xuống L.
+Bằng chứng: SYNTHETIC row 5
+Nguyên nhân: Chưa xác minh nguyên nhân gốc.
+Ảnh hưởng: Chưa định lượng; chưa đủ bằng chứng về thiệt hại hoặc ngày lặp lại.
+Câu hỏi kiểm chứng: Nguồn gốc và quy tắc ghi nhận nào giải thích sự kiện này?
+Đề xuất: Đối chiếu tổng kg theo từng GHN bị thiếu/lỗi/mâu thuẫn và xác nhận đủ phạm vi các DO bằng nguồn cân/đóng hàng; chưa sửa Google Sheets hoặc tự phân bổ. Người làm: Đầu mối Finance/vận hành — đề xuất, chờ xác nhận. Hạn: Trước khi duyệt báo cáo — đề xuất, chờ chốt ngày.
+[WARNING] Component bốc xếp DC toàn phạm vi N/A: còn nhóm chưa chốt routing/giá/phạm vi hoặc tổng L. Subtotal chỉ là phần TRANSFER đủ điều kiện; DIRECT không chịu khoản này và L lỗi của DIRECT không làm thiếu phí bốc xếp. Không chia kg để chọn giá, không tính các phí giao theo điểm/gói.
+Bằng chứng: SYNTHETIC row 2; SYNTHETIC row 3
+Nguyên nhân: Chưa xác minh nguyên nhân gốc.
+Ảnh hưởng: Chưa định lượng; chưa đủ bằng chứng về thiệt hại hoặc ngày lặp lại.
+Câu hỏi kiểm chứng: Nguồn gốc và quy tắc ghi nhận nào giải thích sự kiện này?
+Đề xuất: Đối chiếu các tổng L thiếu/lỗi/mâu thuẫn hoặc GHN qua nhiều mức giá/routing; chỉ tách kg khi có chứng cứ. Không tự sửa Google hoặc lấy subtotal làm tổng. Người làm: Đầu mối Finance/vận hành — đề xuất, chờ xác nhận. Hạn: Trước khi duyệt báo cáo — đề xuất, chờ chốt ngày.
+Các số và phần thiếu đầu vào được kiểm tra bằng code từ nguồn hiện tại; chưa chạy Chief AI/Auditor (0 HTTP) cho yêu cầu này. Chưa có quyết định kiểm tra chéo AI.
+
+4. Đúng 3 việc cần chủ sở hữu chốt
+1. Đối chiếu các GHN bốc xếp đang giữ riêng: L thiếu/lỗi/mâu thuẫn, nhiều mức giá hoặc routing; không tự phân bổ kg giữa các DO.
+2. Giữ subtotal theo từng mức giá riêng; kiểm bảng kê bốc xếp theo điều khoản trước nghiệm thu hoặc thanh toán, không lấy DIRECT chịu khoản này.
+3. Bổ sung các khoản vận tải/giao/kho khác và doanh thu có căn cứ trước khi tính total cost/GP; chưa tự áp phí theo điểm/gói.
+
+Bước tiếp theo: anh có thể cung cấp bằng chứng tổng L hoặc kg tách của các GHN bốc xếp đang giữ riêng để đối chiếu không?
