@@ -42,6 +42,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /ask hoặc /cost, /operations, /fleet… — hỏi AI nếu đã cấu hình model
 /vehicles hoặc /xe [YYYY-MM-DD] [YYYY-MM-DD] [Vn] — xem xe/chia sẻ từ paired source, 0 HTTP
 /chiphi hoặc /costs [YYYY-MM-DD] [YYYY-MM-DD] — xem dự kiến chi phí theo nguồn đã duyệt
+/thieu [YYYY-MM-DD] [YYYY-MM-DD] — danh sách dữ liệu cần bổ sung: trường nào, ngày nào, dòng nào trong Sheet
 /reset — xóa hội thoại RAM của bạn trong chủ đề
 
 Thông tin ghi nhớ do owner cung cấp/xác nhận; chưa là dữ liệu đã đối soát độc lập. Bot không thực thi chi tiền, điều xe hay thay đổi nhân sự.
@@ -143,7 +144,7 @@ class AssistantResponder:
         if command == "status":
             ai = "AI đã cấu hình; chỉ gọi khi bạn hỏi hoặc lịch đã duyệt" if self.settings.get("models") else "CHƯA CÓ AI/MODEL — onboarding và báo cáo số liệu bằng code vẫn dùng được"
             return f"Nhóm cố định: {GROUP_ID}. Owner ID: {self.owner}.\n{ai}\nLịch: {'ĐANG BẬT' if self.state.control('schedule_enabled', False) else 'TẠM DỪNG'}.\nNguồn được đọc mới mỗi lần báo cáo. Máy ngủ/tắt hoặc mất mạng thì worker không hoạt động."
-        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs"}
+        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing"}
         if command in owner_commands and not owner:
             if command == "details":
                 return "Chỉ chủ sở hữu đã xác minh được xem chi tiết truy vết."
@@ -268,7 +269,7 @@ class AssistantResponder:
                     self._code_details[key] = self._last_report_record
                     self._report_origin = key
                 return text
-            if command in ('chiphi','costs'):
+            if command in ('chiphi','costs','thieu','missing'):
                 from .supra.manual_cost_report import manual_cost_report,render_cost_report
                 from .supra.booking import BookingData
                 key=(request.chat_id,request.topic_id,request.user_id)
@@ -277,8 +278,17 @@ class AssistantResponder:
                 data,source,facts,period,warehouses,cutoff,_=self._scoped()
                 if not isinstance(data,BookingData):return 'Chi phí: chưa có paired booking được duyệt.'
                 evidence=self._vehicle_evidence(data,period,cutoff)
+                missing=command in ('thieu','missing')
+                report=manual_cost_report(self.state,data,evidence,source,facts,self.owner,text) if evidence.get('available') else {'available':False}
+                if missing:
+                    from .supra.missing_data import missing_checklist,booking_checklist
+                    if report.get('available'):return missing_checklist(report)[1]
+                    if report.get('reason') in (None,'NOT_CONFIGURED'):
+                        return booking_checklist(self._booking_context(data,period,warehouses,cutoff,source))[1]
+                    return {'RANGE_REQUIRED':'Chưa lập được danh sách: dùng /thieu YYYY-MM-DD YYYY-MM-DD trong kỳ đã chọn.',
+                        'OUTSIDE_POLICY_WINDOW':'Chưa lập được danh sách: khoảng ngày nằm ngoài chính sách chi phí đã duyệt.'}.get(report['reason'],
+                        'Chưa lập được danh sách: chính sách chi phí đã cài không còn khớp nguồn hiện tại; cần nạp lại cho đúng bản nguồn.')
                 if not evidence.get('available'):return 'Chi phí: chưa đủ hai nguồn đã duyệt.'
-                report=manual_cost_report(self.state,data,evidence,source,facts,self.owner,text)
                 result=render_cost_report(report)
                 self._code_details[key]={'kind':'manual_cost','report':report,'response':result}
                 if len(self._code_details)>100:self._code_details.pop(next(iter(self._code_details)))

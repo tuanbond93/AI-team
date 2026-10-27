@@ -81,8 +81,8 @@ def test_snapshot_stdin_ingest_projects_before_disk_and_reports_only_aggregates(
         assistant = AssistantResponder(state, settings())
         report = assistant.report()
         assert "Dòng booking có ngày trong kỳ: 3 dòng" in report and "Mã GHN khác nhau đọc được: 1 mã GHN" in report
-        assert "cách ngày chốt hơn một ngày" in report and "chưa chạy Chief AI/Auditor (0 HTTP)" in report
-        assert "Tổng doanh thu B2B: N/A" in report and "PARTIAL" in report
+        assert "cách ngày chốt hơn một ngày" in report and "chưa dùng AI" in report
+        assert "Tổng doanh thu B2B: N/A" in report and "chưa đối soát" in report
         assert "PRIVATE_" not in report and "GHN001" not in report
         assert len(report)<2200 and "BƯỚC TIẾP:" in report
         assert "Chưa đủ căn cứ tính chi phí, OT, số kiện, khối lượng, tải xe, chuyến/điểm giao hay SLA" in assistant._report_details
@@ -407,7 +407,7 @@ def test_booking_report_does_not_run_ai_or_reuse_older_auditor_record(tmp_path, 
         monkeypatch.setattr(assistant, "_get_agent", lambda: pytest.fail("Booking thiếu finance không cần tạo model agent"))
         report = assistant._booking_report(data, source, assistant._facts(), "2026-10", ["DC PHÚ THỌ"], datetime.now(TZ))
         assert result["task_id"] not in report and reason not in report
-        assert "chưa chạy Chief AI/Auditor (0 HTTP)" in report
+        assert "chưa dùng AI" in report
         assert "Tổng doanh thu B2B: N/A" in report
         from ops_team.telegram_bridge import Incoming
         detail = assistant.answer(Incoming(GROUP_ID, 123, 2, None, "details", ""))

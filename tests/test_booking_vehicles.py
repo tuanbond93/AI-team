@@ -214,7 +214,7 @@ def test_pair_atomic_roundtrip_and_code_commands_zero_http(tmp_path,monkeypatch)
         assert v['raw_digest'] not in a.answer(Incoming(GROUP_ID,123,2,None,'details',''))
         assert v['raw_digest'] in a.answer(Incoming(GROUP_ID,123,2,None,'details','audit'))
         assert 'Chỉ chủ sở hữu' in a.answer(Incoming(GROUP_ID,456,3,None,'details',''))
-        report=a.report();assert len(report)<2200 and 'chưa chạy chief ai/auditor (0 http)' in report.lower()
+        report=a.report();assert len(report)<2200 and 'chưa dùng ai' in report.lower()
         assert 'BƯỚC TIẾP: Bước tiếp theo' not in report
         assert len(a._report_details)>len(report) and 'HTTP attempts cho yêu cầu này: 0' in a._report_details
         a._code_details={(GROUP_ID,i,123):{'kind':'vehicles','evidence':v,'filter':''} for i in range(100)}
@@ -1735,4 +1735,36 @@ def test_rule_window_shorter_than_report_scope_holds_handling_na(tmp_path,monkey
         assert context['metrics']['booking.dc_handling_unresolved_ghn']['value'] is None
         text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
         assert '2026-10-10 đến 2026-10-20' in text and 'N/A' in text
+    finally:state.close()
+
+
+def test_missing_checklist_names_field_day_and_sheet_rows_without_ids(tmp_path,monkeypatch):
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('checklist cannot call model'))
+        main=a.answer(Incoming(GROUP_ID,123,1,None,'chiphi','2026-10-10 2026-10-20'))
+        assert main.startswith('Kết luận: mới tính được phần đủ nguồn') and '/thieu' in main.split('\n')[0]
+        text=a.answer(Incoming(GROUP_ID,123,2,None,'thieu','2026-10-10 2026-10-20'))
+        assert text.startswith('CẦN ANH BỔ SUNG — 10/10/2026–20/10/2026')
+        assert 'Loại tải Booking (cột T) chưa có giá FTL' in text and 'Booking dòng 4' in text
+        assert 'Một đợt có cả dòng tính bốc xếp và dòng đi thẳng — Booking dòng 11, 12' in text
+        assert 'không tính là 0' in text
+        assert not any(x in text for x in ('MIXED_ROUTE','OTHER_CLASS','GoogleViewer','99D12345','dddddddddddd'))
+        assert 'Chỉ owner' in a.answer(Incoming(GROUP_ID,456,3,None,'thieu','2026-10-10 2026-10-20'))
+        assert 'ngoài chính sách chi phí' in a.answer(Incoming(GROUP_ID,123,4,None,'thieu','2026-10-01 2026-10-31'))
+    finally:state.close()
+
+
+def test_missing_checklist_booking_only_fallback_lists_weight_rows(tmp_path,monkeypatch):
+    first=book('SYN_SPAN',date='10/10/2026',do='D1');first[8]='5'
+    second=book('SYN_SPAN',date='10/10/2026',do='D2');second[8]='7'
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path,custom_books=[first,second],custom_raws=[event('SYN_SPAN')])
+    try:
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        text=a.answer(Incoming(GROUP_ID,123,1,None,'thieu',''))
+        assert text.startswith('CẦN ANH BỔ SUNG') and 'Kg cột L thiếu, lỗi hoặc mâu thuẫn — Booking dòng 2, 3' in text
+        assert 'SYN_SPAN' not in text
     finally:state.close()

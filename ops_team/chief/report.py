@@ -170,7 +170,18 @@ def booking_review(context, extra_warnings=()):
             'Đối chiếu các GHN bốc xếp đang giữ riêng: L thiếu/lỗi/mâu thuẫn, nhiều mức giá hoặc routing; không tự phân bổ kg giữa các DO.',
             'Giữ subtotal theo từng mức giá riêng; kiểm bảng kê bốc xếp theo điều khoản, không tự đổi điều kiện phí theo nhãn xe vật lý.',
             'Bổ sung các khoản vận tải/giao/kho khác và doanh thu có căn cứ trước khi tính total cost/GP; chưa tự áp phí theo điểm/gói.']
-        result['intake_question']='Bước tiếp theo: anh có thể cung cấp bằng chứng tổng L hoặc kg tách của các GHN bốc xếp đang giữ riêng để đối chiếu không?'
+        asks={'missing_weight':'tổng kg (cột L) của các nhóm bốc xếp đang thiếu','invalid_weight':'kg đúng cho các dòng cột L đang lỗi',
+            'conflicting_weight':'tổng kg đúng, hoặc xác nhận cộng các phần kg, cho các nhóm có nhiều tổng L','unknown_routing':'điều kiện bốc xếp của các cửa hàng/huyện chưa có trong danh mục',
+            'mixed_routing':'xác nhận các nhóm vừa có dòng tính bốc xếp vừa có dòng đi thẳng','unknown_rate':'đơn giá bốc xếp cho các ngày xuất chưa có giá',
+            'mixed_rate':'kg tách theo mức giá cho các GHN qua hai mức giá','partial_scope':'ngày xuất đúng cho các dòng ngoài kỳ hoặc thiếu ngày',
+            'two_leg_unresolved':'biển S thực chở cho các đơn chưa khớp xe AG/S'}
+        held=[(n,k) for k,n in handling['counters'].items() if n and k in asks]
+        if handling['complete']:
+            result['intake_question']='Bước tiếp theo: bốc xếp DC đã đủ nguồn; anh có thể bổ sung doanh thu và chi phí các chặng khác để tính tổng không?'
+        elif held:
+            result['intake_question']='Bước tiếp theo: anh gửi giúp '+asks[max(held)[1]]+' (gửi /thieu để xem đúng dòng).'
+        else:
+            result['intake_question']='Bước tiếp theo: bốc xếp DC đang N/A theo lý do ở trên; gửi /thieu để xem phần cần bổ sung.'
     return result
 
 

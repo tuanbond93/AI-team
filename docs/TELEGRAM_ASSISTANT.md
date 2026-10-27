@@ -157,3 +157,9 @@ Sau bàn giao, chat điều phối chạy full suite độc lập: 240 passed in
 Chưa nghiệm thu bởi đợt code này: private Google connector/Sheets API đúng quyền, gửi báo cáo dữ liệu thật vào nhóm, lịch 13:00 chạy đủ ngày trên máy thật, tự phục hồi khi Windows khởi động, enterprise SSO/RBAC hoặc production hosting.
 
 Cập nhật runtime do chat điều phối báo ngày 25/10/2026: sau paired verified và plan missing=[], đã kích hoạt schedule theo chỉ thị người dùng bằng **LOCAL_OWNER_SETUP_APPROVAL / message_id=0**, không dựng lệnh Telegram. `schedule_enabled=true`, approved_plan đã lưu và automation `dc-ph-th-b-o-c-o-telegram-13h` **ACTIVE**, 13:00 giờ Việt Nam. Vì đã qua giờ chạy hôm nay, lượt đầu dự kiến 26/10/2026. Worker browser vẫn chờ pipeline xuất/nhập nguồn mới, không tự gửi snapshot cũ. Đây là thao tác activation của chat điều phối, không phải hiệu ứng của sửa code/test; child không đổi runtime hoặc automation. Parent sẽ reload worker để nhận fix Auditor cuối.
+
+## Kết luận trước, danh sách thiếu dữ liệu `/thieu`
+
+`/chiphi` và báo cáo `/run` mở đầu bằng một dòng **Kết luận** và **Việc cần làm**. Chỉ nêu "đã đủ nguồn" cho chỉ số có quy tắc và đủ dữ liệu; còn nhóm giữ riêng thì nói chưa chốt và chỉ sang `/thieu`.
+
+`/thieu [YYYY-MM-DD] [YYYY-MM-DD]` (chỉ owner, không gọi AI) lấy đúng kết quả code của `/chiphi` và liệt kê từng nhóm còn giữ riêng: thiếu trường nào (vd. kg cột L, loại tải cột T, biển S), ngày nào nếu tính theo đợt GHN/ngày, **số dòng trong tab Booking/Raw đã ghim** và cần gửi gì. Không in mã GHN, cửa hàng hay biển xe; mỗi nhóm tối đa 6 số dòng, tối đa 10 nhóm, phần còn lại ở `/details audit`. Chưa có chính sách chi phí thì dùng chỉ số Booking (kg, sản phẩm, bốc xếp). Chính sách stale hoặc khoảng ngày ngoài chính sách thì báo lý do, không lập danh sách từ cách tính khác. Các khoản thiếu luôn giữ N/A, không tính là 0.

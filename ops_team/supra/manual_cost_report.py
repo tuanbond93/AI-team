@@ -406,4 +406,9 @@ def render_cost_report(report, *, details=False, audit=False, answered_text=None
         if overlay and overlay.get('available'):
             lines.append('Phân bổ/doanh thu: overlay '+overlay['overlay_sha256']+'; base '+overlay['base_policy_sha256']+'; forecast '+overlay['forecast_sha256']+'; nguồn giá '+str(overlay['price_source_sha256'])+'; provenance '+str(overlay['provenance'])+'; tỷ lệ '+overlay['upstream_ratio']+'/'+overlay['warehouse_ratio']+'; pool gốc '+str(w['shared_pool_vnd'])+'/'+str(report['upstream'].get('eligible_pool_vnd'))+'; thành phần '+str(overlay['components'])+'; số lượng cách ly/cảnh báo '+str(overlay['revenue']['quarantined_rows'])+'/'+str(overlay['revenue']['conflicting_key_rows'])+'; mẫu thiếu giá '+str(overlay['revenue']['unpriced_sources'][:8])+'; thiếu S GXT '+str(overlay['missing_s_gxt_sources'][:8])+'.')
             if exclusions:lines.append('Chỉ định loại phạm vi: '+str(exclusions)+'; không loại phí km NCC.')
+    if not details and not audit:
+        from .missing_data import missing_checklist
+        count,_=missing_checklist(report)
+        lines.insert(0,('Kết luận: mới tính được phần đủ nguồn; còn '+str(count)+' nhóm dữ liệu thiếu nên chưa có tổng chi phí/lãi lỗ. Việc cần làm: gửi /thieu để xem từng dòng cần bổ sung.') if count else
+            'Kết luận: các khoản đã có quy tắc đều đủ nguồn; tổng chi phí/lãi lỗ vẫn chưa chốt vì VAT, phụ phí và khoản chưa có quy tắc.')
     return '\n\n'.join(lines)

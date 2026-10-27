@@ -166,9 +166,9 @@ def test_real_user_intake_delivered_by_bridge_without_any_provider_and_no_quota_
             start = len(api.sent)
             worker.process(update(clock, mid))
             text = "\n".join(p["text"] for p in api.sent[start:])
-            assert text.startswith("BOOKING — PARTIAL / UNVERIFIED") and len(text)<2200
-            assert "Tổng doanh thu B2B: N/A" in text and "BƯỚC TIẾP:" in text and "0 HTTP" in text
-            assert "chưa chạy Chief AI/Auditor" in text and "API trả HTTP 429" not in text
+            assert text.startswith("Kết luận:") and len(text)<2200
+            assert "Tổng doanh thu B2B: N/A" in text and "BƯỚC TIẾP:" in text and "chưa dùng AI" in text
+            assert "chưa dùng AI" in text and "API trả HTTP 429" not in text
             assert state.delivery_state(f"update:{mid}") == "SENT"
         detail = responder.answer(Incoming(GROUP_ID, 123, 20, None, "details", ""))
         for phrase in ("g/kg", "ngày hiệu lực", "lương", "ba chặng", "B2B/B2C", "Bước tiếp theo:"):

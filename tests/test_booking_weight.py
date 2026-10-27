@@ -171,7 +171,7 @@ def test_v2_migration_restart_and_13h_unchanged_code_reports_no_http(tmp_path,mo
         monkeypatch.setattr(assistant,'_get_agent',lambda:pytest.fail('No AI for weight intake'))
         for command in ('chief','run'):
             text=assistant.answer(Incoming(GROUP_ID,123,9,None,command,''))
-            assert '6.268,601' in text and '43 sản phẩm' in text and '0 HTTP' in text
+            assert '6.268,601' in text and '43 sản phẩm' in text and 'chưa dùng AI' in text
             assert 'Tổng doanh thu B2B: N/A' in text
         assert state.facts()==before and state.control('approved_plan')==plan
         assert state.control('schedule_enabled') and assistant._plan_code()==plan

@@ -154,7 +154,7 @@ def test_minimized_import_restart_preserves_business_evidence_source_and_13h_pla
         for command in ('chief','run'):
             msg=responder.answer(Incoming(GROUP_ID,123,9,None,command,''))
             assert '37 sản phẩm' in msg and 'Tổng doanh thu B2B: N/A' in msg
-            assert '0 HTTP' in msg
+            assert 'chưa dùng AI' in msg
         assert '37 sản phẩm' in responder.report()
         assert state.facts()==oldfacts and state.control('approved_plan')==plan_code
     finally:state.close()

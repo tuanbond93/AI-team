@@ -211,7 +211,7 @@ def test_v3_roundtrip_restart_plan_same_and_chief_run_zero_http(tmp_path,monkeyp
         monkeypatch.setattr(assistant,'_get_agent',lambda:pytest.fail('handling component must keep Chief intake zero HTTP'))
         for command in ('chief','run'):
             text=assistant.answer(Incoming(GROUP_ID,123,9,None,command,''))
-            assert '246,900 VND theo điều khoản' in text and '0 HTTP' in text and 'Tổng doanh thu B2B: N/A' in text
+            assert '246,900 VND theo điều khoản' in text and 'chưa dùng AI' in text and 'Tổng doanh thu B2B: N/A' in text
         assert state.facts()==before and state.control('approved_plan')==plan and state.control('schedule_enabled')
         assert assistant._plan_code()==plan
     finally:state.close()
