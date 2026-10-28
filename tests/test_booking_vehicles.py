@@ -380,7 +380,7 @@ def range_rows():
 def test_range_uses_weighted_total_and_distinct_supra_cohort_without_crossing_bounds():
     data=parsed([book(date='14/10/2026')],range_rows());v=vehicle_evidence(data,'2026-10',CUTOFF);original=deepcopy(v)
     query='2026-10-10 2026-10-11';quality=vehicle_scope_quality(data,v,query)
-    assert quality=={'missing_plate':2,'representative':1,'undated':True}
+    assert quality=={'missing_plate':2,'representative':1,'undated':True,'unassigned_direct':0}
     main=vehicle_view(v,query,scope_quality=quality)
     details=vehicle_view(v,query,details=True,source_pin=RAW_PIN,scope_quality=quality)
     assert len(main)<=1000 and len(details)<=1800
@@ -399,8 +399,8 @@ def test_range_uses_weighted_total_and_distinct_supra_cohort_without_crossing_bo
 def test_range_scoped_quality_and_catalog_binding_do_not_reuse_month_counts():
     data=parsed([book(date='14/10/2026')],range_rows());v=vehicle_evidence(data,'2026-10',CUTOFF)
     q10=vehicle_scope_quality(data,v,'2026-10-10');q11=vehicle_scope_quality(data,v,'2026-10-11')
-    assert q10=={'missing_plate':1,'representative':1,'undated':True}
-    assert q11=={'missing_plate':1,'representative':0,'undated':True}
+    assert q10=={'missing_plate':1,'representative':1,'undated':True,'unassigned_direct':0}
+    assert q11=={'missing_plate':1,'representative':0,'undated':True,'unassigned_direct':0}
     changed=deepcopy(data);changed.vehicle_pair['vehicle_catalog_sha256']='f'*64
     assert vehicle_scope_quality(changed,v,'2026-10-10') is None
     alias=next(g['vehicle_alias'] for g in v['groups'] if g['plate']=='99B12345')
@@ -444,7 +444,7 @@ def test_range_responder_captures_scoped_quality_and_replays_exact_response(tmp_
         assert incoming.command=='xe' and incoming.text==query
         main=a.answer(incoming)
         key=(GROUP_ID,None,123);record=deepcopy(a._code_details[key]);assert record['filter']==query
-        assert record['scope_quality']=={'missing_plate':2,'representative':1,'undated':True}
+        assert record['scope_quality']=={'missing_plate':2,'representative':1,'undated':True,'unassigned_direct':0}
         monkeypatch.setattr(a,'_load',lambda:pytest.fail('details must not reload source'))
         action=a.answer(Incoming(GROUP_ID,123,2,None,'details',''))
         audit=a.answer(Incoming(GROUP_ID,123,3,None,'details','audit'))
@@ -1841,7 +1841,7 @@ def test_ftl_one_trip_per_distinct_booked_class_same_vehicle_day():
     assert unpriced['eligible_trips']==1 and any('unpriced_class' in h['reason'] for h in unpriced['held'])
 
 
-def test_blank_l_event_uses_same_day_raw_kg_only_when_unambiguous():
+def test_blank_l_event_uses_raw_kg_in_event_window_only_when_unambiguous():
     from ops_team.supra.vehicle_cost import vehicle_cost_by_day
     blank=book('SYN_BLANK',date='11/10/2026',do='D1');blank[8]=''
     other=book('SYN_BLANK',date='10/10/2026',do='D0');other[8]='9'
@@ -1849,9 +1849,13 @@ def test_blank_l_event_uses_same_day_raw_kg_only_when_unambiguous():
     data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='1500',date='2026-10-11',trip=124)])
     v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
     assert out['unresolved_ghn']==0 and Decimal(out['eligible_kg'])==4 and out['raw_weight_filled_events']==1
-    assert out['eligible_events'][0]['weight_source']=='RAW_DELIVER_SAME_DAY'
-    # Never borrows the other day's L (9 kg) and never uses Raw from another day.
+    assert out['eligible_events'][0]['weight_source']=='RAW_DELIVER_EVENT_WINDOW'
+    # Owner 29/10/2026: a later S load (before the GHN's next E day) counts for this event.
     data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-12')])
+    v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
+    assert out['unresolved_ghn']==0 and Decimal(out['eligible_kg'])==Decimal('2.5')
+    # Never borrows the other day's L (9 kg) and never uses a Raw load from before E.
+    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-10')])
     v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
     assert out['unresolved_ghn']==1 and 'missing_weight' in out['group_evidence'][0]['issues']
     # Repeated trip/plate key or invalid grams: ambiguous, stays held.
@@ -1907,7 +1911,7 @@ def test_drive_folder_import_reuses_pair_validation_and_rejects_mismatch_atomica
 
 
 def _raw_delivery(order,load,updated,ok='TRUE',trip=123):
-    r=dict(load_date=load,trip_code=trip,order_code=order,weight='1000',type='DELIVER',time_updated=updated,is_succeeded=ok,
+    r=dict(load_date=load,trip_code=trip,order_code=order,weight='1000',type='DELIVER',time_ket_thuc_chuyen=updated,is_succeeded=ok,
         truck_plate_number='99B12345',client_type='B2C')
     return [r.get(k,'') for k in RAW_HEADERS]
 
@@ -2128,3 +2132,18 @@ def test_invalid_l_is_reported_once_not_also_as_missing():
     data=parsed([bad],[event('SYN_BAD')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',{'handling_parts':[]})
     assert dc['group_evidence'][0]['issues']==['invalid_weight']
+
+
+def test_blank_raw_plate_on_direct_ghn_is_the_booking_truck_not_missing():
+    from ops_team.supra.vehicle_report import vehicle_scope_quality
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+    direct=book('SYN_DIRECT',mode=2,ag='99A12345');direct[8]='4'
+    data=parsed([direct],[event('SYN_DIRECT',pl='')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    assert v['quality'].get('missing_plate',0)==0 and v['quality']['unassigned_direct_rows']==1
+    assert vehicle_scope_quality(data,v,'2026-10-10')=={'missing_plate':0,'representative':0,'undated':False,'unassigned_direct':1}
+    dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
+    assert dc['unresolved_ghn']==0 and dc['counters']['two_leg_unresolved']==0 and dc['direct_excluded_ghn']==1
+    # A blank plate on a GHN that goes through the GXT hub is still a missing S plate.
+    hub=book('SYN_HUB',mode=0);data=parsed([hub],[event('SYN_HUB',pl='')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    assert v['quality']['missing_plate']==1 and v['quality'].get('unassigned_direct_rows',0)==0

@@ -5,29 +5,35 @@ from zoneinfo import ZoneInfo
 
 
 def raw_deliver_kg(pair):
-    """Owner rule 27/10/2026: kg per (GHN, Raw load day) from DELIVER grams/1000.
+    """Raw DELIVER rows per GHN: order -> [(load day, row, ref)] (owner rules 28-29/10/2026).
 
-    Only an unambiguous total is returned: every row valid, no repeated
-    trip/plate key. It fills an event whose Booking L is blank on all rows.
+    A Booking event with a blank L takes the GHN's Raw grams/1000 loaded from its
+    E day until the GHN's next E day (two-leg S loads can be later than E).
     """
-    from decimal import Decimal
-    from .booking_vehicles import RAW_HEADERS,day,plate
+    from .booking_vehicles import RAW_HEADERS,day
     from .booking_quantity import business_key,cell
-    from .booking_weight import parse_kg
     found=defaultdict(list)
     for row in pair['data_supra']['rows']:
         r=dict(zip(RAW_HEADERS,row['values']))
         if cell(r['type']).upper()!='DELIVER':continue
         order=business_key(r['order_code']);d=day(r['load_date'])
-        if not order or d is None:continue
-        found[(order,str(d))].append((r,f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}"))
-    result={}
-    for key,items in found.items():
-        weights=[parse_kg(r['weight']) for r,_ in items]
-        trips=[(business_key(r['trip_code']),plate(r['truck_plate_number'])) for r,_ in items]
-        if any(status!='VALID' for _,status in weights) or len(set(trips))!=len(trips):continue
-        result[key]=(sum((kg for kg,_ in weights),Decimal(0))/Decimal(1000),[ref for _,ref in items])
-    return result
+        if order and d is not None:
+            found[order].append((d,r,f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}"))
+    return found
+
+
+def raw_event_kg(found,order,start,until):
+    """Unambiguous kg for loads in [start, until): every row valid, no repeated day/trip/plate."""
+    from decimal import Decimal
+    from .booking_vehicles import plate
+    from .booking_quantity import business_key
+    from .booking_weight import parse_kg
+    items=[(d,r,ref) for d,r,ref in found.get(order,[]) if d>=start and (until is None or d<until)]
+    if not items:return None
+    weights=[parse_kg(r['weight']) for _,r,_ in items]
+    keys=[(d,business_key(r['trip_code']),plate(r['truck_plate_number'])) for d,r,_ in items]
+    if any(status!='VALID' for _,status in weights) or len(set(keys))!=len(keys):return None
+    return sum((kg for kg,_ in weights),Decimal(0))/Decimal(1000),[ref for _,_,ref in items]
 
 
 def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
@@ -62,6 +68,10 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
     counters={k:0 for k in ('partial_scope','unknown_routing','mixed_routing','unknown_rate','mixed_rate','missing_weight','invalid_weight','conflicting_weight','two_leg_unresolved')}
     buckets={r['rate_id']:dict(rate_vnd_per_kg=r['vnd_per_kg'],effective_from=r['from'],effective_to=r['to'],eligible_ghn=0,eligible_kg=Decimal(0),eligible_vnd=Decimal(0),sources=[]) for r in catalog['rates']}
     held=[];eligible=[];direct=0;issuesrc=[];raw_kg=raw_deliver_kg(pair);raw_filled=0
+    booking_days=defaultdict(set)
+    for r in data.rows.to_dict('records'):
+        if r['order_id'] and (x:=day(r['dispatch_date'])) is not None:booking_days[r['order_id']].add(x)
+    booking_days={k:sorted(v) for k,v in booking_days.items()}
     with localcontext() as ctx:
         ctx.prec=140
         for key,rows in sorted(events.items()):
@@ -80,8 +90,11 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             weights=[parse_kg(r['source_ghn_weight']) for r in rows];values={v for v,s in weights if s=='VALID'}
             if any(s=='INVALID' for v,s in weights):issues.append('invalid_weight')
             override=exception.get(key);filled=None
-            if not values and all(s=='MISSING' for v,s in weights) and not override and key in raw_kg:
-                filled=raw_kg[key];values={filled[0]}
+            if not values and all(s=='MISSING' for v,s in weights) and not override:
+                booked=booking_days.get(key[0],[]);event_day=day(key[1])
+                later=[x for x in booked if x>event_day]
+                filled=raw_event_kg(raw_kg,key[0],event_day,later[0] if later else None)
+                if filled:values={filled[0]}
             if not values and 'invalid_weight' not in issues:issues.append('missing_weight')
             if len(values)>1 and not override:issues.append('conflicting_weight')
             if override and {r['_source'] for r,(v,s) in zip(rows,weights) if s=='VALID'}!=set(override['sources']):issues.append('conflicting_weight')
@@ -94,7 +107,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             b['eligible_ghn']+=1;b['eligible_kg']+=kg;b['eligible_vnd']+=amount;b['sources']+=refs
             if filled:raw_filled+=1;b['sources']+=filled[1]
             eligible.append(dict(order_id=key[0],day=key[1],sources=refs+(filled[1] if filled else []),kg=str(kg),amount_vnd=str(amount),rate_id=rate['rate_id'],
-                weight_source='RAW_DELIVER_SAME_DAY' if filled else 'BOOKING_L'))
+                weight_source='RAW_DELIVER_EVENT_WINDOW' if filled else 'BOOKING_L'))
         accepted=[b for b in buckets.values() if b['eligible_ghn']]
         known=bool(accepted) or bool(direct and not held and not unassigned)
         total=str(sum((b['eligible_vnd'] for b in accepted),Decimal(0))) if known else None

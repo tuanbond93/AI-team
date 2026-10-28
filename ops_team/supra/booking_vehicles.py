@@ -18,6 +18,15 @@ BOOK_HEADERS_V2=BOOK_HEADERS+['Ghi chú 2']
 OPENING_NOTE=re.compile(r'(?<![A-Za-zÀ-ỹĐđ])(?:CHKT|KT)(?![A-Za-zÀ-ỹĐđ])|khai\s*tr(?:ươ|uo)ng',re.I)
 
 
+# Owner 28/10/2026: a Raw DELIVER row with a blank plate on a direct-delivery GHN is the
+# Booking AG truck itself; staff tick "không gán giao" so no GXT wage is attributed.
+DIRECT_MODES={'GXT_DIRECT','NCC_DIRECT','LAI_CHAU_DIRECT'}
+
+
+def unassigned_direct(order_rows,catalog,when):
+    return bool(order_rows) and when is not None and all(classify(r,catalog,when) in DIRECT_MODES for r in order_rows)
+
+
 def is_opening_note(value):
     """KT/CHKT as a standalone token (KT24.10 yes, KTX no) or 'khai trương' in Ghi chú 2."""
     import unicodedata
@@ -157,14 +166,15 @@ def vehicle_evidence(data,period,cutoff):
         if d:all_days.append(d)
         if d is not None and (d.strftime('%Y-%m')!=period or d>cutoff.date()):continue
         qc['deliver_rows']+=1
-        problems=[]
-        for flag,bad in (('missing_date',d is None),('missing_plate',not pl),('missing_order',not order),('missing_trip',not trip),('invalid_weight',status!='VALID')):
+        problems=[];direct_blank=not pl and bool(order) and unassigned_direct(by_order.get(order,[]),c,d)
+        if direct_blank:qc['unassigned_direct_rows']+=1
+        for flag,bad in (('missing_date',d is None),('missing_plate',not pl and not direct_blank),('missing_order',not order),('missing_trip',not trip),('invalid_weight',status!='VALID')):
             if bad:qc[flag]+=1;problems.append(flag)
         if pl in representatives:qc['representative_rows']+=1;problems.append('representative')
         key=(d,trip,order,pl,'DELIVER')
         if d and trip and order and pl:keys[key]+=1
         events.append(dict(day=d,plate=pl,order=order,trip=trip,kg=kg,supra=order in all_cs if order else None,
-            key=key,issues=problems,source=f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}",raw_row=row['sheet_row']))
+            key=key,issues=problems,source=f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}",raw_row=row['sheet_row'],unassigned_direct=direct_blank))
     groups=defaultdict(list);inventory=defaultdict(lambda:dict(roles=set(),sources=set(),capacities=set(),booking_capacity_raw=set()))
     mappings=[];mode_q=Counter();role_assets=defaultdict(set)
     def asset(pl,role,ref,capacity=None):
@@ -194,11 +204,11 @@ def vehicle_evidence(data,period,cutoff):
         if mode in ('NCC_DIRECT','LAI_CHAU_DIRECT','TRANSFER_REP_LASTMILE'):
             if e['plate'] not in representatives:flags.append('expected_representative_mismatch')
         elif mode=='GXT_DIRECT':
-            if len(ags)!=1 or e['plate'] not in ags:flags.append('direct_vehicle_mismatch')
+            if not e['unassigned_direct'] and (len(ags)!=1 or e['plate'] not in ags):flags.append('direct_vehicle_mismatch')
         elif mode=='TRANSFER_GXT':
             asset(e['plate'],'GXT_LASTMILE',e['source'])
         for f in flags:mode_q[f]+=1
-        mappings.append(dict(order=e['order'],day=e['day'],raw_plate=e['plate'],booking_plates=sorted(ags),mode=mode,flags=flags,source=e['source']))
+        mappings.append(dict(order=e['order'],day=e['day'],raw_plate=e['plate'],booking_plates=sorted(ags),mode=mode,flags=flags,source=e['source'],unassigned_direct=e['unassigned_direct']))
     daily=[]
     with localcontext() as ctx:
         ctx.prec=100

@@ -4,7 +4,7 @@ from decimal import Decimal,localcontext
 import hashlib,json
 from .booking_handling import geography
 from .booking_quantity import quantity_summary,business_key,cell
-from .booking_vehicles import RAW_HEADERS,day,plate
+from .booking_vehicles import RAW_HEADERS,DIRECT_MODES,day,plate
 from ..telegram_cost_overlay import FILENAME,validate_overlay
 from ..telegram_manual_cost_policy import FILENAME as BASE_FILENAME
 from ..telegram_vehicle_forecast import FILENAME as FORECAST_FILENAME
@@ -66,7 +66,7 @@ def calculate_overlay(data,evidence,report,base,config,sha):
         if cell(r['type']).upper()!='DELIVER' or not d or not start<=str(d)<=end or plate(r['truck_plate_number']):continue
         order=business_key(r['order_code']);related=orders.get(order,[])
         resolved=[_rule(x,catalog,d) for x in related]
-        if resolved and all(rule is not None and rule['rule_id'] in selectors for rule in resolved):
+        if resolved and all(rule is not None and rule['rule_id'] in selectors for rule in resolved) and not all(rule['mode'] in DIRECT_MODES for rule in resolved):
             missing_gxt+=1;missing_refs.append(f"Raw#{data.vehicle_pair['raw_digest'][:12]} dòng {row['sheet_row']}")
     exclusion=config.get('scope_exclusions')
     applies=bool(exclusion and exclusion['window']['start']<=start<=end<=exclusion['window']['end'])

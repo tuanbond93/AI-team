@@ -39,7 +39,7 @@ def booking_intake(r):
         elif h.get('reason')=='OWNER_RULES_INVALID_OR_STALE':
             lines.append('Quy tắc bốc xếp owner đã cài không còn khớp nguồn/cấu hình hiện tại nên bốc xếp để N/A, không dùng cách tính cũ. Cần nạp lại quy tắc cho đúng bản nguồn.')
         if h.get('raw_weight_filled_events') and h.get('eligible_vnd') is not None:
-            lines.append(str(h['raw_weight_filled_events'])+' đợt trống cột L được lấy kg từ Raw cùng GHN, cùng ngày (gram/1.000) theo quy tắc owner.')
+            lines.append(str(h['raw_weight_filled_events'])+' đợt trống cột L được lấy kg từ Raw cùng GHN, từ ngày xuất tới trước lần xuất kế tiếp (gram/1.000) theo quy tắc owner.')
         for b in r['handling_rate_buckets']:
             if b['eligible_ghn']:lines.append('• '+b['rate_vnd_per_kg']+'đ/kg: '+display(b['eligible_kg'],'kg')+' kg → '+display(b['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản.')
     lines+=['Tổng doanh thu B2B: N/A. Tổng chi phí và lãi lỗ: N/A; chưa đủ doanh thu và chi phí các chặng. Bốc xếp riêng chưa là tiền nghiệm thu/thanh toán.','CẦN ĐỐI CHIẾU:']
@@ -138,7 +138,13 @@ def vehicle_scope_quality(data,v,text=''):
     scope=vehicle_scope(v,text);start=day(scope['start']);end=day(scope['end'])
     representatives={plate(p) for p in pair['vehicle_catalog']['representative_plates']}
     date_i=RAW_HEADERS.index('load_date');type_i=RAW_HEADERS.index('type');plate_i=RAW_HEADERS.index('truck_plate_number')
-    result={'missing_plate':0,'representative':0,'undated':False}
+    from .booking_vehicles import unassigned_direct
+    from .booking_quantity import business_key
+    orders={}
+    for r in data.rows.to_dict('records'):
+        if r['order_id']:orders.setdefault(r['order_id'],[]).append(r)
+    order_i=RAW_HEADERS.index('order_code')
+    result={'missing_plate':0,'representative':0,'undated':False,'unassigned_direct':0}
     for row in pair['data_supra']['rows']:
         cells=row['values']
         if cell(cells[type_i]).upper()!='DELIVER':continue
@@ -146,7 +152,8 @@ def vehicle_scope_quality(data,v,text=''):
         if d is None:result['undated']=True;continue
         if start is None or end is None or not start<=d<=end:continue
         pl=plate(cells[plate_i])
-        if not pl:result['missing_plate']+=1
+        if not pl and unassigned_direct(orders.get(business_key(cells[order_i]),[]),pair['vehicle_catalog'],d):result['unassigned_direct']+=1
+        elif not pl:result['missing_plate']+=1
         elif pl in representatives:result['representative']+=1
     return result
 

@@ -1,12 +1,12 @@
-"""Delivery SLA by owner rule (28/10/2026); code-only, no inference from Booking status.
+"""Delivery SLA by owner rule (28/10/2026; delivery time = time_ket_thuc_chuyen, owner 29/10/2026); code-only, no inference from Booking status.
 
 Deadline: Booking E date + D days, until 23:59 Asia/Ho_Chi_Minh. D=1 for
 Phú Thọ, D=2 for Sơn La, Điện Biên, Lai Châu; other provinces have no rule.
-Actual: latest ``time_updated`` of Raw DELIVER rows with ``is_succeeded`` true
+Actual: latest ``time_ket_thuc_chuyen`` of Raw DELIVER rows with ``is_succeeded`` true
 for that GHN, loaded from the E day until the GHN's next E day. Missing or
 unreadable evidence is held (N/A), never counted on time or late.
 
-If ``time_updated`` is a batch stamp rather than a delivery time (one exact
+If ``time_ket_thuc_chuyen`` is a batch stamp rather than a delivery time (one exact
 moment shared by succeeded rows of several load days and a large share of the
 source), the whole SLA is N/A until the owner names the delivery-time column.
 """
@@ -27,13 +27,13 @@ BATCH_MIN_LOAD_DAYS, BATCH_MIN_SHARE, BATCH_MIN_ROWS = 3, 0.2, 10
 
 
 def batch_stamp(raw_rows):
-    """The shared ``time_updated`` of succeeded DELIVER rows when it is a batch stamp, else None."""
+    """The shared ``time_ket_thuc_chuyen`` of succeeded DELIVER rows when it is a batch stamp, else None."""
     by_moment = defaultdict(lambda: [0, set()])
     total = 0
     for r in raw_rows:
         if cell(r['type']).upper() != 'DELIVER' or cell(r['is_succeeded']).casefold() not in TRUE:
             continue
-        moment = _moment(r['time_updated'])
+        moment = _moment(r['time_ket_thuc_chuyen'])
         if moment is None:
             continue
         total += 1
@@ -108,7 +108,7 @@ def sla_summary(data, start, end, now):
                 problems.add('unknown_success_flag')
                 raw_refs.append(ref)
                 continue
-            moment = _moment(r['time_updated'])
+            moment = _moment(r['time_ket_thuc_chuyen'])
             if moment is None:
                 problems.add('invalid_delivery_time')
             else:
@@ -139,17 +139,17 @@ def render_sla(result, start, end):
     if (stamp := result.get('batch_stamp')):
         when = stamp['moment'][:16].replace('T', ' ')
         return '\n'.join([
-            f"Kết luận SLA {span}: N/A — cột time_updated của Raw chưa phải giờ giao: {stamp['rows']}/{stamp['total']} dòng giao thành công "
+            f"Kết luận SLA {span}: N/A — cột time_ket_thuc_chuyen của Raw chưa phải giờ giao: {stamp['rows']}/{stamp['total']} dòng giao thành công "
             f"của {stamp['load_days']} ngày load khác nhau có cùng một mốc {when} (giờ cập nhật hàng loạt). Em chưa tính đúng/trễ hạn.",
-            'Việc cần làm: anh chọn cột giờ giao thực tế trong Raw (ví dụ giờ kết thúc chuyến), hoặc yêu cầu Raw ghi giờ giao từng dòng.'])
+            'Việc cần làm: yêu cầu Raw ghi giờ kết thúc chuyến thật cho từng dòng giao; em không tự đổi sang cột khác.'])
     rate = 'N/A' if result['on_time_rate'] is None else f"{result['on_time_rate']*100:.1f}".replace('.', ',')+'%'
     head = (f"Kết luận SLA {span}: đúng hạn {rate} trên {result['on_time']+result['late']} đợt đo được "
             f"({result['on_time']} đúng hạn, {result['late']} trễ); {result['pending']} đợt chưa tới hạn.")
     if result['held']:
         head += f" {len(result['held'])} đợt chưa đo được, không tính vào tỷ lệ."
-    lines = [head, 'Quy tắc: Phú Thọ D+1; Sơn La, Điện Biên, Lai Châu D+2, tính từ ngày xuất (cột E) đến 23:59; giờ giao lấy time_updated của dòng Raw DELIVER thành công.']
+    lines = [head, 'Quy tắc: Phú Thọ D+1; Sơn La, Điện Biên, Lai Châu D+2, tính từ ngày xuất (cột E) đến 23:59; giờ giao lấy time_ket_thuc_chuyen của dòng Raw DELIVER thành công.']
     labels = {'no_sla_rule': 'Tỉnh chưa có quy tắc SLA', 'no_successful_delivery_record': 'Quá hạn nhưng Raw chưa có dòng giao thành công',
-              'invalid_delivery_time': 'Giờ giao (time_updated) sai định dạng', 'unknown_success_flag': 'Cột is_succeeded không rõ đúng/sai'}
+              'invalid_delivery_time': 'Giờ giao (time_ket_thuc_chuyen) sai định dạng', 'unknown_success_flag': 'Cột is_succeeded không rõ đúng/sai'}
     grouped = defaultdict(list)
     for item in result['held']:
         for code in item['reason'].split(','):

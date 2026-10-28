@@ -146,3 +146,6 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | C7 | VAT 8% cho doanh thu và cước NCC | 28/10/2026 | Có: dòng đối chiếu hóa đơn trong tổng dự kiến |
 | C8 | Chưa có mẫu; kế toán gửi cuối tháng | 28/10/2026 | Chờ file đầu tiên |
 | Tháng | A — giữ nguyên giá/quy tắc sang tháng sau, nhắc xác nhận | 28/10/2026 | Có: chuyển tháng tự động + `/giugia` |
+| R1 | Raw DELIVER trống biển = xe đi thẳng (nhân viên bấm "không gán giao") | 29/10/2026 | Có: GHN giao thẳng (GXT/NCC/Lai Châu) trống biển = xe AG tự giao, không thiếu biển, không hai chặng; GHN trung chuyển GXT vẫn báo thiếu |
+| R2 | SLA lấy `time_ket_thuc_chuyen` | 29/10/2026 | Có |
+| R3 | Kg Raw cho đợt trống L: từ ngày xuất tới trước lần xuất kế tiếp | 29/10/2026 | Có |

@@ -28,6 +28,8 @@ def direct_gxt_resolver(data,evidence,policy=None):
         until=str(later[0]) if later else None
         ag=next(iter(vehicles))
         observed=[m for m in mappings.get(order,[]) if m['day'] is not None and str(m['day'])>=str(d) and (until is None or str(m['day'])<until)]
+        if observed and all(m.get('unassigned_direct') for m in observed):
+            cache[key]='DIRECT_SAME_VEHICLE';return 'DIRECT_SAME_VEHICLE'
         locations={(str(m['day']),m['raw_plate']) for m in observed}
         if not observed or len(locations)!=1:
             cache[key]=result;return result
