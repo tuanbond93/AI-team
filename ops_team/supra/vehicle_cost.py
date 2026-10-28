@@ -82,7 +82,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             override=exception.get(key);filled=None
             if not values and all(s=='MISSING' for v,s in weights) and not override and key in raw_kg:
                 filled=raw_kg[key];values={filled[0]}
-            if not values:issues.append('missing_weight')
+            if not values and 'invalid_weight' not in issues:issues.append('missing_weight')
             if len(values)>1 and not override:issues.append('conflicting_weight')
             if override and {r['_source'] for r,(v,s) in zip(rows,weights) if s=='VALID'}!=set(override['sources']):issues.append('conflicting_weight')
             if issues:

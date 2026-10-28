@@ -97,17 +97,25 @@ def missing_checklist(report):
         items.append(f'• Cước NCC chưa có cho {route["district"]} ({route["orders"]} GHN). Cần: biểu giá NCC hoặc nhật trình km.')
     g = report['gxt']
     if g.get('held'):
-        items.append(f'• Xe GXT/ngày chưa đủ khóa xe, ngày hoặc kg — {_rows_text(sum((h.get("sources", []) for h in g["held"]), []))}. Cần: biển S, ngày load và kg của chuyến.')
+        labels = {'direct_vehicle_mismatch': 'giao thẳng chưa khớp xe S với AG', 'raw_group_quality': 'Raw lỗi (thiếu chuyến, kg hoặc trùng dòng)',
+                  'mixed_or_unknown_role': 'xe chở lẫn đơn BC/FTL/không rõ mô hình', 'duplicate_order_or_unconfirmed_route_or_weight': 'đơn chưa rõ tuyến/kg',
+                  'source_weight_mismatch': 'kg Supra không khớp tổng xe', 'opening_ftl_shared_vehicle_day': 'đi chung đơn khai trương',
+                  'multiple_booking_vehicles': 'một GHN nhiều xe AG', 'missing_booking_vehicle': 'thiếu biển AG',
+                  'unknown_or_conflicting_mode': 'mô hình giao chưa rõ'}
+        why = ', '.join(f'{n} nhóm {labels.get(k, k)}' for k, n in sorted(g.get('issue_counts', {}).items(), key=lambda x: -x[1]) if n)
+        items.append(f'• {len(g["held"])} xe GXT/ngày chưa tính được' + (f' ({why})' if why else '') +
+                     f' — {_rows_text(sum((h.get("sources", []) for h in g["held"]), []))}. Cần: biển S, ngày load, kg chuyến; xe chở lẫn BC/GXT thì owner xác nhận cách tính.')
     quality = g.get('unassigned_quality') or {}
-    if quality.get('missing_plate'):
+    overlay = report.get('overlay') or {}
+    if quality.get('missing_plate') and not overlay.get('missing_s_gxt_sources'):
         items.append(f'• {quality["missing_plate"]} dòng Raw DELIVER thiếu/sai biển xe. Cần: biển S thực chở; không suy từ biển AG.')
     if quality.get('representative'):
         items.append(f'• {quality["representative"]} dòng Raw DELIVER dùng biển đại diện, chưa biết xe thật. Cần: biển S thực chở.')
-    overlay = report.get('overlay') or {}
     if overlay.get('missing_s_gxt_sources'):
-        items.append(f'• Dòng GXT thiếu biển S — {_rows_text(overlay["missing_s_gxt_sources"])}. Cần: biển S thực chở.')
+        total = f' Toàn Raw có {quality["missing_plate"]} dòng DELIVER thiếu biển, gồm cả đơn không thuộc chi phí GXT Supra.' if quality.get('missing_plate') else ''
+        items.append(f'• Đơn Supra GXT thiếu biển S trên Raw — {_rows_text(overlay["missing_s_gxt_sources"])}. Cần: biển S thực chở; không suy từ biển AG.{total}')
     if report.get('opening_unpriced_events'):
-        items.append(f'• {report["opening_unpriced_events"]} đợt khai trương FTL 8T chưa có km thực tế và đơn giá. Cần: nhật trình km và giá FTL đã duyệt cho đơn đó.')
+        items.append(f'• {report["opening_unpriced_events"]} đợt khai trương (FTL theo loại tải Booking) chưa có km thực tế và đơn giá. Cần: nhật trình km và giá FTL đã duyệt cho đơn đó.')
     remote = report.get('remote')
     if remote and remote.get('km_extra_vnd') is None:
         items.append('• Phí km NCC vùng xa chưa có. Cần: nhật trình km và đơn giá km theo hợp đồng.')

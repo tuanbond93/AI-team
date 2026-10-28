@@ -970,7 +970,10 @@ def test_direct_two_legs_only_unambiguous_gxt_and_opening_ftl_remains_unpriced(t
         data=parsed([book('SYN_DIRECT',mode=2),other],[event('SYN_DIRECT',pl='99B12345')])
         v=vehicle_evidence(data,'2026-10',CUTOFF)
         revised=_calculate(data,v,policy,scope,'a'*64,vehicle_cost_status(data,v,'2026-10-10'),{'available':False},rules,'b'*64)
-        assert revised['gxt']['eligible_vehicle_days']==0
+        # Event grain: the 10/10 Raw S leg belongs to the 10/10 booking; the 09/10 booking has no leg and stays held.
+        assert revised['gxt']['eligible_vehicle_days']==1
+        held=vehicle_cost_by_day(data,v,'2026-10-09 2026-10-10',rules)
+        assert held['unresolved_ghn']==1 and held['group_evidence'][0]['day']=='2026-10-09'
         bc=book('SYN_OPEN',mode=1);gxt=book('SYN_GXT',mode=0)
         data=parsed([bc,gxt],[event('SYN_OPEN',pl='99B12345'),event('SYN_GXT',pl='99B12345',trip=124)])
         v=vehicle_evidence(data,'2026-10',CUTOFF);before=deepcopy(v)
@@ -1001,7 +1004,8 @@ def test_two_leg_direct_gxt_uses_same_guard_for_dc_and_last_mile(tmp_path):
         next_day=book('SYN_ROUTE',mode=2,ag='99A12345',date='11/10/2026',do='D2');next_day[8]=''
         data=parsed([booking,next_day],[event('SYN_ROUTE',pl='99B12345')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
         dc=vehicle_cost_by_day(data,v,'2026-10-10 2026-10-11',rules)
-        assert dc['eligible_vnd'] is None and dc['direct_excluded_ghn']==0
+        # Per GHN/day event: 10/10 resolves to two legs; 11/10 has no Raw leg and no L, so only it is held.
+        assert Decimal(dc['eligible_vnd'])==250 and dc['component_vnd'] is None and dc['direct_excluded_ghn']==0
         assert any('missing_weight' in x['issues'] and x['day']=='2026-10-11' for x in dc['group_evidence'])
         policy=synthetic_cost_policy(cfg);policy['selectors']['point_bc'].append('V0');policy['selectors']['gxt'].remove('V0')
         data=parsed([booking,book('SYN_BC_PHYSICAL',mode=0)],[event('SYN_ROUTE',pl='99B12345'),event('SYN_BC_PHYSICAL',pl='99B12345',trip=124)])
@@ -2076,3 +2080,27 @@ def test_assistant_rolls_once_when_report_period_moves_to_next_month(tmp_path):
         assert a.answer(Incoming(GROUP_ID,123,1,None,'giugia','')).startswith('Đã xác nhận giữ nguyên giá và quy tắc cho tháng 11/2026')
         assert 'Không có tháng nào' in a.answer(Incoming(GROUP_ID,123,2,None,'giugia',''))
     finally:state.close()
+
+
+def test_two_leg_resolves_each_booking_day_of_a_multi_day_ghn(tmp_path):
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+    d1=book('SYN_MULTI',mode=2,ag='99A12345',date='10/10/2026',do='D1');d1[8]='4'
+    d2=book('SYN_MULTI',mode=2,ag='99C12345',date='12/10/2026',do='D2');d2[8]='6'
+    raws=[event('SYN_MULTI',pl='99B12345',date='2026-10-10'),event('SYN_MULTI',pl='99D12345',date='2026-10-12',trip=124)]
+    data=parsed([d1,d2],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-10 2026-10-12',rules)
+    assert dc['unresolved_ghn']==0 and dc['eligible_transfer_ghn']==2 and Decimal(dc['eligible_kg'])==10
+    # A Raw leg loaded before the Booking day never counts for that event.
+    raws=[event('SYN_MULTI',pl='99B12345',date='2026-10-09'),event('SYN_MULTI',pl='99D12345',date='2026-10-12',trip=124)]
+    data=parsed([d1,d2],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-09 2026-10-12',rules)
+    assert dc['unresolved_ghn']==1 and dc['group_evidence'][0]['day']=='2026-10-10'
+
+
+def test_invalid_l_is_reported_once_not_also_as_missing():
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    bad=book('SYN_BAD',date='10/10/2026');bad[8]='#REF!'
+    data=parsed([bad],[event('SYN_BAD')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-10',{'handling_parts':[]})
+    assert dc['group_evidence'][0]['issues']==['invalid_weight']

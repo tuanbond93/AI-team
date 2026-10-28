@@ -307,11 +307,13 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
         flags = set(mapping['flags'])
         if mapping['mode'] == 'TRANSFER_GXT':
             flags.discard('multiple_booking_vehicles')
-        if rules and mapping['mode']=='GXT_DIRECT' and 'direct_vehicle_mismatch' in flags:
+        if rules and mapping['mode']=='GXT_DIRECT' and flags & {'direct_vehicle_mismatch','multiple_booking_vehicles'}:
+            # The Raw leg belongs to the GHN's latest Booking day on or before its load day.
             related=orders.get(mapping['order'],[])
-            dates={str(r['dispatch_date']) for r in related if r['dispatch_date'] is not None and r['dispatch_date']==r['dispatch_date']}
-            if len(dates)==1 and resolve_direct(mapping['order'],next(iter(dates)))=='TWO_LEGS':
-                flags.discard('direct_vehicle_mismatch')
+            dates=sorted({str(r['dispatch_date']) for r in related if r['dispatch_date'] is not None and r['dispatch_date']==r['dispatch_date']})
+            booked=[x for x in dates if mapping['day'] is not None and x<=str(mapping['day'])]
+            if booked and resolve_direct(mapping['order'],booked[-1])=='TWO_LEGS':
+                flags-={'direct_vehicle_mismatch','multiple_booking_vehicles'}
         return flags
     for group in evidence['groups']:
         if not start <= group['day'] <= end:

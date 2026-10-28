@@ -16,19 +16,24 @@ def direct_gxt_resolver(data,evidence,policy=None):
     def resolve(order,booking_day):
         key=(order,str(booking_day))
         if key in cache:return cache[key]
-        result='UNKNOWN';rows=orders.get(order,[]);d=day(booking_day)
+        result='UNKNOWN';d=day(booking_day);everything=orders.get(order,[])
+        # Event scope (owner grain GHN + Booking E day): a GHN booked on several days is
+        # resolved per day; its Raw legs are those loaded from E until its next E day.
+        rows=[r for r in everything if day(r['dispatch_date'])==d]
         if not rows or d is None:cache[key]=result;return result
-        dates={str(r['dispatch_date']) for r in rows if r['dispatch_date'] is not None and r['dispatch_date']==r['dispatch_date']}
         vehicles={plate(r.get('source_booking_plate','')) for r in rows}
-        if dates!={str(d)} or len(vehicles)!=1 or '' in vehicles or any(classify(r,catalog,d)!='GXT_DIRECT' for r in rows):
+        if len(vehicles)!=1 or '' in vehicles or any(classify(r,catalog,d)!='GXT_DIRECT' for r in rows):
             cache[key]=result;return result
-        ag=next(iter(vehicles));observed=mappings.get(order,[])
+        later=sorted({x for r in everything if (x:=day(r['dispatch_date'])) is not None and x>d})
+        until=str(later[0]) if later else None
+        ag=next(iter(vehicles))
+        observed=[m for m in mappings.get(order,[]) if m['day'] is not None and str(m['day'])>=str(d) and (until is None or str(m['day'])<until)]
         locations={(str(m['day']),m['raw_plate']) for m in observed}
         if not observed or len(locations)!=1:
             cache[key]=result;return result
         raw_day,raw_plate=next(iter(locations));group=groups.get((raw_day,raw_plate))
         if (not raw_plate or raw_day<str(d) or not group or group.get('share') is None or
-                any(m['mode']!='GXT_DIRECT' or set(m['flags'])-{'direct_vehicle_mismatch'} or m['booking_plates']!=[ag] for m in observed) or
+                any(m['mode']!='GXT_DIRECT' or set(m['flags'])-{'direct_vehicle_mismatch','multiple_booking_vehicles'} or ag not in m['booking_plates'] for m in observed) or
                 any(m['mode'] not in ('GXT_DIRECT','TRANSFER_GXT') or 'unknown_or_conflicting_mode' in m['flags'] for m in by_vehicle[(raw_day,raw_plate)])):
             cache[key]=result;return result
         if policy is not None:
