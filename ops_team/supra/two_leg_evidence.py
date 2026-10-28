@@ -34,22 +34,28 @@ def direct_gxt_resolver(data,evidence,policy=None):
         observed=[m for m in mappings.get(order,[]) if m['day'] is not None and str(m['day'])>=str(d) and (until is None or str(m['day'])<until)]
         if observed and all(m.get('unassigned_direct') for m in observed):return done(key,'DIRECT_SAME_VEHICLE')
         if not observed:return done(key,'UNKNOWN','no_raw_deliver_in_window')
+        observed=[m for m in observed if not m.get('unassigned_direct')]
         locations={(str(m['day']),m['raw_plate']) for m in observed}
-        if len(locations)!=1:return done(key,'UNKNOWN','several_raw_trucks_or_days')
-        raw_day,raw_plate=next(iter(locations));group=groups.get((raw_day,raw_plate))
-        if not raw_plate:return done(key,'UNKNOWN','raw_plate_missing')
-        if not group or group.get('share') is None:return done(key,'UNKNOWN','raw_truck_day_data_issue')
+        if any(not raw_plate for _,raw_plate in locations):return done(key,'UNKNOWN','raw_plate_missing')
         if any(m['mode']!='GXT_DIRECT' or set(m['flags'])-{'direct_vehicle_mismatch','multiple_booking_vehicles'} or ag not in m['booking_plates'] for m in observed):
             return done(key,'UNKNOWN','raw_mapping_flags')
-        if any(m['mode'] not in ('GXT_DIRECT','TRANSFER_GXT') or 'unknown_or_conflicting_mode' in m['flags'] for m in by_vehicle[(raw_day,raw_plate)]):
-            return done(key,'UNKNOWN','s_truck_shared_with_other_mode')
-        if policy is not None:
-            from .manual_cost_report import _rule
-            gxt_rules=set(policy['selectors']['gxt'])
-            for mapping in by_vehicle[(raw_day,raw_plate)]:
-                related=orders.get(mapping['order'],[])
-                if not related or any(not (route:=_rule(row,catalog,day(raw_day))) or route['rule_id'] not in gxt_rules for row in related):
-                    return done(key,'UNKNOWN','s_truck_route_outside_gxt_policy')
-        return done(key,'DIRECT_SAME_VEHICLE' if raw_plate==ag else 'TWO_LEGS')
+        # Owner C4 (28/10/2026): one event may be delivered by several S trucks/days; each S
+        # truck/day must pass the same checks, and all must agree (all S != AG, or all S == AG).
+        for raw_day,raw_plate in sorted(locations):
+            group=groups.get((raw_day,raw_plate))
+            if not group or group.get('share') is None:return done(key,'UNKNOWN','raw_truck_day_data_issue')
+            if any(m['mode'] not in ('GXT_DIRECT','TRANSFER_GXT') or 'unknown_or_conflicting_mode' in m['flags'] for m in by_vehicle[(raw_day,raw_plate)]):
+                return done(key,'UNKNOWN','s_truck_shared_with_other_mode')
+            if policy is not None:
+                from .manual_cost_report import _rule
+                gxt_rules=set(policy['selectors']['gxt'])
+                for mapping in by_vehicle[(raw_day,raw_plate)]:
+                    related=orders.get(mapping['order'],[])
+                    if not related or any(not (route:=_rule(row,catalog,day(raw_day))) or route['rule_id'] not in gxt_rules for row in related):
+                        return done(key,'UNKNOWN','s_truck_route_outside_gxt_policy')
+        same={raw_plate==ag for _,raw_plate in locations}
+        if same=={True}:return done(key,'DIRECT_SAME_VEHICLE')
+        if same=={False}:return done(key,'TWO_LEGS')
+        return done(key,'UNKNOWN','mixed_ag_and_other_s_trucks')
     resolve.reasons=reasons
     return resolve

@@ -2157,8 +2157,19 @@ def test_two_leg_unresolved_reports_reason_per_event():
     raws=[event('SYN_TWO',pl='99B12345'),event('SYN_TWO',pl='99C12345',trip=124)]
     data=parsed([a,b],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
-    assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1,'several_raw_trucks_or_days':1}
+    # Owner C4: SYN_TWO on two S trucks (both != AG) is two legs; SYN_NORAW has no Raw leg.
+    assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1} and dc['eligible_transfer_ghn']==1
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-10'}}
     text=missing_checklist(report)[1]
-    assert '(theo đợt: 1 Raw chưa có dòng giao trong khoảng của đợt, 1 GHN giao bằng nhiều xe S hoặc nhiều ngày)' in text
+    assert 'Đơn giao thẳng GXT chưa có dòng Raw DELIVER từ ngày xuất tới lần xuất kế tiếp — 1 đợt, ngày 10/10/2026:' in text
+    assert 'Chưa khớp được xe Raw' not in text
+
+
+def test_event_on_ag_and_another_s_truck_is_held_as_mixed():
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+    b=book('SYN_MIX',mode=2,ag='99A12345')
+    data=parsed([b],[event('SYN_MIX',pl='99A12345'),event('SYN_MIX',pl='99B12345',trip=124)]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
+    assert dc['two_leg_reasons']=={'mixed_ag_and_other_s_trucks':1}

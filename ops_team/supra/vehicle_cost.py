@@ -83,7 +83,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
                 resolution=resolve_direct(key[0],key[1])
                 if resolution=='TWO_LEGS':modes={'TRANSFER'}
                 elif resolution!='DIRECT_SAME_VEHICLE':
-                    issues.append('two_leg_unresolved');two_leg_reasons[resolve_direct.reasons.get(key,'unknown')]+=1
+                    issues.append('two_leg_unresolved');reason=resolve_direct.reasons.get(key,'unknown');two_leg_reasons[reason]+=1
             if not issues and modes=={'DIRECT'}:
                 direct+=1;continue
             matches=[r for r in catalog['rates'] if r['from']<=key[1]<=r['to']]
@@ -100,7 +100,8 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             if len(values)>1 and not override:issues.append('conflicting_weight')
             if override and {r['_source'] for r,(v,s) in zip(rows,weights) if s=='VALID'}!=set(override['sources']):issues.append('conflicting_weight')
             if issues:
-                held.append(dict(order_id=key[0],day=key[1],issues=sorted(set(issues)),sources=refs));issuesrc+=refs
+                held.append(dict(order_id=key[0],day=key[1],issues=sorted(set(issues)),sources=refs,
+                    **({'two_leg_reason':resolve_direct.reasons.get(key,'unknown')} if 'two_leg_unresolved' in issues else {})));issuesrc+=refs
                 for flag in set(issues):counters[flag]+=1
                 continue
             kg=sum(values,Decimal(0)) if override else next(iter(values))

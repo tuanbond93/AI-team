@@ -89,17 +89,27 @@ def missing_checklist(report):
         return None, 'Chưa lập được danh sách: chính sách chi phí hoặc nguồn chưa được nạp và đối chiếu đúng kỳ.'
     items = []
     _collect(items, report['dc'].get('group_evidence', []), DC_ISSUES)
-    reasons = report['dc'].get('two_leg_reasons') or {}
-    if reasons:
-        labels = {'no_raw_deliver_in_window': 'Raw chưa có dòng giao trong khoảng của đợt', 'several_raw_trucks_or_days': 'GHN giao bằng nhiều xe S hoặc nhiều ngày',
-                  'raw_plate_missing': 'dòng Raw thiếu biển S', 'raw_truck_day_data_issue': 'xe S/ngày có dòng Raw lỗi (thiếu chuyến/kg, trùng dòng)',
-                  'raw_mapping_flags': 'Raw có cờ lệch (mô hình/biển AG khác)', 's_truck_shared_with_other_mode': 'xe S chở lẫn đơn BC/NCC/khác mô hình',
-                  's_truck_route_outside_gxt_policy': 'xe S chở đơn tuyến ngoài chính sách GXT', 'booking_ag_missing_or_several': 'Booking thiếu hoặc nhiều biển AG trong đợt',
-                  'booking_mixed_mode': 'đợt có dòng khác mô hình giao thẳng GXT', 'no_booking_rows': 'không thấy dòng Booking'}
-        why = ', '.join(f'{n} {labels.get(k, k)}' for k, n in sorted(reasons.items(), key=lambda x: -x[1]))
-        for i, item in enumerate(items):
-            if item.startswith('• '+DC_ISSUES['two_leg_unresolved'][0]):
-                items[i] = item.replace(' — ', f' (theo đợt: {why}) — ', 1)
+    held_two_leg = [x for x in report['dc'].get('group_evidence', []) if x.get('two_leg_reason')]
+    if held_two_leg:
+        labels = {'no_raw_deliver_in_window': ('Đơn giao thẳng GXT chưa có dòng Raw DELIVER từ ngày xuất tới lần xuất kế tiếp', 'kiểm Raw đã ghi giao đơn này chưa (mã đơn, ngày load) hoặc xác nhận đơn hủy/dời'),
+                  'raw_plate_missing': ('Đơn giao thẳng GXT có dòng Raw thiếu biển S', 'biển S thực chở'),
+                  'raw_truck_day_data_issue': ('Xe S/ngày của đơn có dòng Raw lỗi (thiếu chuyến/kg, trùng dòng)', 'sửa dòng Raw của xe/ngày đó'),
+                  'raw_mapping_flags': ('Raw ghi mô hình hoặc biển AG khác Booking', 'xác nhận mô hình giao/biển AG đúng'),
+                  's_truck_shared_with_other_mode': ('Xe S chở lẫn đơn BC/NCC/mô hình khác', 'owner xác nhận cách tính cho xe/ngày đó'),
+                  's_truck_route_outside_gxt_policy': ('Xe S chở đơn tuyến ngoài chính sách GXT', 'xác nhận tuyến hoặc bổ sung chính sách'),
+                  'mixed_ag_and_other_s_trucks': ('Đơn vừa giao bằng xe AG vừa bằng xe S khác', 'owner xác nhận phần nào hai chặng'),
+                  'booking_ag_missing_or_several': ('Booking thiếu hoặc có nhiều biển AG trong một đợt', 'biển AG đúng'),
+                  'booking_mixed_mode': ('Đợt có dòng khác mô hình giao thẳng GXT', 'xác nhận mô hình giao của đợt')}
+        # Replace the generic two-leg line with one line per concrete reason.
+        items[:] = [x for x in items if not x.startswith('• '+DC_ISSUES['two_leg_unresolved'][0])]
+        grouped = defaultdict(list)
+        for x in held_two_leg:
+            grouped[x['two_leg_reason']].append(x)
+        for code, entries in sorted(grouped.items(), key=lambda kv: -len(kv[1])):
+            what, send = labels.get(code, (DC_ISSUES['two_leg_unresolved'][0], DC_ISSUES['two_leg_unresolved'][1]))
+            days = sorted({x['day'] for x in entries})
+            when = 'ngày ' + ', '.join(_vi_day(d) for d in days[:4]) + (' …' if len(days) > 4 else '')
+            items.insert(0, f'• {what} — {len(entries)} đợt, {when}: {_rows_text(sum((x["sources"] for x in entries), []))}. Cần: {send}.')
     _collect(items, report['ftl'].get('held', []), FTL_ISSUES)
     _collect(items, report['points'].get('held', []), POINT_ISSUES)
     if report['unpriced_booking_sources']:
