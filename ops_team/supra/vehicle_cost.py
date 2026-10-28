@@ -4,6 +4,32 @@ from datetime import datetime,time
 from zoneinfo import ZoneInfo
 
 
+def raw_deliver_kg(pair):
+    """Owner rule 27/10/2026: kg per (GHN, Raw load day) from DELIVER grams/1000.
+
+    Only an unambiguous total is returned: every row valid, no repeated
+    trip/plate key. It fills an event whose Booking L is blank on all rows.
+    """
+    from decimal import Decimal
+    from .booking_vehicles import RAW_HEADERS,day,plate
+    from .booking_quantity import business_key,cell
+    from .booking_weight import parse_kg
+    found=defaultdict(list)
+    for row in pair['data_supra']['rows']:
+        r=dict(zip(RAW_HEADERS,row['values']))
+        if cell(r['type']).upper()!='DELIVER':continue
+        order=business_key(r['order_code']);d=day(r['load_date'])
+        if not order or d is None:continue
+        found[(order,str(d))].append((r,f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}"))
+    result={}
+    for key,items in found.items():
+        weights=[parse_kg(r['weight']) for r,_ in items]
+        trips=[(business_key(r['trip_code']),plate(r['truck_plate_number'])) for r,_ in items]
+        if any(status!='VALID' for _,status in weights) or len(set(trips))!=len(trips):continue
+        result[key]=(sum((kg for kg,_ in weights),Decimal(0))/Decimal(1000),[ref for _,ref in items])
+    return result
+
+
 def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
     """Owner-confirmed GHN/date events, with source-bound split exceptions."""
     from decimal import Decimal,localcontext
@@ -35,7 +61,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
     exception={(x['order_id'],x['day']):x for x in rules['handling_parts']}
     counters={k:0 for k in ('partial_scope','unknown_routing','mixed_routing','unknown_rate','mixed_rate','missing_weight','invalid_weight','conflicting_weight','two_leg_unresolved')}
     buckets={r['rate_id']:dict(rate_vnd_per_kg=r['vnd_per_kg'],effective_from=r['from'],effective_to=r['to'],eligible_ghn=0,eligible_kg=Decimal(0),eligible_vnd=Decimal(0),sources=[]) for r in catalog['rates']}
-    held=[];eligible=[];direct=0;issuesrc=[]
+    held=[];eligible=[];direct=0;issuesrc=[];raw_kg=raw_deliver_kg(pair);raw_filled=0
     with localcontext() as ctx:
         ctx.prec=140
         for key,rows in sorted(events.items()):
@@ -53,8 +79,10 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             if len(matches)!=1:issues.append('unknown_rate')
             weights=[parse_kg(r['source_ghn_weight']) for r in rows];values={v for v,s in weights if s=='VALID'}
             if any(s=='INVALID' for v,s in weights):issues.append('invalid_weight')
+            override=exception.get(key);filled=None
+            if not values and all(s=='MISSING' for v,s in weights) and not override and key in raw_kg:
+                filled=raw_kg[key];values={filled[0]}
             if not values:issues.append('missing_weight')
-            override=exception.get(key)
             if len(values)>1 and not override:issues.append('conflicting_weight')
             if override and {r['_source'] for r,(v,s) in zip(rows,weights) if s=='VALID'}!=set(override['sources']):issues.append('conflicting_weight')
             if issues:
@@ -64,7 +92,9 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             kg=sum(values,Decimal(0)) if override else next(iter(values))
             rate=matches[0];b=buckets[rate['rate_id']];amount=kg*Decimal(rate['vnd_per_kg'])
             b['eligible_ghn']+=1;b['eligible_kg']+=kg;b['eligible_vnd']+=amount;b['sources']+=refs
-            eligible.append(dict(order_id=key[0],day=key[1],sources=refs,kg=str(kg),amount_vnd=str(amount),rate_id=rate['rate_id']))
+            if filled:raw_filled+=1;b['sources']+=filled[1]
+            eligible.append(dict(order_id=key[0],day=key[1],sources=refs+(filled[1] if filled else []),kg=str(kg),amount_vnd=str(amount),rate_id=rate['rate_id'],
+                weight_source='RAW_DELIVER_SAME_DAY' if filled else 'BOOKING_L'))
         accepted=[b for b in buckets.values() if b['eligible_ghn']]
         known=bool(accepted) or bool(direct and not held and not unassigned)
         total=str(sum((b['eligible_vnd'] for b in accepted),Decimal(0))) if known else None
@@ -75,7 +105,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
         counters=counters,rate_buckets=[{**b,'eligible_kg':str(b['eligible_kg']) if b['eligible_ghn'] else None,'eligible_vnd':str(b['eligible_vnd']) if b['eligible_ghn'] else None} for b in buckets.values()],
         issue_sources=issuesrc+unassigned,sources_by_metric={},group_evidence=held,eligible_events=eligible,scope=scope,booking_rows=scoped_rows,
         boundary_ghn=0,booking_digest=pair['booking_digest'],handling_catalog_sha256=data.handling_catalog_sha256,total_cost_vnd=None,gross_profit_vnd=None,
-        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY')
+        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled)
 
 
 def vehicle_cost_status(data, evidence, text=''):

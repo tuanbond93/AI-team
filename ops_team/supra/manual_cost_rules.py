@@ -135,8 +135,12 @@ def delivery_points(records, rates):
             'complete': not held, 'total_cost_vnd': None}
 
 
-def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, vehicle_classes=None, tariffs=None):
+def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, vehicle_classes=None, tariffs=None, per_class=False):
     """Price only groups with confirmed matching T; optionally use owner ceil.
+
+    ``per_class`` (owner rule 27/10/2026): one vehicle/day carrying several
+    Booking T classes is one trip group per distinct T, each priced at its own
+    T; GHNs with the same T on that vehicle/day share one group.
 
     Caller supplies all rows for each order and marks incomplete/mixed scope or
     route as invalid. Weight is a GHN total counted once; blank DO weights
@@ -172,6 +176,11 @@ def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, veh
             held.append({'reason': 'invalid_date', 'sources': [row['source']]})
             continue
         key = (row['day'], row['vehicle'])
+        if per_class:
+            try:
+                key += (_number(row['class_kg'], positive=True),)
+            except ValueError:
+                key += (None,)
         groups[key].append(row)
     accepted = 0
     trips = 0
@@ -187,7 +196,7 @@ def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, veh
                 classes.add(_number(row['class_kg'], positive=True))
             except ValueError:
                 reasons.add('missing_or_invalid_class')
-        for observed in (vehicle_classes or {}).get(key, []):
+        for observed in ([] if per_class else (vehicle_classes or {}).get(key, [])):
             try:
                 classes.add(_number(observed, positive=True))
             except ValueError:
@@ -201,8 +210,10 @@ def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, veh
             else:group_rate,group_ceil=choices[group_cap]
         for order in {r['order'] for r in rows}:
             related = orders[order]
-            if any((r['day'], r['vehicle']) != key or not r['valid'] for r in related):
+            if any((r['day'], r['vehicle']) != key[:2] or not r['valid'] for r in related):
                 reasons.add('partial_or_conflicting_scope')
+            if per_class and any(r['class_kg'] != rows[0]['class_kg'] for r in related):
+                reasons.add('mixed_or_unknown_class')
             parsed = []
             for r in related:
                 if r['weight_status'] == 'MISSING':

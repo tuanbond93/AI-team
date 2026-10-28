@@ -163,3 +163,14 @@ Cập nhật runtime do chat điều phối báo ngày 25/10/2026: sau paired ve
 `/chiphi` và báo cáo `/run` mở đầu bằng một dòng **Kết luận** và **Việc cần làm**. Chỉ nêu "đã đủ nguồn" cho chỉ số có quy tắc và đủ dữ liệu; còn nhóm giữ riêng thì nói chưa chốt và chỉ sang `/thieu`.
 
 `/thieu [YYYY-MM-DD] [YYYY-MM-DD]` (chỉ owner, không gọi AI) lấy đúng kết quả code của `/chiphi` và liệt kê từng nhóm còn giữ riêng: thiếu trường nào (vd. kg cột L, loại tải cột T, biển S), ngày nào nếu tính theo đợt GHN/ngày, **số dòng trong tab Booking/Raw đã ghim** và cần gửi gì. Không in mã GHN, cửa hàng hay biển xe; mỗi nhóm tối đa 6 số dòng, tối đa 10 nhóm, phần còn lại ở `/details audit`. Chưa có chính sách chi phí thì dùng chỉ số Booking (kg, sản phẩm, bốc xếp). Chính sách stale hoặc khoảng ngày ngoài chính sách thì báo lý do, không lập danh sách từ cách tính khác. Các khoản thiếu luôn giữ N/A, không tính là 0.
+
+## Tự động lấy dữ liệu bằng Apps Script + Google Drive for desktop
+
+Owner chốt 27/10/2026: công ty không cấp Viewer cho tài khoản dịch vụ, nên dùng Apps Script chạy bằng chính tài khoản của owner.
+
+1. Tạo project ở script.google.com, dán `scripts/apps_script/ExportSupraTabs.gs`, đặt Script Properties theo chú thích đầu file (ID/gid/tab/range đúng như `/plan`, `FOLDER_ID` là thư mục Drive riêng), chạy `installTrigger()` một lần.
+2. Script chạy mỗi 5 phút trong 12:35–12:58, ghi `booking.csv`, `raw.csv` rồi `supra-export-manifest.json` (hash SHA-256, số dòng, nguồn).
+3. Google Drive for desktop đồng bộ thư mục về máy chạy bot. Task Scheduler chạy `python -m ops_team.drive_import --folder "<thư mục đồng bộ>" --send-scheduled` lúc 13:01 và 13:06.
+4. `drive_import` kiểm manifest/hash/header (Booking 37 cột, Raw 25 cột), nguồn/tab/gid/range phải trùng bản paired đã duyệt; catalog và policy luôn lấy từ vault, không lấy từ thư mục. Sai bất kỳ điểm nào thì từ chối, nguồn cũ giữ nguyên. Lịch chỉ gửi một lần cho mỗi job (receipt), Raw cũ không chặn gửi phần Booking.
+
+Lần nạp paired đầu tiên vẫn làm tay để có catalog đã duyệt. Máy tắt thì không gửi; xem phương án 24/7 trước khi chuyển lên dịch vụ cloud.

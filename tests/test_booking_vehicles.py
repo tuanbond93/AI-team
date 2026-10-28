@@ -886,7 +886,11 @@ def test_booked_trip_override_counts_only_explicit_group_and_preserves_other_hol
         assert Decimal(new['eligible_pool_vnd'])-Decimal(baseline['eligible_pool_vnd'])==Decimal('2111110')
         assert new['owner_confirmed_booked_trips'] and new['booked_class_basis']=='BOOKED_TARIFF_CLASS'
         wrong=deepcopy(override);wrong['sources']=wrong['sources'][:1]
-        assert _calculate(data,v,scope,cfg,'a'*64,{'booked_trips':[wrong]})['held_vehicle_days']==baseline['held_vehicle_days']
+        # Owner rule 27/10/2026: without a matching override the same group is one trip per booked T.
+        generic=_calculate(data,v,scope,cfg,'a'*64,{'booked_trips':[wrong]})
+        assert generic['held_vehicle_days']==new['held_vehicle_days'] and generic['eligible_pool_vnd']==new['eligible_pool_vnd']
+        assert any('owner_rule_one_trip_per_booked_class' in g['warnings'] for g in generic['group_evidence'])
+        assert not generic['owner_confirmed_booked_trips']
     finally:state.close()
 
 
@@ -1809,4 +1813,85 @@ def test_scheduled_report_with_stale_raw_holds_rule_handling_only(tmp_path,monke
         assert 'Raw chưa có bản mới' in a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
         a._raw_stale=False
         assert Decimal(a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)['metrics']['booking.dc_handling_eligible_vnd']['value'])==1200
+    finally:state.close()
+
+
+def test_ftl_one_trip_per_distinct_booked_class_same_vehicle_day():
+    from ops_team.supra.manual_cost_rules import ftl_base_trips
+    tariffs=[{'class_kg':'7000','rate_vnd':'700','method':'ONE_IF_WITHIN_CAPACITY'},{'class_kg':'5000','rate_vnd':'500','method':'ONE_IF_WITHIN_CAPACITY'}]
+    def rec(order,cls,kg='100'):
+        return {'day':'2026-10-12','vehicle':'99A12345','order':order,'weight_kg':kg,'weight_status':'VALID','class_kg':cls,'valid':True,'source':'S_'+order}
+    rows=[rec('G1','7000'),rec('G2','5000'),rec('G3','5000'),rec('G4','5000')]
+    old=ftl_base_trips(rows,'100','1',tariffs=tariffs)
+    assert old['eligible_trips']==0 and old['held']
+    out=ftl_base_trips(rows,'100','1',tariffs=tariffs,per_class=True)
+    assert out['eligible_trips']==2 and out['eligible_vnd']=='1200' and not out['held']  # one 7T + one 5T, not 4 trips
+    mixed=ftl_base_trips(rows+[rec('G1','5000')],'100','1',tariffs=tariffs,per_class=True)
+    assert mixed['held'] and 'mixed_or_unknown_class' in mixed['held'][0]['reason']
+    unpriced=ftl_base_trips([rec('G1','7000'),rec('G9','8000')],'100','1',tariffs=tariffs,per_class=True)
+    assert unpriced['eligible_trips']==1 and any('unpriced_class' in h['reason'] for h in unpriced['held'])
+
+
+def test_blank_l_event_uses_same_day_raw_kg_only_when_unambiguous():
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    blank=book('SYN_BLANK',date='11/10/2026',do='D1');blank[8]=''
+    other=book('SYN_BLANK',date='10/10/2026',do='D0');other[8]='9'
+    rules={'handling_parts':[]}
+    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='1500',date='2026-10-11',trip=124)])
+    v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
+    assert out['unresolved_ghn']==0 and Decimal(out['eligible_kg'])==4 and out['raw_weight_filled_events']==1
+    assert out['eligible_events'][0]['weight_source']=='RAW_DELIVER_SAME_DAY'
+    # Never borrows the other day's L (9 kg) and never uses Raw from another day.
+    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-12')])
+    v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
+    assert out['unresolved_ghn']==1 and 'missing_weight' in out['group_evidence'][0]['issues']
+    # Repeated trip/plate key or invalid grams: ambiguous, stays held.
+    data=parsed([blank],[event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='2500',date='2026-10-11')])
+    v=vehicle_evidence(data,'2026-10',CUTOFF);assert vehicle_cost_by_day(data,v,'2026-10-11',rules)['unresolved_ghn']==1
+    data=parsed([blank],[event('SYN_BLANK',grams='x',date='2026-10-11')])
+    v=vehicle_evidence(data,'2026-10',CUTOFF);assert vehicle_cost_by_day(data,v,'2026-10-11',rules)['unresolved_ghn']==1
+
+
+def _drive_export(folder,state,books,raws,**override):
+    import csv,io
+    from ops_team.supra.booking import BOOKING_HEADERS
+    from ops_team.drive_import import _token
+    from ops_team.telegram_vehicle_snapshot import _read_record
+    prev=_read_record(state);folder.mkdir(exist_ok=True)
+    def write(name,headers,rows):
+        buf=io.StringIO();w=csv.writer(buf);w.writerow(headers);w.writerows(rows);raw=buf.getvalue().encode('utf-8')
+        (folder/name).write_bytes(raw);return hashlib.sha256(raw).hexdigest()
+    pos={_token(h):i for i,h in enumerate(BOOKING_HEADERS)}
+    brows=[];
+    for b in books:
+        r=['']*37
+        for name,val in zip(BOOK_HEADERS,b):r[pos[_token(name)]]=val
+        brows.append(r)
+    raw_headers=RAW_HEADERS+[f'extra_{i}' for i in range(7)]
+    rrows=[list(map(str,e))+['']*7 for e in raws]
+    files={}
+    for key,name,headers,rows,pin in (('booking','booking.csv',BOOKING_HEADERS,brows,prev['source']),('raw','raw.csv',raw_headers,rrows,prev['vehicle_pair']['data_supra'])):
+        files[key]=dict(name=name,spreadsheet_id=pin['spreadsheet_id'],tab=pin['tab'],gid=pin['gid'],range=pin['range'],sha256=write(name,headers,rows),rows=len(rows))
+    manifest=dict(schema='supra-drive-export-v1',exported_at=datetime.now(TZ).isoformat(),files=files)
+    for k,v in override.items():manifest['files']['booking'][k]=v
+    (folder/'supra-export-manifest.json').write_text(json.dumps(manifest))
+
+
+def test_drive_folder_import_reuses_pair_validation_and_rejects_mismatch_atomically(tmp_path):
+    from ops_team.drive_import import import_folder
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        before=(state.root/'snapshot-latest.dpapi').read_bytes()
+        folder=tmp_path/'synced'
+        _drive_export(folder,state,[book('SYN_A'),book('SYN_B',do='D2')],[event('SYN_A'),event('SYN_B',trip=124)],sha256='0'*64)
+        with pytest.raises(ValueError):import_folder(folder,state,123)
+        _drive_export(folder,state,[book('SYN_A')],[event('SYN_A')],gid=999)
+        with pytest.raises(ValueError):import_folder(folder,state,123)
+        assert (state.root/'snapshot-latest.dpapi').read_bytes()==before
+        _drive_export(folder,state,[book('SYN_A'),book('SYN_B',do='D2')],[event('SYN_A'),event('SYN_B',trip=124)])
+        out=import_folder(folder,state,123)
+        assert out['state']=='INGESTED_NOT_SCHEDULED' and out['booking_rows']==2 and out['raw_rows']==2
+        assert not (state.root/'staging'/'drive-pair.dpapi').exists()
+        data,_=load_snapshot(state,facts)
+        assert set(data.rows.order_id)=={'SYN_A','SYN_B'} and data.vehicle_pair['vehicle_catalog_sha256']==v['catalog_sha256']
     finally:state.close()

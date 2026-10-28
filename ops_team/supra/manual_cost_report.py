@@ -139,7 +139,7 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
         if scoped(row) and vehicle and raw_class and (not rules or category(row)=='ftl'):
             vehicle_classes[(str(row['dispatch_date']), vehicle)].append(capacity_kg(raw_class) or '')
     ftl = ftl_base_trips(ftl_rows, rates['ftl_capacity_kg'], rates['ftl_vnd'],
-                         ceil_confirmed=policy['ftl_ceil_confirmed'], vehicle_classes=vehicle_classes, tariffs=policy.get('ftl_tariffs'))
+                         ceil_confirmed=policy['ftl_ceil_confirmed'], vehicle_classes=vehicle_classes, tariffs=policy.get('ftl_tariffs'), per_class=bool(rules))
     for row in rows:
         dispatch = row['dispatch_date']
         if dispatch is not None and dispatch == dispatch:
@@ -336,7 +336,11 @@ def _projected_line(report, money):
     total, gp, blockers = projected_totals(report)
     overlay = report['overlay']
     if total is not None:
-        return 'TỔNG DỰ KIẾN trước VAT: chi phí '+money(total)+'; lãi/lỗ dự kiến '+money(gp)+'. Chưa đối soát hóa đơn/bảng kê NCC.'
+        from decimal import Decimal
+        vat = Decimal('1.08')  # Owner 27/10/2026: VAT 8% on revenue and NCC charges, for invoice reconciliation only.
+        revenue = overlay['revenue']['component_vnd']
+        return ('TỔNG DỰ KIẾN trước VAT: chi phí '+money(total)+'; lãi/lỗ dự kiến '+money(gp)+'. Đối chiếu hóa đơn (gồm VAT 8%): doanh thu '+
+                money(str(Decimal(revenue)*vat))+', chi phí '+money(str(Decimal(total)*vat))+'. Chưa đối soát hóa đơn/bảng kê NCC.')
     return ('Chi phí đã tính: '+money(overlay['known_cost_subtotal'])+'; chênh lệch: '+money(overlay['revenue_minus_known_costs'])+
             '. Chưa có tổng dự kiến vì: '+'; '.join(blockers[:3])+('…' if len(blockers)>3 else '')+'.')
 

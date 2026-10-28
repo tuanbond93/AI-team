@@ -187,15 +187,22 @@ def _calculate(data,evidence,scope,config,sha,rules=None):
         override=overrides.get(key)
         if override and (set(override['sources'])!={r['_source'] for r in rs} or {Decimal(t['class_kg']) for t in override['trips']}!=parsed or any(Decimal(t['class_kg']) not in by_class for t in override['trips'])):
             override=None
-        if any(x is None for x in capacities) or (len(parsed)!=1 and not override):issues.add('unknown_or_mixed_class')
+        # Owner rule 27/10/2026 (active with the rule layer): several booked T on one vehicle/day
+        # are one trip per distinct T, each at its own tariff; an unpriced T holds the group.
+        per_class=bool(rules) and not override and len(parsed)>1 and not any(x is None for x in capacities)
+        if per_class and not parsed<=set(by_class):issues.add('unpriced_class')
+        if any(x is None for x in capacities) or (len(parsed)!=1 and not override and not per_class):issues.add('unknown_or_mixed_class')
         elif not override and next(iter(parsed)) not in by_class:
             other.append(key);continue
         cls=str(next(iter(parsed))) if len(parsed)==1 and not any(x is None for x in capacities) else None
         record={'date':key[0],'vehicle_alias':aliases.get(key[1]),'issues':sorted(issues),'warnings':warnings,'sources':sorted({r['_source'] for r in rs}),'declared_class_kg':cls}
         (held if issues else eligible).append(record)
         if override:record['warnings'].append('owner_confirmed_booked_trips')
+        if per_class:record['warnings'].append('owner_rule_one_trip_per_booked_class')
         if not issues:
-            if override:
+            if per_class:
+                for klass in parsed:counts[klass]+=1
+            elif override:
                 for trip in override['trips']:counts[Decimal(trip['class_kg'])]+=trip['units']
             else:counts[Decimal(cls)]+=1
     with localcontext() as ctx:

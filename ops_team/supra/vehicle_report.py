@@ -38,6 +38,8 @@ def booking_intake(r):
             lines.append('Raw chưa có bản mới trong 15 phút trước giờ gửi: phần Booking vẫn gửi, bốc xếp theo quy tắc hai chặng để N/A tới lượt Raw mới.')
         elif h.get('reason')=='OWNER_RULES_INVALID_OR_STALE':
             lines.append('Quy tắc bốc xếp owner đã cài không còn khớp nguồn/cấu hình hiện tại nên bốc xếp để N/A, không dùng cách tính cũ. Cần nạp lại quy tắc cho đúng bản nguồn.')
+        if h.get('raw_weight_filled_events'):
+            lines.append(str(h['raw_weight_filled_events'])+' đợt trống cột L được lấy kg từ Raw cùng GHN, cùng ngày (gram/1.000) theo quy tắc owner.')
         for b in r['handling_rate_buckets']:
             if b['eligible_ghn']:lines.append('• '+b['rate_vnd_per_kg']+'đ/kg: '+display(b['eligible_kg'],'kg')+' kg → '+display(b['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản.')
     lines+=['Tổng doanh thu B2B: N/A. Tổng chi phí và lãi lỗ: N/A; chưa đủ doanh thu và chi phí các chặng. Bốc xếp riêng chưa là tiền nghiệm thu/thanh toán.','CẦN ĐỐI CHIẾU:']
