@@ -5,6 +5,10 @@ Phú Thọ, D=2 for Sơn La, Điện Biên, Lai Châu; other provinces have no r
 Actual: latest ``time_updated`` of Raw DELIVER rows with ``is_succeeded`` true
 for that GHN, loaded from the E day until the GHN's next E day. Missing or
 unreadable evidence is held (N/A), never counted on time or late.
+
+If ``time_updated`` is a batch stamp rather than a delivery time (one exact
+moment shared by succeeded rows of several load days and a large share of the
+source), the whole SLA is N/A until the owner names the delivery-time column.
 """
 from collections import defaultdict
 from datetime import datetime, time, timedelta
@@ -18,6 +22,31 @@ TZ = ZoneInfo('Asia/Ho_Chi_Minh')
 SLA_DAYS = {'phú thọ': 1, 'sơn la': 2, 'điện biên': 2, 'lai châu': 2}
 TRUE = {'true', '1', 'yes', 'y', 'x', 'đúng', 'thành công'}
 FALSE = {'false', '0', 'no', 'n', 'sai', 'thất bại'}
+# A real delivery moment is not shared by loads of 3+ different days covering 20%+ of succeeded rows.
+BATCH_MIN_LOAD_DAYS, BATCH_MIN_SHARE, BATCH_MIN_ROWS = 3, 0.2, 10
+
+
+def batch_stamp(raw_rows):
+    """The shared ``time_updated`` of succeeded DELIVER rows when it is a batch stamp, else None."""
+    by_moment = defaultdict(lambda: [0, set()])
+    total = 0
+    for r in raw_rows:
+        if cell(r['type']).upper() != 'DELIVER' or cell(r['is_succeeded']).casefold() not in TRUE:
+            continue
+        moment = _moment(r['time_updated'])
+        if moment is None:
+            continue
+        total += 1
+        item = by_moment[moment]
+        item[0] += 1
+        if (load := day(r['load_date'])) is not None:
+            item[1].add(load)
+    if total < BATCH_MIN_ROWS:
+        return None
+    moment, (rows, loads) = max(by_moment.items(), key=lambda kv: kv[1][0])
+    if len(loads) >= BATCH_MIN_LOAD_DAYS and rows/total >= BATCH_MIN_SHARE:
+        return dict(moment=moment.isoformat(timespec='minutes'), rows=rows, total=total, load_days=len(loads))
+    return None
 
 
 def _moment(value):
@@ -51,6 +80,9 @@ def sla_summary(data, start, end, now):
         if cell(r['type']).upper() == 'DELIVER' and business_key(r['order_code']):
             raw[business_key(r['order_code'])].append((r, f"Raw#{pair['raw_digest'][:12]} dòng {item['sheet_row']}"))
     out = dict(on_time=0, late=0, pending=0, held=[], late_events=[], no_rule=0)
+    stamp = batch_stamp(r for rows in raw.values() for r, _ in rows)
+    if stamp:
+        return {**out, 'on_time_rate': None, 'complete': False, 'batch_stamp': stamp}
     for (order, d), rows in sorted(events.items()):
         if not start <= str(d) <= end:
             continue
@@ -104,6 +136,12 @@ def sla_summary(data, start, end, now):
 def render_sla(result, start, end):
     from .missing_data import _rows_text, _vi_day
     span = _vi_day(start)+('' if start == end else '–'+_vi_day(end))
+    if (stamp := result.get('batch_stamp')):
+        when = stamp['moment'][:16].replace('T', ' ')
+        return '\n'.join([
+            f"Kết luận SLA {span}: N/A — cột time_updated của Raw chưa phải giờ giao: {stamp['rows']}/{stamp['total']} dòng giao thành công "
+            f"của {stamp['load_days']} ngày load khác nhau có cùng một mốc {when} (giờ cập nhật hàng loạt). Em chưa tính đúng/trễ hạn.",
+            'Việc cần làm: anh chọn cột giờ giao thực tế trong Raw (ví dụ giờ kết thúc chuyến), hoặc yêu cầu Raw ghi giờ giao từng dòng.'])
     rate = 'N/A' if result['on_time_rate'] is None else f"{result['on_time_rate']*100:.1f}".replace('.', ',')+'%'
     head = (f"Kết luận SLA {span}: đúng hạn {rate} trên {result['on_time']+result['late']} đợt đo được "
             f"({result['on_time']} đúng hạn, {result['late']} trễ); {result['pending']} đợt chưa tới hạn.")

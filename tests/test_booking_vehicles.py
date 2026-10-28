@@ -1772,11 +1772,16 @@ def test_missing_checklist_booking_only_fallback_lists_weight_rows(tmp_path,monk
     finally:state.close()
 
 
-def test_money_drops_only_zero_decimals_and_never_rounds():
+def test_money_drops_zero_decimals_and_caps_at_three():
     from ops_team.supra.vehicle_report import _vi_money
     from ops_team.chief.report import display
     assert _vi_money('40.000')=='40' and _vi_money('2840')=='2.840' and _vi_money('12412115.700')=='12.412.115,7'
     assert _vi_money('0.105')=='0,105' and _vi_money('0')=='0'
+    # Kg-share allocation: non-terminating Decimal is shown rounded half-up to 3 places.
+    assert _vi_money('178414479.7774635542810941334')=='178.414.479,777'
+    assert _vi_money('-45527512.37746355428109413339')=='-45.527.512,377'
+    assert _vi_money('10.9995')=='11' and _vi_money('0.0004')=='0'
+    assert display('2918.0281234','kg')=='2.918,028' and display('583605.60000','VND theo điều khoản')=='583.605,6'
     assert display('76581915.700','VND theo điều khoản')=='76.581.915,7' and display('100','VND theo điều khoản')=='100'
 
 
@@ -1923,6 +1928,25 @@ def test_sla_d1_d2_by_province_and_held_without_evidence():
     assert early['pending']>=1  # SYN_NONE is not yet due, so not held
     text=render_sla(out,'2026-10-10','2026-10-10')
     assert text.startswith('Kết luận SLA 10/10/2026: đúng hạn 66,7%') and 'Trễ: đợt 10/10/2026' in text and 'SYN_' not in text
+
+
+def test_sla_is_na_when_time_updated_is_one_batch_stamp():
+    from ops_team.supra.sla import sla_summary,render_sla,batch_stamp,TZ as VN
+    books,raws=[],[]
+    for i in range(12):
+        b=book(f'SYN_B{i}',date=f'{10+i%4:02d}/10/2026');b[9]='Phú Thọ';books.append(b)
+        raws.append(_raw_delivery(f'SYN_B{i}',f'2026-10-{10+i%4:02d}','2026-10-23 08:00:00'))
+    data=parsed(books,raws)
+    out=sla_summary(data,'2026-10-10','2026-10-13',datetime(2026,10,25,12,0,tzinfo=VN))
+    assert out['on_time_rate'] is None and (out['on_time'],out['late'])==(0,0) and not out['complete']
+    assert out['batch_stamp']['rows']==12 and out['batch_stamp']['load_days']==4
+    text=render_sla(out,'2026-10-10','2026-10-13')
+    assert text.startswith('Kết luận SLA 10/10/2026–13/10/2026: N/A') and '12/12 dòng' in text and 'đúng hạn 0' not in text and 'SYN_' not in text
+    # Same moment on one load day, or too few rows, is a plausible delivery time and is measured.
+    same_day=[dict(zip(RAW_HEADERS,_raw_delivery(f'SYN_S{i}','2026-10-10','2026-10-11 08:00:00'))) for i in range(12)]
+    assert batch_stamp(same_day) is None
+    few=[dict(zip(RAW_HEADERS,_raw_delivery(f'SYN_F{i}',f'2026-10-{10+i}','2026-10-23 08:00:00'))) for i in range(5)]
+    assert batch_stamp(few) is None
 
 
 def test_ftl_ghn_on_two_vehicles_split_by_raw_grams_only_when_plates_match():

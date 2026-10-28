@@ -1,5 +1,5 @@
 """Bounded code-only views; complete evidence remains in the captured RAM record."""
-from decimal import Decimal,localcontext
+from decimal import Decimal,localcontext,ROUND_HALF_UP
 from datetime import datetime,date,timedelta,timezone
 from calendar import monthrange
 from zoneinfo import ZoneInfo
@@ -89,8 +89,12 @@ def _vi_number(value,places=3):
 
 
 def _vi_money(value):
-    """Exact VND/kg: no decimals when whole, otherwise every significant decimal (never rounded)."""
-    number=Decimal(str(value))
+    """VND/kg for display: at most 3 decimals (half-up, as the old display), trailing zeros dropped.
+
+    Kg-share allocations are non-terminating Decimals; every digit made messages
+    unreadable. Exact values stay in the report and audit records.
+    """
+    number=Decimal(str(value)).quantize(Decimal('0.001'),rounding=ROUND_HALF_UP)
     places=max(0,-number.normalize().as_tuple().exponent) if number!=number.to_integral_value() else 0
     return _vi_number(number,places)
 
