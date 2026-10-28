@@ -66,3 +66,7 @@ Cloudflare Workers Paid là hướng 24/7 owner quan tâm. Streamlit/DPAPI Windo
 Khi sửa, kiểm đúng grain, nguồn và arithmetic độc lập; test cả kỳ đầy đủ và hai nửa, giữ subtotal/additivity theo điều kiện, missing khác zero, các ngoại lệ chỉ đúng nguồn, legacy compatibility, atomic rejection, exact audit replay. Chỉ mở rộng test khi có thay đổi/failure/rủi ro cần xác minh.
 
 Đổi cấu hình được đọc mỗi request có thể không cần restart. Nếu đổi worker code, chuẩn bị rollback và thao tác stop/import/restart đầy đủ trước khi dừng. Worker có long poll/handler và join timeout; không giả định dừng trong vài giây. Chờ có giới hạn, kiểm PID/lock thực, không bật worker thứ hai hoặc bỏ máy ở trạng thái không còn worker.
+
+## Cập nhật 28/10/2026 (Claude)
+
+Các câu trả lời owner và nơi đã áp nằm trong `docs/OWNER_QUESTIONS.md`. Mới: `/thieu`, `/sla`, `/duyet`, tổng dự kiến trước VAT, lịch không chặn khi Raw cũ, một lượt cho mỗi loại T, kg Raw cho đợt trống L, chia kg GHN đi nhiều xe, tự nhận khai trương từ `Ghi chú 2`, lớp quy tắc v2, `drive_import` + Apps Script. Tất cả kiểm bằng dữ liệu tổng hợp; chưa chạy trên vault thật hoặc worker đang chạy. Còn chặn tự động: catalog/chính sách gắn từng tháng hoặc khoảng ngày nên mỗi kỳ mới cần owner nạp lại; chưa có mẫu nhật trình km và bảng kê NCC.
