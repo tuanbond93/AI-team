@@ -67,7 +67,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
     exception={(x['order_id'],x['day']):x for x in rules['handling_parts']}
     counters={k:0 for k in ('partial_scope','unknown_routing','mixed_routing','unknown_rate','mixed_rate','missing_weight','invalid_weight','conflicting_weight','two_leg_unresolved')}
     buckets={r['rate_id']:dict(rate_vnd_per_kg=r['vnd_per_kg'],effective_from=r['from'],effective_to=r['to'],eligible_ghn=0,eligible_kg=Decimal(0),eligible_vnd=Decimal(0),sources=[]) for r in catalog['rates']}
-    held=[];eligible=[];direct=0;issuesrc=[];raw_kg=raw_deliver_kg(pair);raw_filled=0
+    held=[];eligible=[];direct=0;issuesrc=[];raw_kg=raw_deliver_kg(pair);raw_filled=0;two_leg_reasons=defaultdict(int)
     booking_days=defaultdict(set)
     for r in data.rows.to_dict('records'):
         if r['order_id'] and (x:=day(r['dispatch_date'])) is not None:booking_days[r['order_id']].add(x)
@@ -82,7 +82,8 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             if physical=={'GXT_DIRECT'}:
                 resolution=resolve_direct(key[0],key[1])
                 if resolution=='TWO_LEGS':modes={'TRANSFER'}
-                elif resolution!='DIRECT_SAME_VEHICLE':issues.append('two_leg_unresolved')
+                elif resolution!='DIRECT_SAME_VEHICLE':
+                    issues.append('two_leg_unresolved');two_leg_reasons[resolve_direct.reasons.get(key,'unknown')]+=1
             if not issues and modes=={'DIRECT'}:
                 direct+=1;continue
             matches=[r for r in catalog['rates'] if r['from']<=key[1]<=r['to']]
@@ -118,7 +119,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
         counters=counters,rate_buckets=[{**b,'eligible_kg':str(b['eligible_kg']) if b['eligible_ghn'] else None,'eligible_vnd':str(b['eligible_vnd']) if b['eligible_ghn'] else None} for b in buckets.values()],
         issue_sources=issuesrc+unassigned,sources_by_metric={},group_evidence=held,eligible_events=eligible,scope=scope,booking_rows=scoped_rows,
         boundary_ghn=0,booking_digest=pair['booking_digest'],handling_catalog_sha256=data.handling_catalog_sha256,total_cost_vnd=None,gross_profit_vnd=None,
-        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled)
+        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons))
 
 
 def vehicle_cost_status(data, evidence, text=''):

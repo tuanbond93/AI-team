@@ -89,6 +89,17 @@ def missing_checklist(report):
         return None, 'Chưa lập được danh sách: chính sách chi phí hoặc nguồn chưa được nạp và đối chiếu đúng kỳ.'
     items = []
     _collect(items, report['dc'].get('group_evidence', []), DC_ISSUES)
+    reasons = report['dc'].get('two_leg_reasons') or {}
+    if reasons:
+        labels = {'no_raw_deliver_in_window': 'Raw chưa có dòng giao trong khoảng của đợt', 'several_raw_trucks_or_days': 'GHN giao bằng nhiều xe S hoặc nhiều ngày',
+                  'raw_plate_missing': 'dòng Raw thiếu biển S', 'raw_truck_day_data_issue': 'xe S/ngày có dòng Raw lỗi (thiếu chuyến/kg, trùng dòng)',
+                  'raw_mapping_flags': 'Raw có cờ lệch (mô hình/biển AG khác)', 's_truck_shared_with_other_mode': 'xe S chở lẫn đơn BC/NCC/khác mô hình',
+                  's_truck_route_outside_gxt_policy': 'xe S chở đơn tuyến ngoài chính sách GXT', 'booking_ag_missing_or_several': 'Booking thiếu hoặc nhiều biển AG trong đợt',
+                  'booking_mixed_mode': 'đợt có dòng khác mô hình giao thẳng GXT', 'no_booking_rows': 'không thấy dòng Booking'}
+        why = ', '.join(f'{n} {labels.get(k, k)}' for k, n in sorted(reasons.items(), key=lambda x: -x[1]))
+        for i, item in enumerate(items):
+            if item.startswith('• '+DC_ISSUES['two_leg_unresolved'][0]):
+                items[i] = item.replace(' — ', f' (theo đợt: {why}) — ', 1)
     _collect(items, report['ftl'].get('held', []), FTL_ISSUES)
     _collect(items, report['points'].get('held', []), POINT_ISSUES)
     if report['unpriced_booking_sources']:
@@ -101,7 +112,8 @@ def missing_checklist(report):
                   'mixed_or_unknown_role': 'xe chở lẫn đơn BC/FTL/không rõ mô hình', 'duplicate_order_or_unconfirmed_route_or_weight': 'đơn chưa rõ tuyến/kg',
                   'source_weight_mismatch': 'kg Supra không khớp tổng xe', 'opening_ftl_shared_vehicle_day': 'đi chung đơn khai trương',
                   'multiple_booking_vehicles': 'một GHN nhiều xe AG', 'missing_booking_vehicle': 'thiếu biển AG',
-                  'unknown_or_conflicting_mode': 'mô hình giao chưa rõ'}
+                  'unknown_or_conflicting_mode': 'mô hình giao chưa rõ',
+                  'expected_representative_mismatch': 'đơn NCC/Lai Châu/BC đi trên xe S thay vì xe đại diện'}
         why = ', '.join(f'{n} nhóm {labels.get(k, k)}' for k, n in sorted(g.get('issue_counts', {}).items(), key=lambda x: -x[1]) if n)
         items.append(f'• {len(g["held"])} xe GXT/ngày chưa tính được' + (f' ({why})' if why else '') +
                      f' — {_rows_text(sum((h.get("sources", []) for h in g["held"]), []))}. Cần: biển S, ngày load, kg chuyến; xe chở lẫn BC/GXT thì owner xác nhận cách tính.')

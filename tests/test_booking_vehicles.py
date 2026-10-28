@@ -2147,3 +2147,18 @@ def test_blank_raw_plate_on_direct_ghn_is_the_booking_truck_not_missing():
     # A blank plate on a GHN that goes through the GXT hub is still a missing S plate.
     hub=book('SYN_HUB',mode=0);data=parsed([hub],[event('SYN_HUB',pl='')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
     assert v['quality']['missing_plate']==1 and v['quality'].get('unassigned_direct_rows',0)==0
+
+
+def test_two_leg_unresolved_reports_reason_per_event():
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    from ops_team.supra.missing_data import missing_checklist
+    rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+    a=book('SYN_NORAW',mode=2,ag='99A12345');b=book('SYN_TWO',mode=2,ag='99A12345',do='D2')
+    raws=[event('SYN_TWO',pl='99B12345'),event('SYN_TWO',pl='99C12345',trip=124)]
+    data=parsed([a,b],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
+    assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1,'several_raw_trucks_or_days':1}
+    report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
+            'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-10'}}
+    text=missing_checklist(report)[1]
+    assert '(theo đợt: 1 Raw chưa có dòng giao trong khoảng của đợt, 1 GHN giao bằng nhiều xe S hoặc nhiều ngày)' in text
