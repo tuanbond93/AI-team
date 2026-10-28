@@ -1,6 +1,6 @@
 """Four business sections; evidence and incomplete values remain explicit."""
 import re
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from .engine import issue
 
 METRICS = (
@@ -20,7 +20,8 @@ def display(value, unit=""):
     value = Decimal(str(value))
     digits = 0 if unit in ("VND", "kiện", "thùng", "sản phẩm", "dòng", "mã GHN", "đợt GHN/ngày") else 3 if unit=='kg' else 2
     if unit in ('VND theo điều khoản','kg'):
-        # Exact amount: drop zero decimals only, never round a real fraction.
+        # Drop zero decimals; cap a real fraction at 3 places (half-up) so kg-share splits stay readable.
+        value=value.quantize(Decimal('0.001'),rounding=ROUND_HALF_UP)
         digits=0 if value==value.to_integral_value() else max(0,-value.normalize().as_tuple().exponent)
     return f"{value:,.{digits}f}".replace(",", "_").replace(".", ",").replace("_", ".")
 
