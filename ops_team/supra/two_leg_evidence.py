@@ -33,7 +33,10 @@ def direct_gxt_resolver(data,evidence,policy=None):
         ag=next(iter(vehicles))
         observed=[m for m in mappings.get(order,[]) if m['day'] is not None and str(m['day'])>=str(d) and (until is None or str(m['day'])<until)]
         if observed and all(m.get('unassigned_direct') for m in observed):return done(key,'DIRECT_SAME_VEHICLE')
-        if not observed:return done(key,'UNKNOWN','no_raw_deliver_in_window')
+        if not observed:
+            # Raw is a separate snapshot: a Booking day at/after the last Raw load day is not yet covered.
+            last=evidence.get('raw_last_day')
+            return done(key,'UNKNOWN','raw_not_yet_updated' if last and str(d)>=str(last) else 'no_raw_deliver_in_window')
         observed=[m for m in observed if not m.get('unassigned_direct')]
         locations={(str(m['day']),m['raw_plate']) for m in observed}
         if any(not raw_plate for _,raw_plate in locations):return done(key,'UNKNOWN','raw_plate_missing')

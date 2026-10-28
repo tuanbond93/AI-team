@@ -120,7 +120,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
         counters=counters,rate_buckets=[{**b,'eligible_kg':str(b['eligible_kg']) if b['eligible_ghn'] else None,'eligible_vnd':str(b['eligible_vnd']) if b['eligible_ghn'] else None} for b in buckets.values()],
         issue_sources=issuesrc+unassigned,sources_by_metric={},group_evidence=held,eligible_events=eligible,scope=scope,booking_rows=scoped_rows,
         boundary_ghn=0,booking_digest=pair['booking_digest'],handling_catalog_sha256=data.handling_catalog_sha256,total_cost_vnd=None,gross_profit_vnd=None,
-        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons))
+        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons),raw_last_day=evidence.get('raw_last_day'))
 
 
 def vehicle_cost_status(data, evidence, text=''):

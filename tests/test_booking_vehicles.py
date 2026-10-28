@@ -2158,11 +2158,11 @@ def test_two_leg_unresolved_reports_reason_per_event():
     data=parsed([a,b],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
     # Owner C4: SYN_TWO on two S trucks (both != AG) is two legs; SYN_NORAW has no Raw leg.
-    assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1} and dc['eligible_transfer_ghn']==1
+    assert dc['two_leg_reasons']=={'raw_not_yet_updated':1} and dc['eligible_transfer_ghn']==1  # Raw ends on the booking day
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-10'}}
     text=missing_checklist(report)[1]
-    assert 'Đơn giao thẳng GXT chưa có dòng Raw DELIVER từ ngày xuất tới lần xuất kế tiếp — 1 đợt, ngày 10/10/2026:' in text
+    assert 'Raw chưa cập nhật tới ngày xuất của đợt (Raw mới có đến 10/10/2026) — 1 đợt, ngày 10/10/2026:' in text
     assert 'Chưa khớp được xe Raw' not in text
 
 
@@ -2173,3 +2173,16 @@ def test_event_on_ag_and_another_s_truck_is_held_as_mixed():
     data=parsed([b],[event('SYN_MIX',pl='99A12345'),event('SYN_MIX',pl='99B12345',trip=124)]);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
     assert dc['two_leg_reasons']=={'mixed_ag_and_other_s_trucks':1}
+
+
+def test_booking_day_after_last_raw_load_is_waiting_not_missing():
+    from ops_team.supra.vehicle_cost import vehicle_cost_by_day
+    from ops_team.supra.missing_data import missing_checklist
+    rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+    old=book('SYN_OLD',mode=2,date='10/10/2026');new=book('SYN_NEW',mode=2,date='12/10/2026',do='D2')
+    data=parsed([old,new],[event('OTHER',date='2026-10-11')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-10 2026-10-12',rules)
+    assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1,'raw_not_yet_updated':1}
+    report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
+            'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-12'}}
+    assert 'Raw chưa cập nhật tới ngày xuất của đợt (Raw mới có đến 11/10/2026)' in missing_checklist(report)[1]

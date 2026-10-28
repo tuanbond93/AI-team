@@ -91,7 +91,8 @@ def missing_checklist(report):
     _collect(items, report['dc'].get('group_evidence', []), DC_ISSUES)
     held_two_leg = [x for x in report['dc'].get('group_evidence', []) if x.get('two_leg_reason')]
     if held_two_leg:
-        labels = {'no_raw_deliver_in_window': ('Đơn giao thẳng GXT chưa có dòng Raw DELIVER từ ngày xuất tới lần xuất kế tiếp', 'kiểm Raw đã ghi giao đơn này chưa (mã đơn, ngày load) hoặc xác nhận đơn hủy/dời'),
+        labels = {'raw_not_yet_updated': ('Raw chưa cập nhật tới ngày xuất của đợt (Raw mới có đến '+_vi_day(str(report['dc'].get('raw_last_day') or '0000-00-00'))+')', 'chờ Raw cập nhật; không phải lỗi dữ liệu'),
+                  'no_raw_deliver_in_window': ('Đơn giao thẳng GXT chưa có dòng Raw DELIVER từ ngày xuất tới lần xuất kế tiếp', 'kiểm Raw đã ghi giao đơn này chưa (mã đơn, ngày load) hoặc xác nhận đơn hủy/dời'),
                   'raw_plate_missing': ('Đơn giao thẳng GXT có dòng Raw thiếu biển S', 'biển S thực chở'),
                   'raw_truck_day_data_issue': ('Xe S/ngày của đơn có dòng Raw lỗi (thiếu chuyến/kg, trùng dòng)', 'sửa dòng Raw của xe/ngày đó'),
                   'raw_mapping_flags': ('Raw ghi mô hình hoặc biển AG khác Booking', 'xác nhận mô hình giao/biển AG đúng'),
