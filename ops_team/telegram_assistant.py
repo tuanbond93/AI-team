@@ -4,6 +4,7 @@ from dataclasses import fields
 from datetime import datetime, timedelta
 import hashlib
 import json
+import re
 import time
 import threading
 from zoneinfo import ZoneInfo
@@ -42,6 +43,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /ask hoặc /cost, /operations, /fleet… — hỏi AI nếu đã cấu hình model
 /vehicles hoặc /xe [YYYY-MM-DD] [YYYY-MM-DD] [Vn] — xem xe/chia sẻ từ paired source, 0 HTTP
 /chiphi hoặc /costs [YYYY-MM-DD] [YYYY-MM-DD] — xem dự kiến chi phí theo nguồn đã duyệt
+/giugia — owner xác nhận giữ nguyên giá/quy tắc tháng trước cho tháng này
 /duyet [mã] [xacnhan] — owner duyệt ngoại lệ cộng phần kg, có xem trước
 /sla [YYYY-MM-DD] [YYYY-MM-DD] — tỷ lệ giao đúng hạn D+1/D+2 theo Raw
 /thieu [YYYY-MM-DD] [YYYY-MM-DD] — danh sách dữ liệu cần bổ sung: trường nào, ngày nào, dòng nào trong Sheet
@@ -146,7 +148,7 @@ class AssistantResponder:
         if command == "status":
             ai = "AI đã cấu hình; chỉ gọi khi bạn hỏi hoặc lịch đã duyệt" if self.settings.get("models") else "CHƯA CÓ AI/MODEL — onboarding và báo cáo số liệu bằng code vẫn dùng được"
             return f"Nhóm cố định: {GROUP_ID}. Owner ID: {self.owner}.\n{ai}\nLịch: {'ĐANG BẬT' if self.state.control('schedule_enabled', False) else 'TẠM DỪNG'}.\nNguồn được đọc mới mỗi lần báo cáo. Máy ngủ/tắt hoặc mất mạng thì worker không hoạt động."
-        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla", "duyet"}
+        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla", "duyet", "giugia"}
         if command in owner_commands and not owner:
             if command == "details":
                 return "Chỉ chủ sở hữu đã xác minh được xem chi tiết truy vết."
@@ -281,7 +283,7 @@ class AssistantResponder:
                 if not isinstance(data,BookingData):return 'Chi phí: chưa có paired booking được duyệt.'
                 evidence=self._vehicle_evidence(data,period,cutoff)
                 missing=command in ('thieu','missing')
-                report=manual_cost_report(self.state,data,evidence,source,facts,self.owner,text) if evidence.get('available') else {'available':False}
+                report=manual_cost_report(self._policy_state(period),data,evidence,source,facts,self.owner,text) if evidence.get('available') else {'available':False}
                 if missing:
                     from .supra.missing_data import missing_checklist,booking_checklist
                     if report.get('available'):return missing_checklist(report)[1]
@@ -292,9 +294,16 @@ class AssistantResponder:
                         'Chưa lập được danh sách: chính sách chi phí đã cài không còn khớp nguồn hiện tại; cần nạp lại cho đúng bản nguồn.')
                 if not evidence.get('available'):return 'Chi phí: chưa đủ hai nguồn đã duyệt.'
                 result=render_cost_report(report)
+                if (notice:=self._month_notice(period)):result=notice+'\n\n'+result
                 self._code_details[key]={'kind':'manual_cost','report':report,'response':result}
                 if len(self._code_details)>100:self._code_details.pop(next(iter(self._code_details)))
                 return result
+            if command=='giugia':
+                from .policy_periods import confirm
+                data,source,facts,period,warehouses,cutoff,_=self._scoped()
+                if confirm(self.state,period,self.owner,request.message_id):
+                    return 'Đã xác nhận giữ nguyên giá và quy tắc cho tháng '+period[5:]+'/'+period[:4]+'. Khi có thay đổi, anh gửi bảng giá/quy tắc mới để nạp.'
+                return 'Không có tháng nào đang chờ xác nhận giữ giá.'
             if command=='duyet':
                 from .supra.manual_cost_report import manual_cost_report
                 from .supra.booking import BookingData
@@ -306,10 +315,10 @@ class AssistantResponder:
                 data,source,facts,period,warehouses,cutoff,_=self._scoped()
                 if not isinstance(data,BookingData):return 'Duyệt: chưa có paired booking được duyệt.'
                 evidence=self._vehicle_evidence(data,period,cutoff)
-                rules,_=load_rules(self.state,data,source,facts,self.owner) if evidence.get('available') else (None,None)
+                rules,_=load_rules(self._policy_state(period),data,source,facts,self.owner) if evidence.get('available') else (None,None)
                 if not rules:return 'Duyệt: chưa có lớp quy tắc owner đang hiệu lực cho nguồn này; chưa lưu được ngoại lệ.'
                 scope_text=dates or rules['window']['start']+' '+min(rules['window']['end'],str(cutoff.date()))
-                report=manual_cost_report(self.state,data,evidence,source,facts,self.owner,scope_text)
+                report=manual_cost_report(self._policy_state(period),data,evidence,source,facts,self.owner,scope_text)
                 if not report.get('available'):return 'Duyệt: chưa tính được bảng chi phí cho khoảng này.'
                 found=decisions.proposals(report,data)
                 if not code:
@@ -320,7 +329,7 @@ class AssistantResponder:
                 if not match:return 'Không thấy mã '+code+' trong khoảng này (dữ liệu có thể đã đổi). Gửi /duyet để xem danh sách mới.'
                 if not confirm:
                     return 'XEM TRƯỚC — '+decisions.describe(match[0])+'\nChỉ đợt này được cộng; các đợt khác giữ nguyên. Gửi /duyet '+code+' xacnhan để lưu.'
-                record=decisions.apply(match[0],rules,self.state,data,source,facts,self.owner,request)
+                record=decisions.apply(match[0],rules,self._policy_state(period),data,source,facts,self.owner,request)
                 self._code_details.pop((request.chat_id,request.topic_id,request.user_id),None)
                 return 'ĐÃ LƯU '+code+'. Từ bây giờ đợt này cộng các phần kg; quy tắc giữ qua các lần làm mới nguồn nếu đúng các dòng đó. Mã audit '+record['new_rules_sha256'][:12]+'.'
             if command=='sla':
@@ -348,7 +357,7 @@ class AssistantResponder:
                 evidence=self._vehicle_evidence(data,period,cutoff)
                 quality=vehicle_scope_quality(data,evidence,text)
                 from .telegram_rule_layer import load_rules
-                rules,rules_sha=load_rules(self.state,data,source,facts,self.owner) if evidence.get('available') else (None,None)
+                rules,rules_sha=load_rules(self._policy_state(period),data,source,facts,self.owner) if evidence.get('available') else (None,None)
                 if rules:
                     from .supra.vehicle_report import vehicle_scope
                     from .supra.vehicle_cost import vehicle_cost_by_day
@@ -357,13 +366,14 @@ class AssistantResponder:
                         return 'Quy tắc đã duyệt không áp dụng cho khoảng ngày này; chưa tính.'
                     from .telegram_secrets import load_protected
                     from .telegram_manual_cost_policy import FILENAME as COST_POLICY_FILENAME
-                    cost_policy=json.loads(load_protected(self.state.root/COST_POLICY_FILENAME))
+                    cost_policy=json.loads(load_protected(self._policy_state(period).root/COST_POLICY_FILENAME))
                     cost=vehicle_cost_by_day(data,evidence,text,rules,cost_policy);cost['rules_sha256']=rules_sha
                     legacy=vehicle_cost_status(data,evidence,text)
                     cost['legacy_warnings']={'counters':legacy.get('counters',{}),'issue_sources':legacy.get('issue_sources',[])}
                 else:cost=vehicle_cost_status(data,evidence,text)
-                forecast=manual_forecast(self.state,data,evidence,source,facts,self.owner,text,rules=rules) if evidence.get('available') else None
+                forecast=manual_forecast(self._policy_state(period),data,evidence,source,facts,self.owner,text,rules=rules) if evidence.get('available') else None
                 result=vehicle_view(evidence,text,scope_quality=quality,cost_record=cost,forecast_record=forecast)
+                if (notice:=self._month_notice(period)):result=notice+'\n\n'+result
                 raw=data.vehicle_pair['data_supra'] if data.vehicle_pair else None
                 self._code_details[key]={'kind':'vehicles','evidence':evidence,'filter':text,'response':result,'scope_quality':quality,'cost_record':cost,'forecast_record':forecast,
                     'source_pin':{k:raw[k] for k in ('spreadsheet_id','tab','gid')} if raw else None}
@@ -533,6 +543,8 @@ class AssistantResponder:
         from .supra.booking import BookingData
         from .chief.ingestion import FinancialData
         if isinstance(validation, (BookingData, FinancialData)):
+            if isinstance(validation, BookingData) and self._ensure_month(period):
+                validation, source = self._load()
             return validation, source, facts, period, warehouses, cutoff, 0
         validation = deepcopy(validation)
         removed = 0
@@ -544,6 +556,33 @@ class AssistantResponder:
                 removed += int((~keep).sum())
                 validation.tables[kind] = frame.loc[keep].copy()
         return validation, source, facts, period, warehouses, cutoff, removed
+
+    def _ensure_month(self, period):
+        """Owner rule 28/10/2026: carry last month's approved set into a new month once; True if rolled."""
+        from .policy_periods import root_period, next_month, roll_forward
+        try:
+            current = root_period(self.state)
+        except Exception:
+            return False
+        if not current or not period or not re.fullmatch(r'[0-9]{4}-[0-9]{2}', str(period)) or next_month(current) != period:
+            return False
+        try:
+            roll_forward(self.state, self.owner, period)
+            return True
+        except Exception:
+            self.state.set_control('last_error', 'Chưa chuyển được giá/quy tắc sang tháng '+str(period)+'; các khoản theo quy tắc để N/A tới khi owner nạp bộ mới.')
+            return False
+
+    def _policy_state(self, period):
+        from .policy_periods import state_for_month
+        return state_for_month(self.state, period)
+
+    def _month_notice(self, period):
+        from .policy_periods import unconfirmed_notice
+        try:
+            return unconfirmed_notice(self.state, period)
+        except Exception:
+            return None
 
     def _observed(self, validation, period, warehouses):
         import pandas as pd
@@ -689,16 +728,17 @@ class AssistantResponder:
         evidence=self._vehicle_evidence(data,period,cutoff)
         if not evidence.get('available'):return None
         from .telegram_rule_layer import FILENAME as RULES_FILENAME,load_rules
-        if not (self.state.root/RULES_FILENAME).exists():return None
+        view=self._policy_state(period)
+        if not (view.root/RULES_FILENAME).exists():return None
         from .supra.booking_handling import handling_summary
         stale=getattr(self,'_raw_stale',False)
         try:
             if stale:raise ValueError('Raw stale: two-leg evidence cannot be used')
-            rules,rules_sha=load_rules(self.state,data,source,facts,self.owner)
+            rules,rules_sha=load_rules(view,data,source,facts,self.owner)
             from .telegram_secrets import load_protected
             from .telegram_manual_cost_policy import FILENAME as COST_POLICY_FILENAME
             from .supra.vehicle_cost import booking_rule_handling
-            policy=json.loads(load_protected(self.state.root/COST_POLICY_FILENAME))
+            policy=json.loads(load_protected(view.root/COST_POLICY_FILENAME))
             result=booking_rule_handling(data,evidence,period,cutoff,rules,rules_sha,policy)
         except (ValueError,OSError,KeyError,TypeError):
             result=None;rules_sha=None
@@ -739,6 +779,8 @@ class AssistantResponder:
             warnings.append("Đang dùng giả định theo kế hoạch: "+"; ".join(values)+".")
         if context["latest"] is None or (cutoff.date()-context["latest"]).days > 1:
             warnings.append("Ngày xuất mới nhất cách ngày chốt hơn một ngày; bản vừa nhận không có nghĩa dữ liệu nghiệp vụ đã mới.")
+        if (notice := self._month_notice(period)):
+            warnings.append(notice)
         return self._plain_booking_report(context, warnings)
 
     def _plain_booking_report(self, context, warnings):

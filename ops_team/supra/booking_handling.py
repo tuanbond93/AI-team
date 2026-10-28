@@ -28,6 +28,13 @@ HANDLING_POLICY={
 }
 
 
+def period_floor(period):
+    """First day of the month 11 months before ``period`` (YYYY-MM)."""
+    year,month=int(period[:4]),int(period[5:7])
+    index=year*12+month-1-11
+    return date(index//12,index%12+1,1)
+
+
 def catalog_digest(catalog):
     return hashlib.sha256(json.dumps(catalog,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
@@ -68,9 +75,11 @@ def validate_catalog(catalog,source,policy=HANDLING_POLICY,expected_digest=None)
         date.fromisoformat(catalog['confirmed_date'])
         lo=date.fromisoformat(catalog['period']+'-01')
         hi=date(lo.year,lo.month,calendar.monthrange(lo.year,lo.month)[1])
+        # Month roll-forward (owner 28/10/2026) keeps up to 11 earlier months' intervals unchanged.
+        floor=period_floor(catalog['period'])
         def interval(r):
             start,end=date.fromisoformat(r['from']),date.fromisoformat(r['to'])
-            if not lo<=start<=end<=hi:raise ValueError
+            if not floor<=start<=end<=hi:raise ValueError
             return start,end
         rates=catalog['rates'];routes=catalog['routing']
         if not isinstance(rates,list) or not 1<=len(rates)<=12 or not isinstance(routes,list) or not 1<=len(routes)<=2000:

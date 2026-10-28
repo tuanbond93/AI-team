@@ -111,6 +111,11 @@ def build_pair_from_folder(folder, previous):
         handling_catalog=previous['handling_catalog'], handling_catalog_sha256=previous['handling_catalog_sha256'],
         vehicle_policy=VEHICLE_POLICY, vehicle_catalog=previous['vehicle_pair']['vehicle_catalog'],
         vehicle_catalog_sha256=previous['vehicle_pair']['vehicle_catalog_sha256'])
+    return pair_descriptor(payload)
+
+
+def pair_descriptor(payload):
+    """(plaintext bytes, descriptor) exactly as `ingest_vehicle_pair` expects."""
     encoded = json.dumps(payload, ensure_ascii=False).encode()
     descriptor = {k: v for k, v in payload.items() if k not in ('booking', 'data_supra', 'handling_catalog', 'vehicle_catalog')}
     for k in ('booking', 'data_supra'):

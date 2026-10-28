@@ -2018,3 +2018,61 @@ def _read_vault_catalogs(state):
     r=_read_record(state)
     return dict(handling_catalog=r['handling_catalog'],handling_catalog_sha256=r['handling_catalog_sha256'],
         vehicle_catalog=r['vehicle_pair']['vehicle_catalog'],vehicle_catalog_sha256=r['vehicle_pair']['vehicle_catalog_sha256'])
+
+
+def _rollover_fixture(tmp_path,break_price=False):
+    from ops_team.telegram_rule_layer import ingest_rules
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    oct_row=book('SYN_OCT',date='10/10/2026');oct_row[8]='5'
+    nov_row=book('SYN_NOV',date='05/11/2026');nov_row[8]='7'
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path,custom_books=[oct_row,nov_row],
+        custom_raws=[event('SYN_OCT'),event('SYN_NOV',date='2026-11-05',trip=124)])
+    _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg)
+    if break_price:config['revenue']['prices'][0]['to']='2026-10-30'
+    path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+    rules=synthetic_owner_rules(state,data);path,desc=stage_rule_layer(tmp_path,rules);ingest_rules(path,desc,state,123)
+    return state,facts
+
+
+def test_month_rollover_keeps_last_month_and_prices_next_month_until_confirmed(tmp_path):
+    from ops_team.policy_periods import roll_forward,root_period,state_for_month,unconfirmed_notice,confirm
+    from ops_team.supra.manual_cost_report import manual_cost_report
+    state,facts=_rollover_fixture(tmp_path)
+    try:
+        data,source=load_snapshot(state,facts);v=vehicle_evidence(data,'2026-10',CUTOFF)
+        before=manual_cost_report(state,data,v,source,facts,123,'2026-10-10 2026-10-20')
+        assert before['available']
+        assert roll_forward(state,123,'2026-11')['state']=='ROLLED_UNCONFIRMED' and root_period(state)=='2026-11'
+        data,source=load_snapshot(state,facts)
+        old=manual_cost_report(state_for_month(state,'2026-10'),data,vehicle_evidence(data,'2026-10',CUTOFF),source,facts,123,'2026-10-10 2026-10-20')
+        assert old['available'] and old['dc']['eligible_vnd']==before['dc']['eligible_vnd']  # October still reconcilable
+        nov_cut=datetime(2026,11,30,23,59,tzinfo=TZ)
+        nov=manual_cost_report(state_for_month(state,'2026-11'),data,vehicle_evidence(data,'2026-11',nov_cut),source,facts,123,'2026-11-01 2026-11-30')
+        assert nov['available'] and Decimal(nov['dc']['eligible_vnd'])==700  # same 100đ/kg carried into November
+        assert 'chưa xác nhận' in unconfirmed_notice(state,'2026-11')
+        assert confirm(state,'2026-11',123,9) and unconfirmed_notice(state,'2026-11') is None and not confirm(state,'2026-11',123,10)
+        with pytest.raises(ValueError):roll_forward(state,123,'2027-01')  # only the next month
+    finally:state.close()
+
+
+def test_month_rollover_failure_restores_everything(tmp_path):
+    from ops_team.policy_periods import roll_forward,root_period,SET_FILES
+    state,facts=_rollover_fixture(tmp_path,break_price=True)
+    try:
+        files={n:(state.root/n).read_bytes() for n in SET_FILES};pointer=(state.root/'snapshot-latest.dpapi').read_bytes()
+        with pytest.raises(ValueError):roll_forward(state,123,'2026-11')
+        assert {n:(state.root/n).read_bytes() for n in SET_FILES}==files and (state.root/'snapshot-latest.dpapi').read_bytes()==pointer
+        assert root_period(state)=='2026-10' and not any((state.root/'periods'/'2026-10').glob('*.dpapi'))
+    finally:state.close()
+
+
+def test_assistant_rolls_once_when_report_period_moves_to_next_month(tmp_path):
+    from ops_team.policy_periods import root_period,rollovers
+    state,facts=_rollover_fixture(tmp_path)
+    try:
+        a=responder(state);state.remember('period','2026-11',123,0,GROUP_ID)
+        a._scoped();assert root_period(state)=='2026-11' and rollovers(state)['2026-11']['from']=='2026-10'
+        a._scoped();assert list(rollovers(state))==['2026-11']  # idempotent
+        assert a.answer(Incoming(GROUP_ID,123,1,None,'giugia','')).startswith('Đã xác nhận giữ nguyên giá và quy tắc cho tháng 11/2026')
+        assert 'Không có tháng nào' in a.answer(Incoming(GROUP_ID,123,2,None,'giugia',''))
+    finally:state.close()

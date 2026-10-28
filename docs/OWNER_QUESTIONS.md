@@ -145,3 +145,4 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | C6 | `time_updated` của DELIVER `is_succeeded`; D+1/D+2 đến 23:59 | 28/10/2026 | Có: lệnh `/sla` |
 | C7 | VAT 8% cho doanh thu và cước NCC | 28/10/2026 | Có: dòng đối chiếu hóa đơn trong tổng dự kiến |
 | C8 | Chưa có mẫu; kế toán gửi cuối tháng | 28/10/2026 | Chờ file đầu tiên |
+| Tháng | A — giữ nguyên giá/quy tắc sang tháng sau, nhắc xác nhận | 28/10/2026 | Có: chuyển tháng tự động + `/giugia` |

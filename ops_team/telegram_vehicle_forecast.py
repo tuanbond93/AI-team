@@ -46,7 +46,9 @@ def validate_forecast(config,data,source,facts,owner_id,paired):
         from .supra.booking_vehicles import validate_vehicle_catalog
         validate_vehicle_catalog(c,booking,raw,config['vehicle_catalog_sha256'])
         validate_catalog(h,booking,data.handling_policy,config['handling_catalog_sha256'])
-        if config['period']!=c['period'] or config['period']!=h['period'] or not re.fullmatch(r'20[0-9]{2}-(?:0[1-9]|1[0-2])',config['period']):raise ValueError
+        from .supra.booking_handling import period_floor
+        if (c['period']!=h['period'] or not re.fullmatch(r'20[0-9]{2}-(?:0[1-9]|1[0-2])',config['period'])
+                or not str(period_floor(c['period']))[:7]<=config['period']<=c['period']):raise ValueError
         w=config['window']
         if not isinstance(w,dict) or set(w)!={'start','end'}:raise ValueError
         start,end=date.fromisoformat(w['start']),date.fromisoformat(w['end'])
