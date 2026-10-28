@@ -141,7 +141,7 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | C2 | A — kg Raw cùng GHN, cùng ngày | 28/10/2026 | Có: đợt trống L lấy kg Raw DELIVER cùng ngày khi rõ ràng |
 | C3 | A — mỗi loại T khác nhau trên cùng xe/ngày = 1 lượt theo T đó; cùng T = 1 lượt | 28/10/2026 | Có (FTL và xe trung chuyển, khi lớp quy tắc đang bật) |
 | C4 | Đúng — chia kg theo gram Raw từng xe, biển Raw phải khớp AG | 28/10/2026 | Có: FTL chia L theo tỷ lệ gram Raw khi biển khớp AG |
-| C5 | Cột "Ghi chú 2" (Y), ghi chú tự do có KT/CHKT/Khai trương; tính FTL theo T + km thực tế | 28/10/2026 | Chưa làm (cần thêm cột vào nguồn ghim) |
+| C5 | Cột "Ghi chú 2" (Y), ghi chú tự do có KT/CHKT/Khai trương; tính FTL theo T + km thực tế | 28/10/2026 | Có: tự nhận khai trương từ Ghi chú 2 |
 | C6 | `time_updated` của DELIVER `is_succeeded`; D+1/D+2 đến 23:59 | 28/10/2026 | Có: lệnh `/sla` |
 | C7 | VAT 8% cho doanh thu và cước NCC | 28/10/2026 | Có: dòng đối chiếu hóa đơn trong tổng dự kiến |
 | C8 | Chưa có mẫu; kế toán gửi cuối tháng | 28/10/2026 | Chờ file đầu tiên |

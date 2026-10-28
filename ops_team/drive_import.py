@@ -20,7 +20,7 @@ from .supra.booking import normalized, verify_export_headers
 from .supra.booking_quantity import RULE
 from .supra.booking_weight import WEIGHT_RULE
 from .supra.booking_handling import HANDLING_POLICY
-from .supra.booking_vehicles import PAIR_SCHEMA, BOOK_HEADERS, RAW_HEADERS, VEHICLE_POLICY
+from .supra.booking_vehicles import PAIR_SCHEMA, BOOK_HEADERS_V2, RAW_HEADERS, VEHICLE_POLICY
 from .telegram_secrets import save_protected
 
 MANIFEST = 'supra-export-manifest.json'
@@ -89,7 +89,7 @@ def build_pair_from_folder(folder, previous):
     pinned_booking = previous['source']
     pinned_raw = previous['vehicle_pair']['data_supra']
     parts = {}
-    for key, pinned, count, wanted in (('booking', pinned_booking, 37, BOOK_HEADERS), ('raw', pinned_raw, 25, RAW_HEADERS)):
+    for key, pinned, count, wanted in (('booking', pinned_booking, 37, BOOK_HEADERS_V2), ('raw', pinned_raw, 25, RAW_HEADERS)):
         meta = manifest['files'][key]
         if (not isinstance(meta, dict) or set(meta) != {'name', 'spreadsheet_id', 'tab', 'gid', 'range', 'sha256', 'rows'}
                 or not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}\.csv', str(meta['name'])) or not re.fullmatch('[a-f0-9]{64}', str(meta['sha256']))

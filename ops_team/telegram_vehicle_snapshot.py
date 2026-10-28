@@ -9,7 +9,7 @@ from .supra.booking import parse_booking
 from .supra.booking_quantity import RULE
 from .supra.booking_weight import WEIGHT_RULE
 from .supra.booking_handling import HANDLING_POLICY,validate_catalog,geography
-from .supra.booking_vehicles import (PAIR_SCHEMA,BOOK_HEADERS,RAW_HEADERS,RAW_PIN,VEHICLE_POLICY,
+from .supra.booking_vehicles import (PAIR_SCHEMA,BOOK_HEADERS,BOOK_HEADERS_V2,RAW_HEADERS,RAW_PIN,VEHICLE_POLICY,
     digest,validate_vehicle_catalog)
 
 
@@ -53,7 +53,8 @@ def vehicle_plan_identity(state):
 
 def _source(s,headers,count,*,raw=False):
     keys={'source_url','spreadsheet_id','tab','gid','range','retrieved_at','raw_sha256','raw_column_count','headers','rows'}
-    if not isinstance(s,dict) or set(s)!=keys or s['headers']!=headers or s['raw_column_count']!=count:raise ValueError('Nguồn paired sai header/schema.')
+    allowed=headers if isinstance(headers,tuple) else (headers,)
+    if not isinstance(s,dict) or set(s)!=keys or s['headers'] not in allowed or s['raw_column_count']!=count:raise ValueError('Nguồn paired sai header/schema.')
     if raw and (any(str(s[k])!=str(RAW_PIN[k]) for k in RAW_PIN) or not re.fullmatch(r"'raw_current'!A1:Y[1-9][0-9]*",s['range'])):raise ValueError('Raw pin/range ngoài nguồn được owner cho phép.')
     if not re.fullmatch('[a-f0-9]{64}',s['raw_sha256']):raise ValueError('Nguồn paired thiếu raw hash.')
     from urllib.parse import urlparse,parse_qs
@@ -66,7 +67,7 @@ def _source(s,headers,count,*,raw=False):
     positions=[]
     for r in s['rows']:
         if (not isinstance(r,dict) or set(r)!={'sheet_row','values'} or type(r['sheet_row']) is not int or not 2<=r['sheet_row']<=end or
-                not isinstance(r['values'],list) or len(r['values'])!=len(headers) or any(type(v) not in (str,int,float,type(None)) for v in r['values'])):raise ValueError('Dòng paired sai cấu trúc.')
+                not isinstance(r['values'],list) or len(r['values'])!=len(s['headers']) or any(type(v) not in (str,int,float,type(None)) for v in r['values'])):raise ValueError('Dòng paired sai cấu trúc.')
         positions.append(r['sheet_row'])
     if positions!=sorted(set(positions)):raise ValueError('Vị trí paired phải duy nhất, tăng dần.')
     return t
@@ -89,7 +90,7 @@ def ingest_vehicle_pair(path,descriptor,state,owner_id,*,cancel=None):
         'confirmed_handling_policy':HANDLING_POLICY,'vehicle_policy':VEHICLE_POLICY}
     for key,val in expected.items():
         if payload[key]!=val or descriptor[key]!=val:raise ValueError('Paired policy không khớp owner.')
-    for key,headers,count in (('booking',BOOK_HEADERS,37),('data_supra',RAW_HEADERS,25)):
+    for key,headers,count in (('booking',(BOOK_HEADERS,BOOK_HEADERS_V2),37),('data_supra',RAW_HEADERS,25)):
         s=payload[key];_source(s,headers,count,raw=key=='data_supra')
         if descriptor[key]!={k:v for k,v in s.items() if k!='rows'}|{'row_count':len(s['rows'])}:raise ValueError('Paired source metadata không khớp descriptor.')
     book=payload['booking'];raw=payload['data_supra'];facts={k:r['value'] for k,r in state.facts().items()}
@@ -110,7 +111,7 @@ def ingest_vehicle_pair(path,descriptor,state,owner_id,*,cancel=None):
     if previous:
         if stamp<datetime.fromisoformat(previous['source']['retrieved_at']):raise ValueError('Không thay primary mới bằng paired cũ.')
         if previous.get('vehicle_pair') and datetime.fromisoformat(raw['retrieved_at'])<datetime.fromisoformat(previous['vehicle_pair']['data_supra']['retrieved_at']):raise ValueError('Không thay raw mới bằng paired cũ.')
-    f=pd.DataFrame([r['values'] for r in book['rows']],columns=BOOK_HEADERS,dtype=object)
+    f=pd.DataFrame([r['values'] for r in book['rows']],columns=book['headers'],dtype=object)
     f['_source']=[f"GoogleViewer#{book['raw_sha256'][:12]} dòng {r['sheet_row']}" for r in book['rows']]
     safe=parse_booking(f,quantity_rules=dict(RULE),weight_rules=dict(WEIGHT_RULE),handling_policy=HANDLING_POLICY,
         handling_catalog=payload['handling_catalog'],handling_catalog_sha256=payload['handling_catalog_sha256'],vehicle_fields=True)
@@ -120,7 +121,7 @@ def ingest_vehicle_pair(path,descriptor,state,owner_id,*,cancel=None):
     record=dict(schema_version=5,source=source,actor=owner_id,provenance='OWNER_PAIRED_BUSINESS_SOURCES / UNVERIFIED',
         quantity_rules=RULE,weight_rules=WEIGHT_RULE,handling_policy=HANDLING_POLICY,handling_catalog=payload['handling_catalog'],
         handling_catalog_sha256=payload['handling_catalog_sha256'],vehicle_pair=pair,rows=safe.rows.to_dict('records'),
-        business_evidence={'headers':BOOK_HEADERS,'rows':book['rows']},export={'sha256':book['raw_sha256'],'observed_data_rows':len(book['rows'])})
+        business_evidence={'headers':book['headers'],'rows':book['rows']},export={'sha256':book['raw_sha256'],'observed_data_rows':len(book['rows'])})
     encoded=json.dumps(record,ensure_ascii=False,default=str,allow_nan=False).encode();sha=hashlib.sha256(encoded).hexdigest()
     stop();save_protected(state.root/'snapshots'/(sha+'.dpapi'),encoded)
     stop();save_protected(state.root/'snapshot-latest.dpapi',json.dumps({'digest':sha,'retrieved_epoch':stamp.timestamp()}).encode())

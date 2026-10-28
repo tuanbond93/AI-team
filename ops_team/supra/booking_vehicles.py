@@ -13,6 +13,17 @@ from .booking_handling import geography,validate_catalog
 PAIR_SCHEMA='supra-vehicle-paired-source-intake-v4'
 BOOK_HEADERS=['Ngày LTC','Mã đơn GHN','Trạng thái','Ngày xuất','MÃ SO','MÃ DO','Mã siêu thị',
     'Qty (Units)','Weight (kg)/ tổng cửa hàng','Tỉnh','Huyện','Tải trọng','BIỂN SỐ XE ']
+# Owner 28/10/2026: column Y 'Ghi chú 2' marks special orders (e.g. 'KT 24.10 booking giao sớm 20.10').
+BOOK_HEADERS_V2=BOOK_HEADERS+['Ghi chú 2']
+OPENING_NOTE=re.compile(r'(?<![A-Za-zÀ-ỹĐđ])(?:CHKT|KT)(?![A-Za-zÀ-ỹĐđ])|khai\s*tr(?:ươ|uo)ng',re.I)
+
+
+def is_opening_note(value):
+    """KT/CHKT as a standalone token (KT24.10 yes, KTX no) or 'khai trương' in Ghi chú 2."""
+    import unicodedata
+    return bool(OPENING_NOTE.search(unicodedata.normalize('NFC',cell(value))))
+
+
 RAW_HEADERS=['time_updated','load_date','time_bat_dau_chuyen','time_ket_thuc_chuyen','trip_code',
     'order_code','so_kien','client_type','weight','type','is_succeeded','truck_plate_number',
     'warehouse_name','region_shortname','from_province','from_district','to_province','to_district']

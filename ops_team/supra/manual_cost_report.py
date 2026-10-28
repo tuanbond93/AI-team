@@ -136,6 +136,13 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
         rule = _rule(r, catalog, when)
         return next((name for name, ids in selectors.items() if rule and rule['rule_id'] in ids), None)
     opening={(r['order_id'],r['day']):r for r in rules['opening_ftl']} if rules else {}
+    if rules:
+        # Owner 28/10/2026: any GHN/day whose 'Ghi chú 2' marks an opening (KT/CHKT/khai trương)
+        # is FTL by Booking T + actual km; no BC point fee, no GXT delivery wage.
+        from .booking_vehicles import is_opening_note
+        for r in rows:
+            if r['order_id'] and r['dispatch_date'] is not None and is_opening_note(r.get('source_note','')):
+                opening.setdefault((r['order_id'],str(r['dispatch_date'])),{'order_id':r['order_id'],'day':str(r['dispatch_date']),'source':'GHI_CHU_2'})
     point_rows, ftl_rows = [], []
     representatives = {plate(x) for x in catalog['representative_plates']}
     for row in rows:

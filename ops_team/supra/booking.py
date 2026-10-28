@@ -89,7 +89,7 @@ def parse_booking(frame, *, quantity_rules=None, weight_rules=None, handling_pol
     for source_col,target in (('Mã siêu thị','source_store_id'),('Huyện','source_district')):
         if normalized(source_col) in columns:
             safe[target]=frame[columns[normalized(source_col)]].map(business_key if target=='source_store_id' else cell)
-    for source_col,target in (('Tải trọng','source_capacity_raw'),('BIỂN SỐ XE','source_booking_plate')):
+    for source_col,target in (('Tải trọng','source_capacity_raw'),('BIỂN SỐ XE','source_booking_plate'),('Ghi chú 2','source_note')):
         if vehicle_fields and normalized(source_col) in columns:safe[target]=frame[columns[normalized(source_col)]].map(cell)
     return BookingData(safe, quantity_rules, weight_rules,handling_policy,handling_catalog,handling_catalog_sha256)
 

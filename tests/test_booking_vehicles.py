@@ -1936,3 +1936,32 @@ def test_ftl_ghn_on_two_vehicles_split_by_raw_grams_only_when_plates_match():
     assert [(r['order'],Decimal(r['weight_kg'])) for r in out]==[('SYN_SPLIT@99A12345',75),('SYN_SPLIT@99C12345',25)]
     pair['data_supra']['rows'][1]['values']=event('SYN_SPLIT',pl='99Z00001',grams='10000',trip=124)
     assert _split_multi_vehicle_ftl(rows,pair)==rows  # Raw plate not on Booking AG: unchanged, stays held
+
+
+@pytest.mark.parametrize('note,expected',[('KT 24.10 booking giao sớm 20.10',True),('KT24.10 booking sớm 19.10 giao trong ngày',True),
+    ('CHKT',True),('Khai trương cửa hàng',True),('khai truong',True),('Giao KTX',False),('',False),('BKT 3',False)])
+def test_opening_note_detection(note,expected):
+    from ops_team.supra.booking_vehicles import is_opening_note
+    assert is_opening_note(note) is expected
+
+
+def test_ghi_chu_2_marks_opening_ftl_without_manual_exception(tmp_path):
+    from ops_team.supra.manual_cost_report import _calculate
+    from ops_team.supra.booking_vehicles import BOOK_HEADERS_V2
+    state,facts,_,source,_,cfg=forecast_fixture(tmp_path)
+    try:
+        rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[]}
+        def build(note):
+            data=parsed([book('SYN_OPEN',mode=1)],[event('SYN_OPEN')])
+            p=payload([book('SYN_OPEN',mode=1)+[note]],[event('SYN_OPEN')])
+            p['booking']['headers']=BOOK_HEADERS_V2
+            f=pd.DataFrame([r['values'] for r in p['booking']['rows']],columns=BOOK_HEADERS_V2);f['_source']=['SYNTHETIC BOOK 0']
+            fresh=parse_booking(f,quantity_rules=RULE,weight_rules=WEIGHT_RULE,handling_policy=HANDLING_POLICY,
+                handling_catalog=p['handling_catalog'],handling_catalog_sha256=p['handling_catalog_sha256'],vehicle_fields=True)
+            fresh.vehicle_pair=data.vehicle_pair;return fresh
+        for note,count in (('KT 24.10 booking giao sớm 20.10',1),('Giao KTX',0)):
+            data=build(note);v=vehicle_evidence(data,'2026-10',CUTOFF);scope=vehicle_scope(v,'2026-10-10')
+            out=_calculate(data,v,synthetic_cost_policy(cfg),scope,'a'*64,vehicle_cost_status(data,v,'2026-10-10'),{'available':False},rules,'b'*64)
+            assert out['opening_unpriced_events']==count
+            if count:assert out['points']['eligible_vnd'] is None  # no BC point fee for the opening order
+    finally:state.close()
