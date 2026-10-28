@@ -134,7 +134,7 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | 24 | Phú Thọ D+1; Sơn La, Điện Biên, Lai Châu D+2 từ cột E | 27/10/2026 | Chờ nguồn giờ giao thực tế |
 | 25 | Không có chấm công | 27/10/2026 | Nhân sự N/A |
 | 26 | A | 27/10/2026 | Nhóm nhận Kết luận + số nhóm thiếu; danh sách dòng chỉ qua `/thieu` của owner |
-| 27 | A | 27/10/2026 | Việc tiếp theo |
+| 27 | A | 27/10/2026 | Có: `/duyet` (cộng phần kg), quy tắc v2 giữ qua làm mới nguồn |
 | 28 | B — chưa làm Cloudflare | 27/10/2026 | Không làm |
 | 29 | A | 27/10/2026 | Có: kg bỏ số 0 thập phân |
 | C1 | Có Apps Script, có Drive for desktop, gửi 13h | 28/10/2026 | Có: `scripts/apps_script/ExportSupraTabs.gs` + `python -m ops_team.drive_import` |

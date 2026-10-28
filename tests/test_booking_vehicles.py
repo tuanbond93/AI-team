@@ -1965,3 +1965,56 @@ def test_ghi_chu_2_marks_opening_ftl_without_manual_exception(tmp_path):
             assert out['opening_unpriced_events']==count
             if count:assert out['points']['eligible_vnd'] is None  # no BC point fee for the opening order
     finally:state.close()
+
+
+def test_owner_confirms_kg_parts_in_telegram_and_rule_survives_refresh(tmp_path,monkeypatch):
+    from ops_team.telegram_rule_layer import ingest_rules,FILENAME,DECISIONS_FILENAME,SCHEMA_V2
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    first=book('SYN_SPLIT',date='10/10/2026',do='D1');first[8]='5'
+    second=book('SYN_SPLIT',date='10/10/2026',do='D2');second[8]='6'
+    raws=[event('SYN_SPLIT')]
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path,custom_books=[first,second],custom_raws=raws)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+        rules=synthetic_owner_rules(state,data);path,desc=stage_rule_layer(tmp_path,rules);ingest_rules(path,desc,state,123)
+        def responder_for(current):
+            data,source=load_snapshot(state,facts);a=responder(state)
+            monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+            monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('decisions cannot call model'))
+            return a
+        a=responder_for(None)
+        listing=a.answer(Incoming(GROUP_ID,123,1,None,'duyet',''))
+        assert 'cộng các phần kg 5 + 6 = 11 kg' in listing and 'Booking dòng 2, 3' in listing and 'SYN_SPLIT' not in listing
+        code=listing.split('• ')[1].split(':')[0]
+        assert 'Chỉ owner' in a.answer(Incoming(GROUP_ID,456,2,None,'duyet',code+' xacnhan'))
+        preview=a.answer(Incoming(GROUP_ID,123,3,None,'duyet',code))
+        assert preview.startswith('XEM TRƯỚC') and json.loads(load_protected(state.root/FILENAME))['schema']!=SCHEMA_V2
+        saved=a.answer(Incoming(GROUP_ID,123,4,None,'duyet',code+' xacnhan'))
+        assert saved.startswith('ĐÃ LƯU '+code)
+        stored=json.loads(load_protected(state.root/FILENAME));log=json.loads(load_protected(state.root/DECISIONS_FILENAME))
+        assert stored['schema']==SCHEMA_V2 and stored['provenance']['source']=='OWNER_CONFIRMED_IN_TELEGRAM'
+        assert log[-1]['code']==code and log[-1]['owner_id']==123 and log[-1]['message_id']==4
+        a.answer(Incoming(GROUP_ID,123,5,None,'chiphi','2026-10-10'))
+        assert Decimal(a._code_details[(GROUP_ID,None,123)]['report']['dc']['eligible_vnd'])==1100
+        # Daily refresh: new export hash and timestamps; same business rows keep the owner rule.
+        p=payload([first,second],raws,stamp=datetime.now(timezone.utc).isoformat());p['booking']['raw_sha256']='c'*64
+        old=_read_vault_catalogs(state);p.update(old)
+        path2,d2=stage(tmp_path,p);ingest_minimized_snapshot(path2,d2,state,123)
+        a=responder_for(None);a.answer(Incoming(GROUP_ID,123,6,None,'chiphi','2026-10-10'))
+        report=a._code_details[(GROUP_ID,None,123)]['report']
+        assert report['available'] and Decimal(report['dc']['eligible_vnd'])==1100
+        # Source kg changed: the exception no longer matches, the event is held again (never re-guessed).
+        changed=list(second);changed[8]='7'
+        p=payload([first,changed],raws,stamp=datetime.now(timezone.utc).isoformat());p['booking']['raw_sha256']='b'*64;p.update(old)
+        path3,d3=stage(tmp_path,p);ingest_minimized_snapshot(path3,d3,state,123)
+        a=responder_for(None);a.answer(Incoming(GROUP_ID,123,7,None,'chiphi','2026-10-10'))
+        dc=a._code_details[(GROUP_ID,None,123)]['report']['dc']
+        assert dc['eligible_vnd'] is None and dc['unresolved_ghn']==1
+    finally:state.close()
+
+
+def _read_vault_catalogs(state):
+    from ops_team.telegram_vehicle_snapshot import _read_record
+    r=_read_record(state)
+    return dict(handling_catalog=r['handling_catalog'],handling_catalog_sha256=r['handling_catalog_sha256'],
+        vehicle_catalog=r['vehicle_pair']['vehicle_catalog'],vehicle_catalog_sha256=r['vehicle_pair']['vehicle_catalog_sha256'])

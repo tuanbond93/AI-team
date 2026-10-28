@@ -42,6 +42,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /ask hoặc /cost, /operations, /fleet… — hỏi AI nếu đã cấu hình model
 /vehicles hoặc /xe [YYYY-MM-DD] [YYYY-MM-DD] [Vn] — xem xe/chia sẻ từ paired source, 0 HTTP
 /chiphi hoặc /costs [YYYY-MM-DD] [YYYY-MM-DD] — xem dự kiến chi phí theo nguồn đã duyệt
+/duyet [mã] [xacnhan] — owner duyệt ngoại lệ cộng phần kg, có xem trước
 /sla [YYYY-MM-DD] [YYYY-MM-DD] — tỷ lệ giao đúng hạn D+1/D+2 theo Raw
 /thieu [YYYY-MM-DD] [YYYY-MM-DD] — danh sách dữ liệu cần bổ sung: trường nào, ngày nào, dòng nào trong Sheet
 /reset — xóa hội thoại RAM của bạn trong chủ đề
@@ -145,7 +146,7 @@ class AssistantResponder:
         if command == "status":
             ai = "AI đã cấu hình; chỉ gọi khi bạn hỏi hoặc lịch đã duyệt" if self.settings.get("models") else "CHƯA CÓ AI/MODEL — onboarding và báo cáo số liệu bằng code vẫn dùng được"
             return f"Nhóm cố định: {GROUP_ID}. Owner ID: {self.owner}.\n{ai}\nLịch: {'ĐANG BẬT' if self.state.control('schedule_enabled', False) else 'TẠM DỪNG'}.\nNguồn được đọc mới mỗi lần báo cáo. Máy ngủ/tắt hoặc mất mạng thì worker không hoạt động."
-        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla"}
+        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla", "duyet"}
         if command in owner_commands and not owner:
             if command == "details":
                 return "Chỉ chủ sở hữu đã xác minh được xem chi tiết truy vết."
@@ -294,6 +295,34 @@ class AssistantResponder:
                 self._code_details[key]={'kind':'manual_cost','report':report,'response':result}
                 if len(self._code_details)>100:self._code_details.pop(next(iter(self._code_details)))
                 return result
+            if command=='duyet':
+                from .supra.manual_cost_report import manual_cost_report
+                from .supra.booking import BookingData
+                from .telegram_rule_layer import load_rules
+                from . import telegram_decisions as decisions
+                parts=text.split();confirm=len(parts)>=2 and parts[-1].casefold() in ('xacnhan','xácnhận','confirm')
+                code=parts[0].upper() if parts and parts[0].upper().startswith('P') else None
+                dates=' '.join(p for p in parts if p[:1].isdigit())
+                data,source,facts,period,warehouses,cutoff,_=self._scoped()
+                if not isinstance(data,BookingData):return 'Duyệt: chưa có paired booking được duyệt.'
+                evidence=self._vehicle_evidence(data,period,cutoff)
+                rules,_=load_rules(self.state,data,source,facts,self.owner) if evidence.get('available') else (None,None)
+                if not rules:return 'Duyệt: chưa có lớp quy tắc owner đang hiệu lực cho nguồn này; chưa lưu được ngoại lệ.'
+                scope_text=dates or rules['window']['start']+' '+min(rules['window']['end'],str(cutoff.date()))
+                report=manual_cost_report(self.state,data,evidence,source,facts,self.owner,scope_text)
+                if not report.get('available'):return 'Duyệt: chưa tính được bảng chi phí cho khoảng này.'
+                found=decisions.proposals(report,data)
+                if not code:
+                    if not found:return 'Không có đợt nào cần anh duyệt cộng phần kg trong khoảng này.'
+                    return '\n'.join(['ĐỀ XUẤT CHỜ ANH DUYỆT (cộng các phần kg cột L của cùng GHN, cùng ngày):',
+                        *['• '+decisions.describe(x) for x in found[:15]],'Xem trước: /duyet <mã>. Lưu: /duyet <mã> xacnhan.'])
+                match=[x for x in found if x['code']==code]
+                if not match:return 'Không thấy mã '+code+' trong khoảng này (dữ liệu có thể đã đổi). Gửi /duyet để xem danh sách mới.'
+                if not confirm:
+                    return 'XEM TRƯỚC — '+decisions.describe(match[0])+'\nChỉ đợt này được cộng; các đợt khác giữ nguyên. Gửi /duyet '+code+' xacnhan để lưu.'
+                record=decisions.apply(match[0],rules,self.state,data,source,facts,self.owner,request)
+                self._code_details.pop((request.chat_id,request.topic_id,request.user_id),None)
+                return 'ĐÃ LƯU '+code+'. Từ bây giờ đợt này cộng các phần kg; quy tắc giữ qua các lần làm mới nguồn nếu đúng các dòng đó. Mã audit '+record['new_rules_sha256'][:12]+'.'
             if command=='sla':
                 from .supra.booking import BookingData
                 from .supra.sla import sla_summary,render_sla

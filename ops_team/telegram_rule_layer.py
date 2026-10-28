@@ -89,16 +89,91 @@ def validate_rules(config,state,data,source,facts,owner_id):
         raise ValueError('Quy tắc nguồn hoặc ngoại lệ chưa khớp owner, dữ liệu và cấu hình đã duyệt.') from None
 
 
+SCHEMA_V2='supra-owner-rule-exceptions-v2'
+DECISIONS_FILENAME='owner-decisions.dpapi'
+
+
+def _part_key(row):
+    from decimal import Decimal
+    value,status=parse_kg(row['source_ghn_weight'])
+    return (business_key(row.get('source_so','')),business_key(row.get('source_do','')),str(Decimal(value).normalize()) if status=='VALID' else None)
+
+
+def resolve_v2(config,data):
+    """Bind v2 exceptions to the current snapshot by business keys, not export hashes.
+
+    Owner rule 28/10/2026: exceptions must survive the daily refresh. Each
+    handling part set is matched by GHN, Booking E day and the exact
+    (SO, DO, kg) of every non-blank L row; an exception whose rows changed is
+    not applied (that event stays held) and is listed as stale.
+    """
+    rows=data.rows.to_dict('records');resolved=[];stale=[]
+    for item in config['handling_parts']:
+        related=[r for r in rows if r['order_id']==item['order_id'] and str(r['dispatch_date'])==item['day']]
+        filled=[r for r in related if parse_kg(r['source_ghn_weight'])[1]!='MISSING']
+        keys=[_part_key(r) for r in filled]
+        expected=sorted(tuple(x) for x in item['parts'])
+        if not filled or any(k[2] is None for k in keys) or sorted(keys)!=expected:
+            stale.append({'kind':'handling_parts','order_id':item['order_id'],'day':item['day']});continue
+        resolved.append({'order_id':item['order_id'],'day':item['day'],'sources':[r['_source'] for r in filled]})
+    out=dict(config);out.update(handling_parts=resolved,booked_trips=[],stale_exceptions=stale,
+        opening_ftl=[{**x,'booking_sources':[],'raw_sources':[]} for x in config['opening_ftl']])
+    return out
+
+
+def validate_rules_v2(config,state,data,source,facts,owner_id):
+    try:
+        required={'schema','base_sha256','forecast_sha256','overlay_sha256','vehicle_catalog_sha256','handling_catalog_sha256','window',
+            'direct_gxt_two_legs','booked_class_basis','handling_parts','opening_ftl','provenance'}
+        if not isinstance(config,dict) or set(config)!=required or config['schema']!=SCHEMA_V2:raise ValueError
+        base_raw=load_protected(state.root/BASE_FILENAME);forecast_raw=load_protected(state.root/FORECAST_FILENAME);overlay_raw=load_protected(state.root/OVERLAY_FILENAME)
+        for field,raw in (('base_sha256',base_raw),('forecast_sha256',forecast_raw),('overlay_sha256',overlay_raw)):
+            if config[field]!=hashlib.sha256(raw).hexdigest():raise ValueError
+        base=json.loads(base_raw);overlay=json.loads(overlay_raw)
+        validate_policy(base,data,source,facts,owner_id,state.control('paired'))
+        validate_overlay(overlay,base,base_raw,forecast_raw,data,source,facts,owner_id,state.control('paired'))
+        if config['vehicle_catalog_sha256']!=data.vehicle_pair['vehicle_catalog_sha256'] or config['handling_catalog_sha256']!=data.handling_catalog_sha256:raise ValueError
+        w=config['window'];bound=base['forecast_binding']['window']
+        if not isinstance(w,dict) or set(w)!={'start','end'} or not date.fromisoformat(bound['start'])<=date.fromisoformat(w['start'])<=date.fromisoformat(w['end'])<=date.fromisoformat(bound['end']):raise ValueError
+        if config['direct_gxt_two_legs'] is not True or config['booked_class_basis']!='BOOKED_TARIFF_CLASS':raise ValueError
+        proof=config['provenance']
+        if not isinstance(proof,dict) or set(proof)!={'source','confirmed_date','evidence_sha256'} or proof['source'] not in ('USER_CONFIRMED_IN_CODEX','OWNER_CONFIRMED_IN_TELEGRAM') or not re.fullmatch('[a-f0-9]{64}',proof['evidence_sha256']):raise ValueError
+        date.fromisoformat(proof['confirmed_date'])
+        seen=set()
+        for item in config['handling_parts']:
+            if (not isinstance(item,dict) or set(item)!={'order_id','day','parts'} or not isinstance(item['parts'],list) or len(item['parts'])<2
+                    or (item['order_id'],item['day']) in seen or not w['start']<=item['day']<=w['end']):raise ValueError
+            seen.add((item['order_id'],item['day']))
+            for part in item['parts']:
+                if not isinstance(part,list) or len(part)!=3 or not all(isinstance(x,str) for x in part):raise ValueError
+                _number(part[2],positive=True)
+            if len({tuple(x) for x in item['parts']})!=len(item['parts']) or len({x[2] for x in item['parts']})<2:raise ValueError
+        seen=set()
+        for item in config['opening_ftl']:
+            if not isinstance(item,dict) or set(item)!={'order_id','day','class_kg','pricing'} or item['pricing']!='ACTUAL_KM_UNPRICED':raise ValueError
+            if (item['order_id'],item['day']) in seen or not w['start']<=item['day']<=w['end']:raise ValueError
+            seen.add((item['order_id'],item['day']));_number(item['class_kg'],positive=True)
+        return resolve_v2(config,data)
+    except (ValueError,TypeError,KeyError,AttributeError,OSError,OverflowError):
+        raise ValueError('Quy tắc nguồn hoặc ngoại lệ chưa khớp owner, dữ liệu và cấu hình đã duyệt.') from None
+
+
+def _validate_any(config,state,data,source,facts,owner_id):
+    if isinstance(config,dict) and config.get('schema')==SCHEMA_V2:
+        return validate_rules_v2(config,state,data,source,facts,owner_id)
+    return validate_rules(config,state,data,source,facts,owner_id)
+
+
 def ingest_rules(path,descriptor,state,owner_id,*,cancel=None):
     def stop():
         if cancel is not None and cancel.is_set():raise ValueError('Đã hủy; quy tắc trước giữ nguyên.')
     stop();p=Path(path)
     if not p.is_absolute() or p.suffix.lower()!='.dpapi' or p.stat().st_size>1024*1024:raise ValueError
     raw=load_protected(p);sha=hashlib.sha256(raw).hexdigest()
-    if not isinstance(descriptor,dict) or set(descriptor)!={'schema','sha256'} or descriptor['schema']!=SCHEMA or descriptor['sha256']!=sha:raise ValueError
+    if not isinstance(descriptor,dict) or set(descriptor)!={'schema','sha256'} or descriptor['schema'] not in (SCHEMA,SCHEMA_V2) or descriptor['sha256']!=sha:raise ValueError
     from .telegram_snapshot import load_snapshot
     facts={k:r['value'] for k,r in state.facts().items()};data,source=load_snapshot(state,facts)
-    validate_rules(json.loads(raw),state,data,source,facts,owner_id)
+    _validate_any(json.loads(raw),state,data,source,facts,owner_id)
     stop();save_protected(state.root/FILENAME,raw)
     return {'state':'SAVED_MANUAL_ONLY','rules_sha256':sha,'plan_or_schedule_changed':False}
 
@@ -107,7 +182,7 @@ def load_rules(state,data,source,facts,owner_id):
     path=state.root/FILENAME
     if not path.exists():return None,None
     raw=load_protected(path);rules=json.loads(raw)
-    validate_rules(rules,state,data,source,facts,owner_id)
+    rules=_validate_any(rules,state,data,source,facts,owner_id) if rules.get('schema')==SCHEMA_V2 else validate_rules(rules,state,data,source,facts,owner_id)
     return rules,hashlib.sha256(raw).hexdigest()
 
 
