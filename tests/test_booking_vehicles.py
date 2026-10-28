@@ -1736,7 +1736,7 @@ def test_rule_window_shorter_than_report_scope_holds_handling_na(tmp_path,monkey
         assert context['metrics']['booking.dc_handling_eligible_vnd']['value'] is None
         assert context['metrics']['booking.dc_handling_unresolved_ghn']['value'] is None
         text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
-        assert '2026-10-10 đến 2026-10-20' in text and 'N/A' in text
+        assert '10/10/2026 đến 20/10/2026' in text and 'N/A' in text and 'Bốc xếp: ' not in text and 'xác nhận quy tắc bốc xếp áp cho cả kỳ' in text
     finally:state.close()
 
 

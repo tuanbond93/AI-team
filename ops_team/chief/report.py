@@ -177,7 +177,11 @@ def booking_review(context, extra_warnings=()):
             'mixed_rate':'kg tách theo mức giá cho các GHN qua hai mức giá','partial_scope':'ngày xuất đúng cho các dòng ngoài kỳ hoặc thiếu ngày',
             'two_leg_unresolved':'biển S thực chở cho các đơn chưa khớp xe AG/S'}
         held=[(n,k) for k,n in handling['counters'].items() if n and k in asks]
-        if handling['complete']:
+        if handling.get('reason') in ('OWNER_RULE_WINDOW_NOT_COVERING_SCOPE','OWNER_RULES_INVALID_OR_STALE','RAW_STALE'):
+            result['intake_question']={'OWNER_RULE_WINDOW_NOT_COVERING_SCOPE':'Bước tiếp theo: anh xác nhận quy tắc bốc xếp áp cho cả kỳ báo cáo để em tính được số bốc xếp.',
+                'OWNER_RULES_INVALID_OR_STALE':'Bước tiếp theo: cần nạp lại quy tắc bốc xếp cho đúng bản nguồn hiện tại.',
+                'RAW_STALE':'Bước tiếp theo: chờ lượt Raw mới; bốc xếp sẽ được tính lại ở báo cáo sau.'}[handling['reason']]
+        elif handling['complete']:
             result['intake_question']='Bước tiếp theo: bốc xếp DC đã đủ nguồn; anh có thể bổ sung doanh thu và chi phí các chặng khác để tính tổng không?'
         elif held:
             result['intake_question']='Bước tiếp theo: anh gửi giúp '+asks[max(held)[1]]+' (gửi /thieu để xem đúng dòng).'

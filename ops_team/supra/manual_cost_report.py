@@ -426,7 +426,8 @@ def render_cost_report(report, *, details=False, audit=False, answered_text=None
             'Xe GXT phân bổ theo kg: '+money(g['vehicle_supra_vnd'])+'; lương giao: '+money(g['wage_supra_vnd'])+'.',
             'Bốc xếp DC theo đơn giá gốc: '+money(dc.get('eligible_vnd'))+'; đã gồm trong gói: '+money(report['dc_included_vnd'])+'; ngoài gói: '+money(report['dc_incremental_vnd'])+'.',
             'Theo chỉ định cho Supra: xe trung chuyển '+money(overlay['allocations']['upstream_vnd'])+'; nhân sự bốc xếp GXT '+money(overlay['allocations']['warehouse_vnd'])+'.',
-            'Thiếu biển: '+str(overlay['missing_s_gxt_rows'])+' dòng GXT trong '+str(g['unassigned_quality']['missing_plate'] if g['unassigned_quality'] else 0)+' dòng toàn nguồn. Còn khoản giữ riêng, VAT'+(' và km NCC chờ nhật trình/đơn giá' if remote else '')+'; /details xem tiếp.']
+            (('Thiếu biển: '+str(overlay['missing_s_gxt_rows'])+' dòng GXT trong '+str(g['unassigned_quality']['missing_plate'] if g['unassigned_quality'] else 0)+' dòng toàn nguồn. ')
+                if overlay['missing_s_gxt_rows'] or (g['unassigned_quality'] or {}).get('missing_plate') else '')+'Còn khoản giữ riêng, VAT'+(' và km NCC chờ nhật trình/đơn giá' if remote else '')+'; /details xem tiếp.']
         if exclusions:
             lines.append('Loại khỏi phạm vi theo chỉ định: '+', '.join(labels[x] for x in exclusions['categories'])+'. Không có nghĩa là không phát sinh.')
         else:
