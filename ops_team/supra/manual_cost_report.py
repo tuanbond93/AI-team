@@ -34,6 +34,49 @@ def _rule(row, catalog, when=None):
     return matches[0] if len(matches) == 1 else None
 
 
+def _split_multi_vehicle_ftl(ftl_rows, pair):
+    """Owner rule 28/10/2026: a GHN on several Booking AG vehicles the same day is split by Raw grams.
+
+    Each vehicle gets L x its DELIVER grams / all grams for that GHN and day. Raw
+    plates must be exactly the Booking AG plates and every gram value valid;
+    otherwise the rows stay unchanged and the group remains held.
+    """
+    groups = defaultdict(list)
+    for row in ftl_rows:
+        if row['order'] and row['day']:
+            groups[(row['order'], row['day'])].append(row)
+    grams = defaultdict(lambda: defaultdict(Decimal))
+    bad = set()
+    for item in pair['data_supra']['rows']:
+        r = dict(zip(RAW_HEADERS, item['values']))
+        if cell(r['type']).upper() != 'DELIVER':
+            continue
+        key = (business_key(r['order_code']), str(day(r['load_date'])))
+        if key not in groups:
+            continue
+        value, status = parse_kg(r['weight'])
+        pl = plate(r['truck_plate_number'])
+        if status != 'VALID' or not pl or value <= 0:
+            bad.add(key)
+        else:
+            grams[key][pl] += value
+    out = []
+    for row in ftl_rows:
+        key = (row['order'], row['day'])
+        related = groups.get(key, [])
+        vehicles = {r['vehicle'] for r in related}
+        weights = {r['weight_kg'] for r in related if r['weight_status'] == 'VALID'}
+        if (len(vehicles) < 2 or '' in vehicles or key in bad or set(grams[key]) != vehicles or len(weights) != 1
+                or any(r['weight_status'] == 'INVALID' for r in related)):
+            out.append(row)
+            continue
+        with localcontext() as ctx:
+            ctx.prec = 100
+            share = Decimal(next(iter(weights))) * grams[key][row['vehicle']] / sum(grams[key].values())
+        out.append({**row, 'order': row['order']+'@'+row['vehicle'], 'weight_kg': str(share), 'weight_status': 'VALID'})
+    return out
+
+
 def manual_cost_report(state, data, evidence, source, facts, owner_id, text=''):
     """Bind protected policy and calculate independently priced components."""
     path = state.root / FILENAME
@@ -115,6 +158,8 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             ftl_rows.append(dict(day=date_value, vehicle=vehicle, order=order,
                                  weight_kg=str(parsed) if status == 'VALID' else '', weight_status=status,
                                  class_kg=capacity_kg(row.get('source_capacity_raw', '')) or '', valid=valid_ftl, source=row['_source']))
+    if rules:
+        ftl_rows = _split_multi_vehicle_ftl(ftl_rows, data.vehicle_pair)
     point_keys = {(r['day'], r['store']) for r in point_rows if r['day'] and r['store']}
     for row in rows:
         if scoped(row) and category(row) not in ('point_bc', 'point_lc', 'point_remote') and (str(row['dispatch_date']), row['source_store_id']) in point_keys:

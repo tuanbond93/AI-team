@@ -42,6 +42,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /ask hoặc /cost, /operations, /fleet… — hỏi AI nếu đã cấu hình model
 /vehicles hoặc /xe [YYYY-MM-DD] [YYYY-MM-DD] [Vn] — xem xe/chia sẻ từ paired source, 0 HTTP
 /chiphi hoặc /costs [YYYY-MM-DD] [YYYY-MM-DD] — xem dự kiến chi phí theo nguồn đã duyệt
+/sla [YYYY-MM-DD] [YYYY-MM-DD] — tỷ lệ giao đúng hạn D+1/D+2 theo Raw
 /thieu [YYYY-MM-DD] [YYYY-MM-DD] — danh sách dữ liệu cần bổ sung: trường nào, ngày nào, dòng nào trong Sheet
 /reset — xóa hội thoại RAM của bạn trong chủ đề
 
@@ -144,7 +145,7 @@ class AssistantResponder:
         if command == "status":
             ai = "AI đã cấu hình; chỉ gọi khi bạn hỏi hoặc lịch đã duyệt" if self.settings.get("models") else "CHƯA CÓ AI/MODEL — onboarding và báo cáo số liệu bằng code vẫn dùng được"
             return f"Nhóm cố định: {GROUP_ID}. Owner ID: {self.owner}.\n{ai}\nLịch: {'ĐANG BẬT' if self.state.control('schedule_enabled', False) else 'TẠM DỪNG'}.\nNguồn được đọc mới mỗi lần báo cáo. Máy ngủ/tắt hoặc mất mạng thì worker không hoạt động."
-        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing"}
+        owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla"}
         if command in owner_commands and not owner:
             if command == "details":
                 return "Chỉ chủ sở hữu đã xác minh được xem chi tiết truy vết."
@@ -293,6 +294,17 @@ class AssistantResponder:
                 self._code_details[key]={'kind':'manual_cost','report':report,'response':result}
                 if len(self._code_details)>100:self._code_details.pop(next(iter(self._code_details)))
                 return result
+            if command=='sla':
+                from .supra.booking import BookingData
+                from .supra.sla import sla_summary,render_sla
+                from .supra.vehicle_report import vehicle_scope
+                data,source,facts,period,warehouses,cutoff,_=self._scoped()
+                if not isinstance(data,BookingData) or not getattr(data,'vehicle_pair',None):return 'SLA: N/A — cần paired Booking + Raw đã duyệt.'
+                evidence=self._vehicle_evidence(data,period,cutoff)
+                if not evidence.get('available'):return 'SLA: N/A — chưa đủ hai nguồn đã duyệt.'
+                scope=vehicle_scope(evidence,text)
+                if not scope['start'] or not scope['end']:return 'SLA: chưa xác định khoảng ngày; dùng /sla YYYY-MM-DD YYYY-MM-DD.'
+                return render_sla(sla_summary(data,scope['start'],scope['end'],datetime.now(TZ)),scope['start'],scope['end'])
             if command in ('xe','vehicles'):
                 from .supra.vehicle_report import vehicle_view,vehicle_scope_quality
                 from .supra.vehicle_cost import vehicle_cost_status

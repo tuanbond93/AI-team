@@ -1895,3 +1895,44 @@ def test_drive_folder_import_reuses_pair_validation_and_rejects_mismatch_atomica
         data,_=load_snapshot(state,facts)
         assert set(data.rows.order_id)=={'SYN_A','SYN_B'} and data.vehicle_pair['vehicle_catalog_sha256']==v['catalog_sha256']
     finally:state.close()
+
+
+def _raw_delivery(order,load,updated,ok='TRUE',trip=123):
+    r=dict(load_date=load,trip_code=trip,order_code=order,weight='1000',type='DELIVER',time_updated=updated,is_succeeded=ok,
+        truck_plate_number='99B12345',client_type='B2C')
+    return [r.get(k,'') for k in RAW_HEADERS]
+
+
+def test_sla_d1_d2_by_province_and_held_without_evidence():
+    from ops_team.supra.sla import sla_summary,render_sla,TZ as VN
+    pt=book('SYN_PT',date='10/10/2026');pt[9]='Phú Thọ'
+    sl=book('SYN_SL',date='10/10/2026');sl[9]='Tỉnh Sơn La'
+    late=book('SYN_LATE',date='10/10/2026');late[9]='Phú Thọ'
+    none=book('SYN_NONE',date='10/10/2026');none[9]='Phú Thọ'
+    other=book('SYN_HN',date='10/10/2026');other[9]='Hà Nội'
+    raws=[_raw_delivery('SYN_PT','2026-10-10','2026-10-11 23:59:00'),
+          _raw_delivery('SYN_SL','2026-10-11','2026-10-12 18:00:00'),
+          _raw_delivery('SYN_LATE','2026-10-10','2026-10-12 08:00:00'),
+          _raw_delivery('SYN_NONE','2026-10-10','2026-10-11 09:00:00',ok='FALSE')]
+    data=parsed([pt,sl,late,none,other],raws)
+    now=datetime(2026,10,20,12,0,tzinfo=VN)
+    out=sla_summary(data,'2026-10-10','2026-10-10',now)
+    assert (out['on_time'],out['late'],out['no_rule'])==(2,1,1) and abs(out['on_time_rate']-2/3)<1e-9
+    assert {h['reason'] for h in out['held']}=={'no_sla_rule','no_successful_delivery_record'} and not out['complete']
+    early=sla_summary(data,'2026-10-10','2026-10-10',datetime(2026,10,11,8,0,tzinfo=VN))
+    assert early['pending']>=1  # SYN_NONE is not yet due, so not held
+    text=render_sla(out,'2026-10-10','2026-10-10')
+    assert text.startswith('Kết luận SLA 10/10/2026: đúng hạn 66,7%') and 'Trễ: đợt 10/10/2026' in text and 'SYN_' not in text
+
+
+def test_ftl_ghn_on_two_vehicles_split_by_raw_grams_only_when_plates_match():
+    from ops_team.supra.manual_cost_report import _split_multi_vehicle_ftl
+    def rec(vehicle,src):
+        return {'day':'2026-10-10','vehicle':vehicle,'order':'SYN_SPLIT','weight_kg':'100','weight_status':'VALID','class_kg':'5000','valid':True,'source':src}
+    rows=[rec('99A12345','B1'),rec('99C12345','B2')]
+    pair={'raw_digest':'e'*64,'data_supra':{'rows':[{'sheet_row':2,'values':event('SYN_SPLIT',pl='99A12345',grams='30000')},
+        {'sheet_row':3,'values':event('SYN_SPLIT',pl='99C12345',grams='10000',trip=124)}]}}
+    out=_split_multi_vehicle_ftl(rows,pair)
+    assert [(r['order'],Decimal(r['weight_kg'])) for r in out]==[('SYN_SPLIT@99A12345',75),('SYN_SPLIT@99C12345',25)]
+    pair['data_supra']['rows'][1]['values']=event('SYN_SPLIT',pl='99Z00001',grams='10000',trip=124)
+    assert _split_multi_vehicle_ftl(rows,pair)==rows  # Raw plate not on Booking AG: unchanged, stays held
