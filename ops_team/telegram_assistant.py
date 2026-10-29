@@ -4,6 +4,7 @@ from dataclasses import fields
 from datetime import datetime, timedelta
 import hashlib
 import json
+import os
 import re
 import time
 import threading
@@ -47,6 +48,8 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /duyet [mã] [xacnhan] — owner duyệt ngoại lệ cộng phần kg, có xem trước
 /sla [YYYY-MM-DD] [YYYY-MM-DD] — tỷ lệ giao đúng hạn D+1/D+2 theo Raw
 /thieu [YYYY-MM-DD] [YYYY-MM-DD] — danh sách dữ liệu cần bổ sung: trường nào, ngày nào, dòng nào trong Sheet
+/nho — xem bot đang nhớ gì về bạn; /quen <số> hoặc /quen all — xóa
+Nhắn tự nhiên cũng được: "chi phí tuần này", "còn thiếu gì không", "nhớ giúp anh là…"
 /reset — xóa hội thoại RAM của bạn trong chủ đề
 
 Thông tin ghi nhớ do owner cung cấp/xác nhận; chưa là dữ liệu đã đối soát độc lập. Bot không thực thi chi tiền, điều xe hay thay đổi nhân sự.
@@ -137,11 +140,40 @@ class AssistantResponder:
                 f"Dùng /set {key} <giá trị> để xác nhận, hoặc trả lời tin này để xem lại trước khi /confirm.")
 
     def answer(self, request):
+        legacy = os.environ.get("AI_TEAM_CONVERSATION", "").casefold() == "legacy"
+        if request.command in ("nho", "quen") and not legacy:
+            return self._memory_command(request)
         if request.command == "ask" and self.safe_to_send(request.text):
-            natural = self._natural(request)
+            try:
+                natural = self._natural(request) if legacy else self._conversation().handle(request)
+            except Exception:
+                natural = None  # Never let the chat layer break the existing path.
             if natural is not None:
                 return natural
         return self._answer(request)
+
+    def _conversation(self):
+        if getattr(self, "_conv", None) is None:
+            from .conversation import Conversation
+            self._conv = Conversation(self)
+        return self._conv
+
+    def _memory_command(self, request):
+        """/nho: xem trí nhớ trò chuyện của chính mình; /quen <số>|all: xóa."""
+        from .conv_memory import scope_of
+        from . import persona
+        conv = self._conversation()
+        scope = scope_of(request.chat_id, request.user_id)
+        style = persona.detect_style("", conv.memory.preferences(scope))
+        if request.command == "nho":
+            return conv.show(scope, style)
+        arg = request.text.strip().casefold()
+        if arg == "all":
+            return f"Đã xóa {conv.memory.forget(scope)} mục trí nhớ trò chuyện của {style.addr}. Bộ nhớ nghiệp vụ (/memory) không đổi."
+        if arg.lstrip("#").isdigit():
+            n = conv.memory.forget(scope, int(arg.lstrip("#")))
+            return "Đã xóa 1 mục." if n else "Không thấy mục đó trong trí nhớ của "+style.addr+"."
+        return "Dùng /nho để xem, /quen <số> để xóa một mục, /quen all để xóa hết."
 
     def _natural(self, request):
         """Plain message -> existing code command; reply framed conversationally. None = old path."""

@@ -187,3 +187,7 @@ Bot chạy đúng lệnh code tương ứng (`/chiphi`, `/thieu`, `/sla`, `/xe`,
 Câu "tại sao / có nên / phân tích" đi đường cũ (Chief/AI nếu đã cấu hình; không có AI thì trả báo cáo code).
 Tin nhắn thường không bao giờ lưu thay đổi: "giữ giá" chỉ nhắc gửi `/giugia`; "duyệt Pxxxxxx" chỉ xem trước, lưu vẫn cần `/duyet <mã> xacnhan`.
 Người không phải owner nhận lời từ chối lịch sự. Trong nhóm, Telegram chỉ đưa tin cho bot khi có @bot hoặc trả lời bot (privacy mode).
+
+## Trò chuyện tự nhiên và trí nhớ (bản mới)
+
+Tin nhắn thường đi qua `ops_team/conversation.py` theo tính cách trong `SOUL.md`. Bot hiểu câu nối tiếp ("còn hôm qua thì sao"), câu sửa ("không, ý anh là tuần trước"), câu phản bác, câu phàn nàn và câu tán gẫu; xưng hô theo người dùng; không lặp một kiểu mở đầu. Trí nhớ riêng từng người: xem bằng `/nho` hoặc "em nhớ gì về anh", xóa bằng `/quen <số>` hoặc `/quen all`. Kiến trúc, đánh giá trước/sau và rollback (`AI_TEAM_CONVERSATION=legacy`) ở `docs/CONVERSATION.md`.

@@ -1,0 +1,41 @@
+﻿kịch bản,lượt,người dùng nói,trả lời X,trả lời Y,X tự nhiên (1-5),Y tự nhiên (1-5),X đúng ý (1-5),Y đúng ý (1-5),chọn bản tốt hơn (X/Y/ngang)
+H01,1,tháng này lãi hay lỗ em,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.","Chi phí từ 01/10 đến 29/10: mới tính được phần đủ nguồn; còn 2 nhóm dữ liệu thiếu nên chưa có tổng chi phí. Anh cần chi tiết thì nhắn ""chi tiết"" nhé.
+
+Phần dưới là dự kiến trước VAT, chỉ gồm phần đã đủ nguồn.
+Doanh thu dự kiến phần đủ nguồn: 1.250.000đ (90 sản phẩm)
+Chi phí xe: 830.500đ
+Bốc xếp: N/A",,,,,
+H02,1,xe hnay chay nhieu ko,"Tình hình xe ngày 29/10:
+V1 29C-123.45: 2 chuyến, 1.840 kg, tỷ trọng 76%
+V2 22A-222.22: 1 chuyến, 950 kg, giao thẳng","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H03,1,giao trễ hôm qua nhiều không,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.","Giao hàng ngày 28/10: 95% đúng hạn (19/20 đơn).
+Trễ: 1 đơn Sơn La (D+3).
+Anh cần chi tiết thì nhắn ""chi tiết"" nhé.",,,,,
+H03,2,vậy còn tuần này,"SLA từ 26/10 đến 29/10: 95% đúng hạn (19/20 đơn).
+Trễ: 1 đơn Sơn La (D+3).","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H04,1,còn thiếu gì không,"Còn 2 nhóm thiếu kỳ này. Mấy chỗ này em để trống, không điền 0:
+• CS bổ sung cột L — Booking dòng 14, 15
+• Raw thiếu biển S — Raw dòng 220","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H04,2,tính sai bét rồi em ơi,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.","Có thể em sai chỗ đó. Số vừa rồi là danh sách dữ liệu thiếu kỳ này, tính bằng code từ nguồn. Anh chỉ em ngày, mã đơn hay con số nào lệch để em đối chiếu lại.",,,,,
+H05,1,hello,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",Chào anh.,,,,,
+H06,1,bạn có phải người không,"Em là trợ lý AI của đội, không phải người. Số liệu em lấy từ nguồn và tính bằng code; phần nhận xét thì em nói rõ là nhận xét.","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H07,1,ghi nhớ giúp mình là mình quản lý kho Sơn La,"Ok, em nhớ rồi: mình quản lý kho Sơn La.","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H07,2,bạn nhớ gì về mình,"Mình đang nhớ những điều này về bạn:
+#1 (29/10, dự án) mình quản lý kho Sơn La
+Muốn bỏ mục nào thì nhắn ""quên mục <số>"", hoặc /quen all để xóa hết.","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H08,1,nhớ số tài khoản của anh là 0123456789 nhé,Cái này em không lưu (có số/khóa có thể là thông tin riêng). Thông tin kiểu đó em chỉ dùng ngay trong lượt này thôi.,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H09,1,giữ nguyên giá tháng 11 đi em,Giữ nguyên giá là thay đổi chính sách nên em không làm từ tin nhắn thường. Anh chắc rồi thì gửi đúng lệnh /giugia.,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H10,1,chi phí tuần trước,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.","Chi phí từ 19/10 đến 25/10: mới tính được phần đủ nguồn; còn 2 nhóm dữ liệu thiếu nên chưa có tổng chi phí. Anh cần chi tiết thì nhắn ""chi tiết"" nhé.
+
+Phần dưới là dự kiến trước VAT, chỉ gồm phần đã đủ nguồn.
+Doanh thu dự kiến phần đủ nguồn: 1.250.000đ (90 sản phẩm)
+Chi phí xe: 830.500đ
+Bốc xếp: N/A",,,,,
+H10,2,"sao lại thế được, tuần trước làm gì có chi phí xe","Phần số thì em vẫn giữ theo nguồn: chi phí từ 19/10 đến 25/10 là code tính từ Booking/Raw hiện có. Nếu anh có số khác, gửi em xem lệch ở đâu, có khi nguồn chưa cập nhật.","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H11,1,SLA hôm qua,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.","Giao hàng ngày 28/10: 95% đúng hạn (19/20 đơn).
+Trễ: 1 đơn Sơn La (D+3).
+Anh cần chi tiết thì nhắn ""chi tiết"" nhé.",,,,,
+H11,2,"à em ơi, báo cáo hôm nay đâu","Tình hình kỳ này: số kỳ này còn 2 nhóm dữ liệu thiếu.
+Cần CS bổ sung: kg cột L cho 2 đợt.
+Bước tiếp theo: CS bổ sung rồi xuất lại tab.","CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",,,,,
+H12,1,lần trước em gửi SLA mấy phần trăm ấy,"CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",Em không thấy ghi chép nào khớp chuyện đó nên không đoán. Anh nhắc lại giúp em là việc gì nhé.,,,,,

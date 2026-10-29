@@ -1,0 +1,104 @@
+[
+ {
+  "kịch bản": "H01",
+  "lượt": 1,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ },
+ {
+  "kịch bản": "H02",
+  "lượt": 1,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H03",
+  "lượt": 1,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ },
+ {
+  "kịch bản": "H03",
+  "lượt": 2,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H04",
+  "lượt": 1,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H04",
+  "lượt": 2,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ },
+ {
+  "kịch bản": "H05",
+  "lượt": 1,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ },
+ {
+  "kịch bản": "H06",
+  "lượt": 1,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H07",
+  "lượt": 1,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H07",
+  "lượt": 2,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H08",
+  "lượt": 1,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H09",
+  "lượt": 1,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H10",
+  "lượt": 1,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ },
+ {
+  "kịch bản": "H10",
+  "lượt": 2,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H11",
+  "lượt": 1,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ },
+ {
+  "kịch bản": "H11",
+  "lượt": 2,
+  "X": "new_holdout",
+  "Y": "base_608fed1_holdout"
+ },
+ {
+  "kịch bản": "H12",
+  "lượt": 1,
+  "X": "base_608fed1_holdout",
+  "Y": "new_holdout"
+ }
+]

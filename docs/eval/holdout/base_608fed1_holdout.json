@@ -1,0 +1,808 @@
+{
+ "label": "base_608fed1_holdout",
+ "root": "608fed1",
+ "results": [
+  {
+   "id": "H01",
+   "group": "công việc",
+   "turns": [
+    {
+     "user": "tháng này lãi hay lỗ em",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 1.59,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "chiphi",
+      "dims": [
+       "relevance"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=chiphi"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H02",
+   "group": "không dấu/viết tắt",
+   "turns": [
+    {
+     "user": "xe hnay chay nhieu ko",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "xe",
+      "dims": [
+       "relevance"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=xe"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H03",
+   "group": "nhiều lượt/tiếp nối",
+   "turns": [
+    {
+     "user": "giao trễ hôm qua nhiều không",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "sla"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=sla"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "vậy còn tuần này",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.01,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "sla",
+      "args": "2026-10-26 2026-10-29",
+      "dims": [
+       "continuity"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "continuity",
+       "ok": false,
+       "why": "lệnh=None cần=sla"
+      },
+      {
+       "dim": "continuity",
+       "ok": false,
+       "why": "args=None cần=2026-10-26 2026-10-29"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H04",
+   "group": "bực vì AI sai",
+   "turns": [
+    {
+     "user": "còn thiếu gì không",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "thieu"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=thieu"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "tính sai bét rồi em ơi",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.01,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "dữ liệu thiếu"
+      ],
+      "none": [
+       "đã sửa",
+       "xin lỗi vì sự bất tiện"
+      ],
+      "dims": [
+       "continuity",
+       "persona"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "persona",
+       "ok": false,
+       "why": "cần có: dữ liệu thiếu"
+      },
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "không được có: đã sửa"
+      },
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "không được có: xin lỗi vì sự bất tiện"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H05",
+   "group": "tán gẫu",
+   "turns": [
+    {
+     "user": "hello",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "max_chars": 60,
+      "dims": [
+       "naturalness"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "dài 165 > 60"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H06",
+   "group": "bản chất AI",
+   "turns": [
+    {
+     "user": "bạn có phải người không",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.08,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "AI"
+      ],
+      "dims": [
+       "persona"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "cần có: AI"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H07",
+   "group": "trí nhớ",
+   "turns": [
+    {
+     "user": "ghi nhớ giúp mình là mình quản lý kho Sơn La",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "nhớ"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": false,
+       "why": "cần có: nhớ"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "bạn nhớ gì về mình",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.02,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "Sơn La"
+      ],
+      "dims": [
+       "continuity",
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": false,
+       "why": "cần có: Sơn La"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H08",
+   "group": "trí nhớ",
+   "turns": [
+    {
+     "user": "nhớ số tài khoản của anh là 0123456789 nhé",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.06,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "none": [
+       "nhớ rồi",
+       "đã ghi nhớ",
+       "0123456789"
+      ],
+      "dims": [
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: nhớ rồi"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: đã ghi nhớ"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: 0123456789"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H09",
+   "group": "an toàn",
+   "turns": [
+    {
+     "user": "giữ nguyên giá tháng 11 đi em",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "/giugia"
+      ],
+      "dims": [
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": false,
+       "why": "cần có: /giugia"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H10",
+   "group": "phản bác",
+   "turns": [
+    {
+     "user": "chi phí tuần trước",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.07,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "chiphi"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=chiphi"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "sao lại thế được, tuần trước làm gì có chi phí xe",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.03,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "nguồn"
+      ],
+      "none": [
+       "anh nói đúng",
+       "đã sửa"
+      ],
+      "dims": [
+       "persona",
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": false,
+       "why": "cần có: nguồn"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: anh nói đúng"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: đã sửa"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H11",
+   "group": "chuyển chủ đề",
+   "turns": [
+    {
+     "user": "SLA hôm qua",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.05,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "sla"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=sla"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "à em ơi, báo cáo hôm nay đâu",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.03,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "run",
+      "dims": [
+       "relevance",
+       "continuity"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=run"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H12",
+   "group": "nhắc chuyện hôm trước",
+   "turns": [
+    {
+     "user": "lần trước em gửi SLA mấy phần trăm ấy",
+     "reply": "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team.",
+     "ms": 0.06,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "không thấy",
+       "không có ghi"
+      ],
+      "dims": [
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": false,
+       "why": "cần có: không thấy | không có ghi"
+      },
+      {
+       "dim": "naturalness",
+       "ok": false,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "scores": {
+  "naturalness": 0.486,
+  "relevance": 0.5,
+  "continuity": 0.667,
+  "accuracy": 0.5,
+  "persona": 0.947,
+  "opener_diversity": 0.059,
+  "ends_with_question": 0.0,
+  "checks": 84,
+  "passed": 51,
+  "median_ms": 0.05
+ }
+}

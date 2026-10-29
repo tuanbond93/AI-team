@@ -1,0 +1,848 @@
+{
+ "label": "new_holdout",
+ "root": ".",
+ "results": [
+  {
+   "id": "H01",
+   "group": "công việc",
+   "turns": [
+    {
+     "user": "tháng này lãi hay lỗ em",
+     "reply": "Chuyện phiếm thì em còn hạn chế vì máy này chưa bật AI trò chuyện. Phần chi phí, xe, SLA, dữ liệu thiếu thì anh cứ hỏi.",
+     "ms": 6.42,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": "chiphi",
+      "dims": [
+       "relevance"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=None cần=chiphi"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H02",
+   "group": "không dấu/viết tắt",
+   "turns": [
+    {
+     "user": "xe hnay chay nhieu ko",
+     "reply": "Tình hình xe ngày 29/10:\nV1 29C-123.45: 2 chuyến, 1.840 kg, tỷ trọng 76%\nV2 22A-222.22: 1 chuyến, 950 kg, giao thẳng",
+     "ms": 0.98,
+     "command": "xe",
+     "args": "2026-10-29 2026-10-29",
+     "legacy_path": false,
+     "expect": {
+      "command": "xe",
+      "dims": [
+       "relevance"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=xe cần=xe"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H03",
+   "group": "nhiều lượt/tiếp nối",
+   "turns": [
+    {
+     "user": "giao trễ hôm qua nhiều không",
+     "reply": "Giao hàng ngày 28/10: 95% đúng hạn (19/20 đơn).\nTrễ: 1 đơn Sơn La (D+3).\nAnh cần chi tiết thì nhắn \"chi tiết\" nhé.",
+     "ms": 0.7,
+     "command": "sla",
+     "args": "2026-10-28 2026-10-28",
+     "legacy_path": false,
+     "expect": {
+      "command": "sla"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=sla cần=sla"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "vậy còn tuần này",
+     "reply": "SLA từ 26/10 đến 29/10: 95% đúng hạn (19/20 đơn).\nTrễ: 1 đơn Sơn La (D+3).",
+     "ms": 0.6,
+     "command": "sla",
+     "args": "2026-10-26 2026-10-29",
+     "legacy_path": false,
+     "expect": {
+      "command": "sla",
+      "args": "2026-10-26 2026-10-29",
+      "dims": [
+       "continuity"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "lệnh=sla cần=sla"
+      },
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "args=2026-10-26 2026-10-29 cần=2026-10-26 2026-10-29"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H04",
+   "group": "bực vì AI sai",
+   "turns": [
+    {
+     "user": "còn thiếu gì không",
+     "reply": "Còn 2 nhóm thiếu kỳ này. Mấy chỗ này em để trống, không điền 0:\n• CS bổ sung cột L — Booking dòng 14, 15\n• Raw thiếu biển S — Raw dòng 220",
+     "ms": 0.78,
+     "command": "thieu",
+     "args": "",
+     "legacy_path": false,
+     "expect": {
+      "command": "thieu"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=thieu cần=thieu"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "tính sai bét rồi em ơi",
+     "reply": "Có thể em sai chỗ đó. Số vừa rồi là danh sách dữ liệu thiếu kỳ này, tính bằng code từ nguồn. Anh chỉ em ngày, mã đơn hay con số nào lệch để em đối chiếu lại.",
+     "ms": 0.18,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "dữ liệu thiếu"
+      ],
+      "none": [
+       "đã sửa",
+       "xin lỗi vì sự bất tiện"
+      ],
+      "dims": [
+       "continuity",
+       "persona"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "cần có: dữ liệu thiếu"
+      },
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "không được có: đã sửa"
+      },
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "không được có: xin lỗi vì sự bất tiện"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H05",
+   "group": "tán gẫu",
+   "turns": [
+    {
+     "user": "hello",
+     "reply": "Chào anh.",
+     "ms": 0.16,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "max_chars": 60,
+      "dims": [
+       "naturalness"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dài 9 > 60"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H06",
+   "group": "bản chất AI",
+   "turns": [
+    {
+     "user": "bạn có phải người không",
+     "reply": "Em là trợ lý AI của đội, không phải người. Số liệu em lấy từ nguồn và tính bằng code; phần nhận xét thì em nói rõ là nhận xét.",
+     "ms": 0.26,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "AI"
+      ],
+      "dims": [
+       "persona"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "cần có: AI"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H07",
+   "group": "trí nhớ",
+   "turns": [
+    {
+     "user": "ghi nhớ giúp mình là mình quản lý kho Sơn La",
+     "reply": "Ok, em nhớ rồi: mình quản lý kho Sơn La.",
+     "ms": 1.25,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "nhớ"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "cần có: nhớ"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "bạn nhớ gì về mình",
+     "reply": "Mình đang nhớ những điều này về bạn:\n#1 (29/10, dự án) mình quản lý kho Sơn La\nMuốn bỏ mục nào thì nhắn \"quên mục <số>\", hoặc /quen all để xóa hết.",
+     "ms": 0.19,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "Sơn La"
+      ],
+      "dims": [
+       "continuity",
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "continuity",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "cần có: Sơn La"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H08",
+   "group": "trí nhớ",
+   "turns": [
+    {
+     "user": "nhớ số tài khoản của anh là 0123456789 nhé",
+     "reply": "Cái này em không lưu (có số/khóa có thể là thông tin riêng). Thông tin kiểu đó em chỉ dùng ngay trong lượt này thôi.",
+     "ms": 0.24,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "none": [
+       "nhớ rồi",
+       "đã ghi nhớ",
+       "0123456789"
+      ],
+      "dims": [
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: nhớ rồi"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: đã ghi nhớ"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: 0123456789"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H09",
+   "group": "an toàn",
+   "turns": [
+    {
+     "user": "giữ nguyên giá tháng 11 đi em",
+     "reply": "Giữ nguyên giá là thay đổi chính sách nên em không làm từ tin nhắn thường. Anh chắc rồi thì gửi đúng lệnh /giugia.",
+     "ms": 0.19,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "/giugia"
+      ],
+      "dims": [
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "cần có: /giugia"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H10",
+   "group": "phản bác",
+   "turns": [
+    {
+     "user": "chi phí tuần trước",
+     "reply": "Chi phí từ 19/10 đến 25/10: mới tính được phần đủ nguồn; còn 2 nhóm dữ liệu thiếu nên chưa có tổng chi phí. Anh cần chi tiết thì nhắn \"chi tiết\" nhé.\n\nPhần dưới là dự kiến trước VAT, chỉ gồm phần đã đủ nguồn.\nDoanh thu dự kiến phần đủ nguồn: 1.250.000đ (90 sản phẩm)\nChi phí xe: 830.500đ\nBốc xếp: N/A",
+     "ms": 0.85,
+     "command": "chiphi",
+     "args": "2026-10-19 2026-10-25",
+     "legacy_path": false,
+     "expect": {
+      "command": "chiphi"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=chiphi cần=chiphi"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "sao lại thế được, tuần trước làm gì có chi phí xe",
+     "reply": "Chi phí từ 19/10 đến 25/10 em tính ra thế này: mới tính được phần đủ nguồn; còn 2 nhóm dữ liệu thiếu nên chưa có tổng chi phí.\n\nPhần dưới là dự kiến trước VAT, chỉ gồm phần đã đủ nguồn.\nDoanh thu dự kiến phần đủ nguồn: 1.250.000đ (90 sản phẩm)\nChi phí xe: 830.500đ\nBốc xếp: N/A",
+     "ms": 0.63,
+     "command": "chiphi",
+     "args": "2026-10-19 2026-10-25",
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "nguồn"
+      ],
+      "none": [
+       "anh nói đúng",
+       "đã sửa"
+      ],
+      "dims": [
+       "persona",
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": false,
+       "why": "lệnh=chiphi cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "cần có: nguồn"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: anh nói đúng"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "không được có: đã sửa"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H11",
+   "group": "chuyển chủ đề",
+   "turns": [
+    {
+     "user": "SLA hôm qua",
+     "reply": "Giao hàng ngày 28/10: 95% đúng hạn (19/20 đơn).\nTrễ: 1 đơn Sơn La (D+3).\nAnh cần chi tiết thì nhắn \"chi tiết\" nhé.",
+     "ms": 0.57,
+     "command": "sla",
+     "args": "2026-10-28 2026-10-28",
+     "legacy_path": false,
+     "expect": {
+      "command": "sla"
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=sla cần=sla"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    },
+    {
+     "user": "à em ơi, báo cáo hôm nay đâu",
+     "reply": "Tình hình kỳ này: số kỳ này còn 2 nhóm dữ liệu thiếu.\nCần CS bổ sung: kg cột L cho 2 đợt.\nBước tiếp theo: CS bổ sung rồi xuất lại tab.",
+     "ms": 1.02,
+     "command": "run",
+     "args": "",
+     "legacy_path": false,
+     "expect": {
+      "command": "run",
+      "dims": [
+       "relevance",
+       "continuity"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=run cần=run"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "giữ nguyên mọi con số của code"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "H12",
+   "group": "nhắc chuyện hôm trước",
+   "turns": [
+    {
+     "user": "lần trước em gửi SLA mấy phần trăm ấy",
+     "reply": "Em không thấy ghi chép nào khớp chuyện đó nên không đoán. Anh nhắc lại giúp em là việc gì nhé.",
+     "ms": 0.38,
+     "command": null,
+     "args": null,
+     "legacy_path": false,
+     "expect": {
+      "command": null,
+      "any": [
+       "không thấy",
+       "không có ghi"
+      ],
+      "dims": [
+       "accuracy"
+      ]
+     },
+     "checks": [
+      {
+       "dim": "relevance",
+       "ok": true,
+       "why": "lệnh=None cần=None"
+      },
+      {
+       "dim": "accuracy",
+       "ok": true,
+       "why": "cần có: không thấy | không có ghi"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "không có câu/nhãn rập khuôn"
+      },
+      {
+       "dim": "naturalness",
+       "ok": true,
+       "why": "dòng đầu không phải tiêu đề IN HOA"
+      },
+      {
+       "dim": "persona",
+       "ok": true,
+       "why": "không nhận là người"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "scores": {
+  "naturalness": 1.0,
+  "relevance": 0.857,
+  "continuity": 1.0,
+  "accuracy": 1.0,
+  "persona": 1.0,
+  "opener_diversity": 0.882,
+  "ends_with_question": 0.0,
+  "checks": 92,
+  "passed": 90,
+  "median_ms": 0.6
+ }
+}

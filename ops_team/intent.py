@@ -11,10 +11,27 @@ from calendar import monthrange
 from datetime import date, timedelta
 
 
+# Common chat shorthand -> plain words (applied per token after removing accents).
+SLANG = {'ko': 'khong', 'k': 'khong', 'kh': 'khong', 'hok': 'khong', 'hong': 'khong', 'khg': 'khong', 'kg': 'khong',
+         'dc': 'duoc', 'dk': 'duoc', 'j': 'gi', 'ji': 'gi', 'z': 'vay', 'v': 'vay', 'r': 'roi', 'vs': 'voi',
+         'bn': 'bao nhieu', 'bnhieu': 'bao nhieu', 'bnh': 'bao nhieu', 'ntn': 'nhu the nao', 'cp': 'chi phi',
+         'hqua': 'hom qua', 'hnay': 'hom nay', 'hum': 'hom', 'wa': 'qua', 'tks': 'cam on', 'thks': 'cam on',
+         'thanks': 'cam on', 'thank': 'cam on', 'camon': 'cam on', 'oke': 'ok', 'okie': 'ok', 'okela': 'ok', 'okay': 'ok',
+         'ad': 'anh', 'a': 'anh', 'e': 'em', 'c': 'chi', 'mk': 'minh', 'b': 'ban', 'bh': 'bay gio', 'h': 'gio'}
+
+
 def _plain(text):
     text = unicodedata.normalize('NFD', str(text).casefold())
     text = ''.join(c for c in text if unicodedata.category(c) != 'Mn').replace('đ', 'd')
-    return ' '.join(text.split())
+    # kg after a number is a unit, not the "khong" shorthand.
+    tokens = re.findall(r'->|[a-z0-9&]+(?:[/\-.>][a-z0-9]+)*|[^\sa-z0-9]', text)
+    out = []
+    for i, tok in enumerate(tokens):
+        if tok == 'kg' and i and tokens[i-1][:1].isdigit():
+            out.append(tok)
+        else:
+            out.append(SLANG.get(tok, tok))
+    return ' '.join(out)
 
 
 # (intent, patterns on de-accented lowercase text); first match wins.
@@ -23,7 +40,7 @@ INTENTS = [
     ('sla', [r'\bsla\b', r'dung han', r'tre han', r'giao tre', r'giao muon', r'dung gio']),
     ('duyet', [r'\bduyet\b', r'cho duyet', r'cong (phan )?kg']),
     ('giugia', [r'giu (nguyen )?gia']),
-    ('chiphi', [r'chi phi', r'\bton (bao nhieu|het)', r'lai lo', r'\b(lai|lo) (bao nhieu|the nao|khong)\b', r'doanh thu', r'\bp ?& ?l\b', r'loi nhuan', r'\bcuoc\b', r'boc xep', r'bao nhieu tien']),
+    ('chiphi', [r'chi phi', r'\bton (bao nhieu|het)', r'lai (hay|hoac|hay la) lo', r'lai lo', r'\b(lai|lo) (bao nhieu|the nao|khong)\b', r'doanh thu', r'\bp ?& ?l\b', r'loi nhuan', r'\bcuoc\b', r'boc xep', r'bao nhieu tien']),
     ('xe', [r'\bxe\b', r'\bchuyen xe\b', r'bao nhieu chuyen', r'bien so', r'ty trong']),
     ('run', [r'bao cao', r'tong hop', r'\breport\b', r'tinh hinh']),
     ('details', [r'chi tiet', r'xem them', r'giai thich them', r'cu the hon']),
@@ -108,9 +125,10 @@ def route(text, today):
 
 
 def span_text(args):
-    if not args:
+    parts = (args or '').split()
+    if len(parts) != 2 or not all(re.fullmatch(r'\d{4}-\d{2}-\d{2}', p) for p in parts):
         return 'kỳ này'
-    a, b = args.split()
+    a, b = parts
     fmt = lambda s: f'{s[8:10]}/{s[5:7]}'
     return 'ngày '+fmt(a) if a == b else 'từ '+fmt(a)+' đến '+fmt(b)
 

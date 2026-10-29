@@ -64,6 +64,10 @@ def output_schema():
                 "disagreements": strings, "selected_agents": strings, "audit_decisions": {"type": "array", "items": decision}})
 
 
+# Small talk only: one free-text reply. Business answers keep output_schema().
+CHAT_SCHEMA = {"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"], "additionalProperties": False}
+
+
 def validate_output(data, allowed_ids):
     if not isinstance(data, dict):
         raise ProviderError("Đầu ra không phải JSON object.")
@@ -121,11 +125,11 @@ async def _fetch_async(url, headers, body, timeout):
 def call_model(config, payload, timeout=30, client=None, budget=None, deadline=None, *, response_kind="analysis"):
     # The caller chooses the contract explicitly; payload fields cannot switch
     # business responses to the less demanding connection probe validator.
-    if response_kind not in ("analysis", "probe"):
+    if response_kind not in ("analysis", "probe", "chat"):
         raise ProviderError("Loại phản hồi model không hợp lệ.")
     schema = ({"type": "object", "properties": {"status": {"type": "string", "enum": ["ok"]}},
                "required": ["status"], "additionalProperties": False}
-              if response_kind == "probe" else output_schema())
+              if response_kind == "probe" else CHAT_SCHEMA if response_kind == "chat" else output_schema())
     if config.free_pilot:
         validate_free_config(config)
         if budget is None:
@@ -139,11 +143,11 @@ def call_model(config, payload, timeout=30, client=None, budget=None, deadline=N
         headers["Authorization"] = "Bearer " + config.api_key
     content = {**payload, "output_format": "JSON"}
     if config.structured_output != "json_schema":
-        content["response_contract"] = {"status": "ok"} if response_kind == "probe" else contract()
+        content["response_contract"] = {"status": "ok"} if response_kind == "probe" else {"reply": "string"} if response_kind == "chat" else contract()
     body = {
         "model": config.model,
         "messages": [{"role": "user", "content": json.dumps(content, ensure_ascii=False, separators=(",", ":"))}],
-        "response_format": ({"type": "json_schema", "json_schema": {"name": "connection_probe" if response_kind == "probe" else "operations_analysis", "strict": True, "schema": schema}}
+        "response_format": ({"type": "json_schema", "json_schema": {"name": {"probe": "connection_probe", "chat": "chat_reply"}.get(response_kind, "operations_analysis"), "strict": True, "schema": schema}}
             if config.structured_output == "json_schema" else {"type": "json_object"}),
         "max_completion_tokens": config.max_output_tokens,
         "store": False,
@@ -221,6 +225,10 @@ def call_model(config, payload, timeout=30, client=None, budget=None, deadline=N
             if not isinstance(data, dict) or data != {"status": "ok"}:
                 raise ProviderError("Phản hồi kiểm tra kết nối phải là JSON {\"status\":\"ok\"}.")
             output = dict(data)
+        elif response_kind == "chat":
+            if not isinstance(data, dict) or set(data) != {"reply"} or not isinstance(data["reply"], str) or not 0 < len(data["reply"].strip()) <= 2000:
+                raise ProviderError("Phản hồi trò chuyện phải là JSON {\"reply\": \"...\"} không rỗng, tối đa 2.000 ký tự.")
+            output = {"reply": data["reply"].strip()}
         else:
             output = validate_output(data, set(payload["metrics"]))
         actual_model = response_data.get("model")
