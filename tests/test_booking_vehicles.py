@@ -1314,7 +1314,7 @@ def test_gxt_membership_uses_all_pinned_booking_and_raw_day(tmp_path):
     finally:state.close()
 
 
-def test_gxt_duplicate_order_on_different_trips_is_held_not_double_wage(tmp_path):
+def test_gxt_same_order_on_two_trips_same_truck_day_is_one_order_one_wage(tmp_path):
     from ops_team.supra.manual_cost_report import _calculate
     data=parsed([book('SYN_DUP')],[event('SYN_DUP',trip=123),event('SYN_DUP',trip=124)])
     v=vehicle_evidence(data,'2026-10',CUTOFF);scope=vehicle_scope(v,'2026-10-10')
@@ -1322,8 +1322,14 @@ def test_gxt_duplicate_order_on_different_trips_is_held_not_double_wage(tmp_path
     try:
         out=_calculate(data,v,synthetic_cost_policy(cfg),scope,'a'*64,
             vehicle_cost_status(data,v,'2026-10-10'),{'available':False,'reason':'NOT_CONFIGURED'})
-        assert out['gxt']['eligible_vehicle_days']==0 and len(out['gxt']['held'])==1
-        assert out['gxt']['wage_supra_vnd'] is None
+        # Owner 29/10/2026: kg of both trips summed (2.5 kg), wage paid once (fixed tier 5 VND), not twice.
+        assert out['gxt']['eligible_vehicle_days']==1 and not out['gxt']['held']
+        assert Decimal(out['gxt']['wage_supra_vnd'])==5
+        # The exact same trip repeated is still a duplicate and stays held.
+        data=parsed([book('SYN_DUP')],[event('SYN_DUP',trip=123),event('SYN_DUP',trip=123)])
+        v=vehicle_evidence(data,'2026-10',CUTOFF)
+        out=_calculate(data,v,synthetic_cost_policy(cfg),scope,'a'*64,vehicle_cost_status(data,v,'2026-10-10'),{'available':False,'reason':'NOT_CONFIGURED'})
+        assert out['gxt']['eligible_vehicle_days']==0
     finally:state.close()
 
 
@@ -2166,13 +2172,19 @@ def test_two_leg_unresolved_reports_reason_per_event():
     assert 'Chưa khớp được xe Raw' not in text
 
 
-def test_event_on_ag_and_another_s_truck_is_held_as_mixed():
+def test_event_on_ag_and_another_s_truck_splits_l_by_raw_grams():
     from ops_team.supra.vehicle_cost import vehicle_cost_by_day
     rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
-    b=book('SYN_MIX',mode=2,ag='99A12345')
-    data=parsed([b],[event('SYN_MIX',pl='99A12345'),event('SYN_MIX',pl='99B12345',trip=124)]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    b=book('SYN_MIX',mode=2,ag='99A12345');b[8]='10'
+    raws=[event('SYN_MIX',pl='99A12345',grams='3000'),event('SYN_MIX',pl='99B12345',grams='1000',trip=124)]
+    data=parsed([b],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
-    assert dc['two_leg_reasons']=={'mixed_ag_and_other_s_trucks':1}
+    # Owner 29/10/2026: S part = 1000/4000 of L 10 kg = 2.5 kg carries DC (100 VND/kg); AG part is direct.
+    assert dc['two_leg_reasons']=={} and Decimal(dc['eligible_kg'])==Decimal('2.5') and Decimal(dc['eligible_vnd'])==250
+    assert dc['eligible_events'][0]['s_leg_share']=='0.25'
+    raws[1]=event('SYN_MIX',pl='99B12345',grams='x',trip=124)
+    data=parsed([b],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    assert vehicle_cost_by_day(data,v,'2026-10-10',rules)['unresolved_ghn']==1  # unreadable grams: no split
 
 
 def test_booking_day_after_last_raw_load_is_waiting_not_missing():

@@ -149,3 +149,5 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | R1 | Raw DELIVER trống biển = xe đi thẳng (nhân viên bấm "không gán giao") | 29/10/2026 | Có: GHN giao thẳng (GXT/NCC/Lai Châu) trống biển = xe AG tự giao, không thiếu biển, không hai chặng; GHN trung chuyển GXT vẫn báo thiếu |
 | R2 | SLA lấy `time_ket_thuc_chuyen` | 29/10/2026 | Có |
 | R3 | Kg Raw cho đợt trống L: từ ngày xuất tới trước lần xuất kế tiếp | 29/10/2026 | Có |
+| R4 | Đơn vừa đi xe AG vừa đi xe S: A — chia L theo gram Raw | 29/10/2026 | Có: phần xe S tính hai chặng (có bốc xếp DC), phần xe AG giao thẳng; gram lỗi thì giữ |
+| R5 | GHN 2 chuyến cùng xe S/ngày: A — cộng kg, lương giao một lần | 29/10/2026 | Có: cộng kg theo mã chuyến khác nhau; trùng đúng mã chuyến vẫn giữ |

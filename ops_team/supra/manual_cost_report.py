@@ -312,7 +312,7 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             related=orders.get(mapping['order'],[])
             dates=sorted({str(r['dispatch_date']) for r in related if r['dispatch_date'] is not None and r['dispatch_date']==r['dispatch_date']})
             booked=[x for x in dates if mapping['day'] is not None and x<=str(mapping['day'])]
-            if booked and resolve_direct(mapping['order'],booked[-1])=='TWO_LEGS':
+            if booked and resolve_direct(mapping['order'],booked[-1]) in ('TWO_LEGS','SPLIT'):
                 flags-={'direct_vehicle_mismatch','multiple_booking_vehicles'}
         return flags
     for group in evidence['groups']:
@@ -336,6 +336,7 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             issue_flags.add('mixed_or_unknown_role')
         valid = bool(group['share'] is not None and group_rows and all(m['mode'] in ('TRANSFER_GXT', 'GXT_DIRECT') and not blocking_flags(m) for m in selected))
         supra_orders = {}
+        seen_trips = set()
         for raw_row, ref in group_rows:
             mapping = mappings.get(ref)
             if mapping is None:
@@ -343,12 +344,16 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             order = business_key(raw_row['order_code'])
             related = orders.get(order, [])
             parsed, status = parse_kg(raw_row['weight'])
-            if (not order or order in supra_orders or status != 'VALID' or not related or
+            trip = business_key(raw_row['trip_code'])
+            # Owner 29/10/2026: one GHN on several trips of the same truck/day is one order;
+            # its kg is the sum of distinct trips and the delivery wage is paid once on that total.
+            if (not order or (order, trip) in seen_trips or status != 'VALID' or not related or
                     any(category(r, day(group['day'])) != 'gxt' for r in related)):
                 valid = False
                 issue_flags.add('duplicate_order_or_unconfirmed_route_or_weight')
                 continue
-            supra_orders[order] = str(parsed / Decimal(1000))
+            seen_trips.add((order, trip))
+            supra_orders[order] = str(Decimal(supra_orders.get(order, '0')) + parsed / Decimal(1000))
         if sum((Decimal(x) for x in supra_orders.values()), Decimal(0)) != Decimal(group['supra_kg']):
             valid = False
             issue_flags.add('source_weight_mismatch')

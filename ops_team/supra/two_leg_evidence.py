@@ -12,7 +12,7 @@ def direct_gxt_resolver(data,evidence,policy=None):
         mappings[m['order']].append(m)
         by_vehicle[(str(m['day']),m['raw_plate'])].append(m)
     for g in evidence.get('groups',[]):groups[(g['day'],g['plate'])]=g
-    cache={};reasons={}
+    cache={};reasons={};splits={}
     def done(key,result,reason=None):
         cache[key]=result
         if reason:reasons[key]=reason
@@ -59,6 +59,25 @@ def direct_gxt_resolver(data,evidence,policy=None):
         same={raw_plate==ag for _,raw_plate in locations}
         if same=={True}:return done(key,'DIRECT_SAME_VEHICLE')
         if same=={False}:return done(key,'TWO_LEGS')
-        return done(key,'UNKNOWN','mixed_ag_and_other_s_trucks')
+        # Owner 29/10/2026: part on the AG truck (direct), part on other S trucks (two legs):
+        # split L by the event's Raw DELIVER grams per side; any unreadable gram holds the event.
+        from decimal import Decimal
+        from .booking_vehicles import RAW_HEADERS
+        from .booking_quantity import business_key,cell
+        from .booking_weight import parse_kg
+        sides={True:Decimal(0),False:Decimal(0)}
+        for item in data.vehicle_pair['data_supra']['rows']:
+            r=dict(zip(RAW_HEADERS,item['values']))
+            load=day(r['load_date'])
+            if (cell(r['type']).upper()!='DELIVER' or business_key(r['order_code'])!=order or load is None or str(load)<str(d)
+                    or (until is not None and str(load)>=until) or not plate(r['truck_plate_number'])):continue
+            grams,status=parse_kg(r['weight'])
+            if status!='VALID':return done(key,'UNKNOWN','mixed_ag_and_other_s_trucks')
+            sides[plate(r['truck_plate_number'])==ag]+=grams
+        total=sides[True]+sides[False]
+        if not sides[False] or not total:return done(key,'UNKNOWN','mixed_ag_and_other_s_trucks')
+        splits[key]=sides[False]/total
+        return done(key,'SPLIT')
     resolve.reasons=reasons
+    resolve.splits=splits
     return resolve

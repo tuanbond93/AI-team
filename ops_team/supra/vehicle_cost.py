@@ -81,7 +81,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             physical={classify(r,pair['vehicle_catalog'],day(key[1])) for r in rows}
             if physical=={'GXT_DIRECT'}:
                 resolution=resolve_direct(key[0],key[1])
-                if resolution=='TWO_LEGS':modes={'TRANSFER'}
+                if resolution in ('TWO_LEGS','SPLIT'):modes={'TRANSFER'}
                 elif resolution!='DIRECT_SAME_VEHICLE':
                     issues.append('two_leg_unresolved');reason=resolve_direct.reasons.get(key,'unknown');two_leg_reasons[reason]+=1
             if not issues and modes=={'DIRECT'}:
@@ -105,11 +105,13 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
                 for flag in set(issues):counters[flag]+=1
                 continue
             kg=sum(values,Decimal(0)) if override else next(iter(values))
+            share=resolve_direct.splits.get(key) if physical=={'GXT_DIRECT'} else None
+            if share is not None:kg=kg*share  # only the S-truck (two-leg) part carries DC handling
             rate=matches[0];b=buckets[rate['rate_id']];amount=kg*Decimal(rate['vnd_per_kg'])
             b['eligible_ghn']+=1;b['eligible_kg']+=kg;b['eligible_vnd']+=amount;b['sources']+=refs
             if filled:raw_filled+=1;b['sources']+=filled[1]
             eligible.append(dict(order_id=key[0],day=key[1],sources=refs+(filled[1] if filled else []),kg=str(kg),amount_vnd=str(amount),rate_id=rate['rate_id'],
-                weight_source='RAW_DELIVER_EVENT_WINDOW' if filled else 'BOOKING_L'))
+                weight_source='RAW_DELIVER_EVENT_WINDOW' if filled else 'BOOKING_L',**({'s_leg_share':str(share)} if share is not None else {})))
         accepted=[b for b in buckets.values() if b['eligible_ghn']]
         known=bool(accepted) or bool(direct and not held and not unassigned)
         total=str(sum((b['eligible_vnd'] for b in accepted),Decimal(0))) if known else None
