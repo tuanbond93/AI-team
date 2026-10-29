@@ -29,3 +29,7 @@ Python 3.13, venv riêng cài đúng `requirements.txt`. Lệnh như trên với
 - Sửa test: DPAPI giả chỉ trong `tests/conftest.py` khi không phải Windows (app vẫn fail closed); test cần nguồn Supra local skip có lý do.
 - Sau sửa và thêm 2 test đồng bộ rule layer: **627 đạt, 29 skip, 0 fail** (~35 giây).
 - Lưu ý: con số 654/654 ở trên đạt được vì máy owner có sẵn nguồn Supra local; trên clone sạch 29 test đó không chạy được.
+
+## Nhánh claude/awesome-ptolemy-t1t3g0, 29/10/2026 — Claude (cloud, Linux)
+
+670 đạt, 29 skip (nguồn Supra local), 0 fail. Phiên trên máy owner báo 685/685 đạt trên Windows/Python 3.12 ở commit 2e7a0a8. Kiểm trên vault tạm của owner bằng `/thieu`/Excel; chưa triển khai vào worker đang chạy.

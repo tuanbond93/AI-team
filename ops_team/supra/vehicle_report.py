@@ -25,7 +25,12 @@ def booking_intake(r):
     lines=[_intake_conclusion(t,w,h,q),'Báo cáo Booking (chưa đối soát) — '+r['scope'],
         'Sản phẩm: '+display(t.get('product_units'),'sản phẩm')+' sản phẩm; kiện/thùng chưa suy được từ số sản phẩm.',
         'Kg toàn phạm vi: '+display(t.get('kg'),'kg')+' kg.']
-    for m in r.get('booking_rows',[])[:2]:lines.insert(2,m['Chỉ tiêu']+': '+m['Giá trị tính toán']+' '+m['Đơn vị'])
+    missing=(h.get('counters') or {}).get('missing_weight',0) if h.get('available') and h.get('unresolved_ghn') is not None else 0
+    if missing:
+        # Owner 29/10/2026: the daily message itself asks CS for the missing kg.
+        lines.insert(1,'CẦN CS BỔ SUNG: kg cột L cho '+str(missing)+(' đợt GHN/ngày' if h.get('grain')=='GHN_BOOKING_E_DAY' else ' GHN')+
+            ' (cột L và Raw đều chưa có). Owner gửi /thieu để xem đúng dòng; bổ sung xong em tự tính lại.')
+    for m in r.get('booking_rows',[])[:2]:lines.insert(2 if not missing else 3,m['Chỉ tiêu']+': '+m['Giá trị tính toán']+' '+m['Đơn vị'])
     if w.get('available'):lines.append('Kg phần GHN đủ nguồn (cột L): '+display(w.get('eligible_weight_kg'),'kg')+' kg, chưa thay tổng toàn phạm vi hoặc khối lượng đã giao thành công.')
     if h.get('available'):
         unit='đợt GHN/ngày' if h.get('grain')=='GHN_BOOKING_E_DAY' else 'GHN'

@@ -2314,3 +2314,29 @@ def test_mixed_truck_unpriced_or_early_delivery_supra_order_does_not_hold_truck(
         assert g['eligible_vehicle_days']==1 and not g['held']
         assert Decimal(g['vehicle_supra_vnd'])==Decimal(40)*Decimal(4)/Decimal(5)  # SYN_E is GXT on its E; SYN_U is other kg
     finally:state.close()
+
+
+def test_daily_report_asks_cs_for_missing_kg(tmp_path,monkeypatch):
+    state,facts,data,source,rules,sha=_rule_layer_fixture(tmp_path,{'start':'2026-10-01','end':'2026-10-31'})
+    try:
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        from ops_team.supra.vehicle_report import booking_intake
+        from ops_team.chief.report import booking_review
+        ctx=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        ctx['handling_quality']['counters']['missing_weight']=2;ctx['handling_quality']['unresolved_ghn']=2;ctx['handling_quality']['complete']=False
+        text=booking_intake(booking_review(ctx,[]))
+        assert text.split('\n')[1].startswith('CẦN CS BỔ SUNG: kg cột L cho 2 đợt GHN/ngày')
+    finally:state.close()
+
+
+def test_preflight_runs_owner_commands_without_model_or_send(tmp_path,monkeypatch):
+    from ops_team.preflight import run_checks
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);p,d=stage_overlay(tmp_path,config);ingest_overlay(p,d,state,123)
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        results=run_checks(a,123,'2026-10-10 2026-10-20')
+        names={n:ok for ok,n,_ in results}
+        assert names['/chiphi'] and names['/thieu'] and names['/xe'] and names['/sla'] and names['báo cáo 13h']
+    finally:state.close()

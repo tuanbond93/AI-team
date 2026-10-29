@@ -70,3 +70,7 @@ Khi sửa, kiểm đúng grain, nguồn và arithmetic độc lập; test cả k
 ## Cập nhật 28/10/2026 (Claude)
 
 Các câu trả lời owner và nơi đã áp nằm trong `docs/OWNER_QUESTIONS.md`. Mới: `/thieu`, `/sla`, `/duyet`, tổng dự kiến trước VAT, lịch không chặn khi Raw cũ, một lượt cho mỗi loại T, kg Raw cho đợt trống L, chia kg GHN đi nhiều xe, tự nhận khai trương từ `Ghi chú 2`, lớp quy tắc v2, `drive_import` + Apps Script. Tất cả kiểm bằng dữ liệu tổng hợp; chưa chạy trên vault thật hoặc worker đang chạy. Còn chặn tự động: catalog/chính sách gắn từng tháng hoặc khoảng ngày nên mỗi kỳ mới cần owner nạp lại; chưa có mẫu nhật trình km và bảng kê NCC.
+
+## Trạng thái 29/10/2026 (Claude) — sẵn sàng triển khai
+
+Toàn bộ câu trả lời owner nằm ở `docs/OWNER_QUESTIONS.md` (bảng ghi nhận). Trên dữ liệu thật (vault tạm, 01–22/10), `/thieu` chỉ còn đợt thiếu kg do CS chưa cập nhật; báo cáo 13h tự ghi dòng "CẦN CS BỔ SUNG". Công cụ: `ops_team.preflight` (kiểm sức khỏe trước/sau triển khai), `ops_team.export_checklist` (Excel), `ops_team.set_area_point_rate` (giá điểm theo khu vực, DPAPI), `ops_team.drive_import` (Apps Script → Drive → bot). Quy trình triển khai/quay lại: `docs/DEPLOY_WINDOWS.md`. Chưa đưa vào bot đang chạy.
