@@ -2132,10 +2132,13 @@ def test_two_leg_resolves_each_booking_day_of_a_multi_day_ghn(tmp_path):
     assert dc['unresolved_ghn']==1 and dc['group_evidence'][0]['day']=='2026-10-10'
 
 
-def test_invalid_l_is_reported_once_not_also_as_missing():
+def test_invalid_l_uses_raw_kg_else_is_reported_once():
     from ops_team.supra.vehicle_cost import vehicle_cost_by_day
     bad=book('SYN_BAD',date='10/10/2026');bad[8]='#REF!'
-    data=parsed([bad],[event('SYN_BAD')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    data=parsed([bad],[event('SYN_BAD',grams='2000')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    dc=vehicle_cost_by_day(data,v,'2026-10-10',{'handling_parts':[]})
+    assert dc['unresolved_ghn']==0 and Decimal(dc['eligible_kg'])==2  # owner 29/10: unreadable L -> Raw kg
+    data=parsed([bad],[event('OTHER')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',{'handling_parts':[]})
     assert dc['group_evidence'][0]['issues']==['invalid_weight']
 
@@ -2218,3 +2221,16 @@ def test_checklist_excel_lists_each_held_source_row_with_business_fields(tmp_pat
         summary=[dict(zip(list(wb['Tóm tắt'].values)[0],r)) for r in list(wb['Tóm tắt'].values)[1:]]
         assert sum(r['Số dòng'] for r in summary)==len(records)
     finally:state.close()
+
+
+def test_raw_kg_prefers_successful_delivery_then_pick_never_double():
+    from ops_team.supra.vehicle_cost import raw_deliver_kg,raw_event_kg
+    from datetime import date as D
+    def row(n,kind,ok,grams,trip,pl='99B12345',load='2026-10-10'):
+        r=dict(load_date=load,trip_code=trip,order_code='SYN_G',weight=grams,type=kind,is_succeeded=ok,truck_plate_number=pl)
+        return {'sheet_row':n,'values':[r.get(k,'') for k in RAW_HEADERS]}
+    pair={'raw_digest':'e'*64,'data_supra':{'rows':[row(2,'DELIVER','0.0','3000',1),row(3,'DELIVER','1.0','3000',2),row(4,'PICK','','3000',9)]}}
+    kg,refs=raw_event_kg(raw_deliver_kg(pair),'SYN_G',D(2026,10,10),None)
+    assert kg==3 and len(refs)==1  # failed attempt + redelivery: counted once
+    pair['data_supra']['rows']=[row(4,'PICK','','3000',9)]
+    assert raw_event_kg(raw_deliver_kg(pair),'SYN_G',D(2026,10,10),None)[0]==3  # not yet delivered: PICK kg

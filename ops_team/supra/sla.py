@@ -20,8 +20,8 @@ from .booking_vehicles import RAW_HEADERS, day
 
 TZ = ZoneInfo('Asia/Ho_Chi_Minh')
 SLA_DAYS = {'phú thọ': 1, 'sơn la': 2, 'điện biên': 2, 'lai châu': 2}
-TRUE = {'true', '1', 'yes', 'y', 'x', 'đúng', 'thành công'}
-FALSE = {'false', '0', 'no', 'n', 'sai', 'thất bại'}
+TRUE = {'true', '1', '1.0', 'yes', 'y', 'x', 'đúng', 'thành công'}
+FALSE = {'false', '0', '0.0', 'no', 'n', 'sai', 'thất bại'}
 # A real delivery moment is not shared by loads of 3+ different days covering 20%+ of succeeded rows.
 BATCH_MIN_LOAD_DAYS, BATCH_MIN_SHARE, BATCH_MIN_ROWS = 3, 0.2, 10
 

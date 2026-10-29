@@ -4,36 +4,48 @@ from datetime import datetime,time
 from zoneinfo import ZoneInfo
 
 
-def raw_deliver_kg(pair):
-    """Raw DELIVER rows per GHN: order -> [(load day, row, ref)] (owner rules 28-29/10/2026).
+RAW_TRUE={'true','1','1.0','yes','y','x'}
 
-    A Booking event with a blank L takes the GHN's Raw grams/1000 loaded from its
-    E day until the GHN's next E day (two-leg S loads can be later than E).
+
+def raw_deliver_kg(pair):
+    """Raw DELIVER/PICK rows per GHN: order -> [(load day, type, succeeded, row, ref)] (owner 28-29/10/2026).
+
+    A Booking event whose L is blank or unreadable takes the GHN's Raw grams/1000
+    loaded from its E day until the GHN's next E day.
     """
     from .booking_vehicles import RAW_HEADERS,day
     from .booking_quantity import business_key,cell
     found=defaultdict(list)
     for row in pair['data_supra']['rows']:
-        r=dict(zip(RAW_HEADERS,row['values']))
-        if cell(r['type']).upper()!='DELIVER':continue
+        r=dict(zip(RAW_HEADERS,row['values']));kind=cell(r['type']).upper()
+        if kind not in ('DELIVER','PICK'):continue
         order=business_key(r['order_code']);d=day(r['load_date'])
         if order and d is not None:
-            found[order].append((d,r,f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}"))
+            found[order].append((d,kind,cell(r['is_succeeded']).casefold() in RAW_TRUE,r,f"Raw#{pair['raw_digest'][:12]} dòng {row['sheet_row']}"))
     return found
 
 
 def raw_event_kg(found,order,start,until):
-    """Unambiguous kg for loads in [start, until): every row valid, no repeated day/trip/plate."""
+    """Unambiguous kg for loads in [start, until); never counts the same goods twice.
+
+    Successful DELIVER rows first (a failed attempt then redelivered would double
+    the kg); else any DELIVER rows; else PICK rows (goods picked up at DC, not yet
+    delivered). Within the chosen set every gram must be valid and each
+    day/trip/plate appear once.
+    """
     from decimal import Decimal
     from .booking_vehicles import plate
     from .booking_quantity import business_key
     from .booking_weight import parse_kg
-    items=[(d,r,ref) for d,r,ref in found.get(order,[]) if d>=start and (until is None or d<until)]
-    if not items:return None
-    weights=[parse_kg(r['weight']) for _,r,_ in items]
-    keys=[(d,business_key(r['trip_code']),plate(r['truck_plate_number'])) for d,r,_ in items]
+    window=[x for x in found.get(order,[]) if x[0]>=start and (until is None or x[0]<until)]
+    for chosen in ([x for x in window if x[1]=='DELIVER' and x[2]],[x for x in window if x[1]=='DELIVER'],[x for x in window if x[1]=='PICK']):
+        if chosen:break
+    else:
+        return None
+    weights=[parse_kg(r['weight']) for _,_,_,r,_ in chosen]
+    keys=[(d,business_key(r['trip_code']),plate(r['truck_plate_number'])) for d,_,_,r,_ in chosen]
     if any(status!='VALID' for _,status in weights) or len(set(keys))!=len(keys):return None
-    return sum((kg for kg,_ in weights),Decimal(0))/Decimal(1000),[ref for _,_,ref in items]
+    return sum((kg for kg,_ in weights),Decimal(0))/Decimal(1000),[ref for *_,ref in chosen]
 
 
 def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
@@ -91,11 +103,14 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             weights=[parse_kg(r['source_ghn_weight']) for r in rows];values={v for v,s in weights if s=='VALID'}
             if any(s=='INVALID' for v,s in weights):issues.append('invalid_weight')
             override=exception.get(key);filled=None
-            if not values and all(s=='MISSING' for v,s in weights) and not override:
+            if not values and not override:
+                # Owner 29/10/2026: blank or unreadable L -> take the GHN's kg from Raw.
                 booked=booking_days.get(key[0],[]);event_day=day(key[1])
                 later=[x for x in booked if x>event_day]
                 filled=raw_event_kg(raw_kg,key[0],event_day,later[0] if later else None)
-                if filled:values={filled[0]}
+                if filled:
+                    values={filled[0]}
+                    if 'invalid_weight' in issues:issues.remove('invalid_weight')
             if not values and 'invalid_weight' not in issues:issues.append('missing_weight')
             if len(values)>1 and not override:issues.append('conflicting_weight')
             if override and {r['_source'] for r,(v,s) in zip(rows,weights) if s=='VALID'}!=set(override['sources']):issues.append('conflicting_weight')

@@ -151,3 +151,6 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | R3 | Kg Raw cho đợt trống L: từ ngày xuất tới trước lần xuất kế tiếp | 29/10/2026 | Có |
 | R4 | Đơn vừa đi xe AG vừa đi xe S: A — chia L theo gram Raw | 29/10/2026 | Có: phần xe S tính hai chặng (có bốc xếp DC), phần xe AG giao thẳng; gram lỗi thì giữ |
 | R5 | GHN 2 chuyến cùng xe S/ngày: A — cộng kg, lương giao một lần | 29/10/2026 | Có: cộng kg theo mã chuyến khác nhau; trùng đúng mã chuyến vẫn giữ |
+| R6 | Xe GXT/ngày thiếu/lệch dữ liệu: lấy theo Raw | 29/10/2026 | Có: chi phí xe GXT dùng biển S trên Raw làm xe thật kể cả khi khác AG; bốc xếp DC vẫn dùng kiểm tra hai chặng |
+| R7 | Kg cột L thiếu hoặc sai định dạng: lấy theo Raw | 29/10/2026 | Có: ưu tiên DELIVER thành công, rồi DELIVER, rồi PICK trong khoảng đợt; không cộng trùng lần giao thất bại |
+| R8 | "Raw chưa cập nhật": file Raw anh gửi cũng chỉ tới load 22/10 (xuất 23/10 08:00), 440 GHN mới có PICK | 29/10/2026 | Đúng là đang chờ giao; không phải lỗi |

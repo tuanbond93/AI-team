@@ -307,13 +307,10 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
         flags = set(mapping['flags'])
         if mapping['mode'] == 'TRANSFER_GXT':
             flags.discard('multiple_booking_vehicles')
-        if rules and mapping['mode']=='GXT_DIRECT' and flags & {'direct_vehicle_mismatch','multiple_booking_vehicles'}:
-            # The Raw leg belongs to the GHN's latest Booking day on or before its load day.
-            related=orders.get(mapping['order'],[])
-            dates=sorted({str(r['dispatch_date']) for r in related if r['dispatch_date'] is not None and r['dispatch_date']==r['dispatch_date']})
-            booked=[x for x in dates if mapping['day'] is not None and x<=str(mapping['day'])]
-            if booked and resolve_direct(mapping['order'],booked[-1]) in ('TWO_LEGS','SPLIT'):
-                flags-={'direct_vehicle_mismatch','multiple_booking_vehicles'}
+        if rules and mapping['mode'] == 'GXT_DIRECT' and mapping['raw_plate']:
+            # Owner 29/10/2026: for the GXT truck cost the Raw S plate is the physical truck,
+            # even when it differs from Booking AG (DC handling still uses the two-leg resolver).
+            flags -= {'direct_vehicle_mismatch', 'multiple_booking_vehicles'}
         return flags
     for group in evidence['groups']:
         if not start <= group['day'] <= end:
