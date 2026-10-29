@@ -137,6 +137,34 @@ class AssistantResponder:
                 f"Dùng /set {key} <giá trị> để xác nhận, hoặc trả lời tin này để xem lại trước khi /confirm.")
 
     def answer(self, request):
+        if request.command == "ask" and self.safe_to_send(request.text):
+            natural = self._natural(request)
+            if natural is not None:
+                return natural
+        return self._answer(request)
+
+    def _natural(self, request):
+        """Plain message -> existing code command; reply framed conversationally. None = old path."""
+        from . import intent
+        owner = request.user_id == self.owner
+        if owner and self.state.control("pending_field") and not self._facts().get("source_id"):
+            return None
+        hit = intent.route(request.text, datetime.now(TZ).date())
+        if not hit:
+            return None
+        command, args = hit
+        if command == "help":
+            return intent.HELP
+        if command == "thanks":
+            return intent.THANKS
+        if not owner:
+            return intent.REFUSE
+        if command == "giugia":
+            return intent.GIUGIA
+        reply = self._answer(Incoming(request.chat_id, request.user_id, request.message_id, request.topic_id, command, args))
+        return intent.naturalize(command, reply, args)
+
+    def _answer(self, request):
         command, text = request.command, request.text
         owner = request.user_id == self.owner
         if not self.safe_to_send(text):
@@ -396,6 +424,9 @@ class AssistantResponder:
             if prepared and (not finance_available(prepared[0]) or not self.settings.get("models")):
                 return self._source_code_report(request, prepared)
             if not self.settings.get("models"):
+                if command == "ask":
+                    from .intent import UNCLEAR
+                    return UNCLEAR
                 return "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team."
             try:
                 agent = self._get_agent(fleet=True) if command=='fleet' else self._get_agent()

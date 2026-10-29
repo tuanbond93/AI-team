@@ -178,3 +178,12 @@ Lần nạp paired đầu tiên vẫn làm tay để có catalog đã duyệt. M
 ## Xuất danh sách thiếu dữ liệu ra Excel
 
 `python -m ops_team.export_checklist --out "<đường dẫn>.xlsx" [--root <bản sao vault>] [YYYY-MM-DD YYYY-MM-DD]` dùng đúng phép tính của `/thieu`, ghi file gồm sheet "Tóm tắt" (nhóm, lý do, cần bổ sung, số dòng) và "Chi tiết" (mỗi dòng Booking/Raw đang giữ, kèm GHN, SO, DO, ngày, kg L, tải T, biển AG/S, gram Raw). File chứa định danh nghiệp vụ nên chỉ lưu trên máy owner, không gửi Telegram/model, không commit. Không gửi tin, không gọi AI.
+
+## Nhắn tự nhiên (`ops_team/intent.py`)
+
+Tin nhắn thường (đã @bot hoặc trả lời bot) được hiểu bằng từ khóa + ngày, không gọi AI:
+"chi phí tuần này", "lãi lỗ tháng 10", "còn thiếu gì không", "SLA hôm qua", "xe ngày 15/10", "báo cáo hôm nay", "chi tiết".
+Bot chạy đúng lệnh code tương ứng (`/chiphi`, `/thieu`, `/sla`, `/xe`, `/run`, `/details`), giữ nguyên số và dòng nguồn, chỉ đổi lời dẫn cho tự nhiên.
+Câu "tại sao / có nên / phân tích" đi đường cũ (Chief/AI nếu đã cấu hình; không có AI thì trả báo cáo code).
+Tin nhắn thường không bao giờ lưu thay đổi: "giữ giá" chỉ nhắc gửi `/giugia`; "duyệt Pxxxxxx" chỉ xem trước, lưu vẫn cần `/duyet <mã> xacnhan`.
+Người không phải owner nhận lời từ chối lịch sự. Trong nhóm, Telegram chỉ đưa tin cho bot khi có @bot hoặc trả lời bot (privacy mode).

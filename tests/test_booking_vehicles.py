@@ -2340,3 +2340,26 @@ def test_preflight_runs_owner_commands_without_model_or_send(tmp_path,monkeypatc
         names={n:ok for ok,n,_ in results}
         assert names['/chiphi'] and names['/thieu'] and names['/xe'] and names['/sla'] and names['báo cáo 13h']
     finally:state.close()
+
+
+def test_plain_messages_route_to_code_reports_without_model(tmp_path,monkeypatch):
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('plain routing cannot call model'))
+        cost=a.answer(Incoming(GROUP_ID,123,1,None,'ask','chi phí từ 10/10/2026 đến 20/10/2026 thế nào em'))
+        slash=a.answer(Incoming(GROUP_ID,123,2,None,'chiphi','2026-10-10 2026-10-20'))
+        assert cost.startswith('Dạ, em tính chi phí từ 10/10 đến 20/10 rồi ạ: mới tính được phần đủ nguồn')
+        assert 'Doanh thu dự kiến phần đủ nguồn, chưa đủ toàn phạm vi: 180đ (90 sản phẩm)' in cost and '180đ (90 sản phẩm)' in slash
+        assert '/details' in slash and '/details' not in cost and '/thieu' not in cost
+        missing=a.answer(Incoming(GROUP_ID,123,3,None,'ask','từ 10/10/2026 đến 20/10/2026 còn thiếu dữ liệu gì không'))
+        assert missing.startswith('Dạ, từ 10/10 đến 20/10 còn ') and 'Booking dòng 4' in missing and 'không tính là 0' in missing
+        assert 'chỉ gửi cho owner' in a.answer(Incoming(GROUP_ID,456,4,None,'ask','còn thiếu gì không'))
+        before=state.control('policy_confirmations',None)
+        assert '/giugia' in a.answer(Incoming(GROUP_ID,123,5,None,'ask','giữ giá tháng này nhé'))
+        assert state.control('policy_confirmations',None)==before
+        assert a.answer(Incoming(GROUP_ID,123,6,None,'ask','anh hỏi chút')).startswith('Dạ, em chưa chắc')
+        assert a.answer(Incoming(GROUP_ID,123,7,None,'ask','ok cảm ơn em')).startswith('Dạ, có gì')
+    finally:state.close()
