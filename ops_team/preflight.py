@@ -25,6 +25,14 @@ def run_checks(responder, owner, dates=''):
             results.append((not bad, '/'+command, reply.split('\n')[0][:160]))
         except Exception as exc:
             results.append((False, '/'+command, type(exc).__name__+': '+str(exc)[:160]))
+    # Plain messages go through the conversation layer (no model call: _get_agent is blocked above).
+    for i, text in enumerate(('chi phí tuần này', 'còn thiếu dữ liệu gì không', 'chào em'), 1):
+        try:
+            reply = responder.answer(Incoming(GROUP_ID, owner, 900100+i, None, 'ask', text))
+            bad = not reply or reply.startswith(('Chưa hoàn tất xử lý', 'CHƯA CÓ AI/MODEL'))
+            results.append((not bad, 'nhắn "'+text+'"', reply.split('\n')[0][:160]))
+        except Exception as exc:
+            results.append((False, 'nhắn "'+text+'"', type(exc).__name__+': '+str(exc)[:160]))
     try:
         report = responder.report()
         results.append((not report.startswith('CHƯA CÓ BÁO CÁO'), 'báo cáo 13h', report.split('\n')[0][:160]))

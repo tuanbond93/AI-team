@@ -2,6 +2,41 @@
 
 Thư mục đang chạy: `$HOME\Desktop\AI team` (có `.telegram_state`). Thư mục thử: `$HOME\Desktop\AI-team-trial` (clone nhánh mới). Chỉ một worker cho một vault; không bật worker thứ hai.
 
+## Cách nhanh: một script (khuyên dùng)
+
+```powershell
+cd "$HOME\Desktop"; if (-not (Test-Path AI-team-trial)) { git clone -b claude/awesome-ptolemy-t1t3g0 https://github.com/tuanbond93/AI-team AI-team-trial }
+cd "$HOME\Desktop\AI-team-trial"; git pull origin claude/awesome-ptolemy-t1t3g0
+# Lần 1: chỉ kiểm tra, không đụng bot
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy\Deploy-Bot.ps1 -CheckOnly
+# Lần 2: cập nhật thật + đặt lịch 13:01/13:06 (thay đường dẫn Drive)
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy\Deploy-Bot.ps1 -DriveFolder "<thư mục Drive đã đồng bộ>"
+```
+
+Script làm đúng các bước 0–5 bên dưới:
+- Kiểm quyền và chạy test.
+- Preflight trên bản sao vault, gồm cả tin nhắn tự nhiên.
+- Backup, rồi dừng worker và chờ tiến trình thoát hẳn.
+- Chép code, bật worker, kiểm heartbeat.
+- Bật lại lịch 13h chỉ khi mã kế hoạch owner đã duyệt không đổi. Nếu đổi, script báo cần `/plan` rồi `/enable`.
+- Đặt task "AI Team - Drive import 13h".
+
+Lỗi ở bất kỳ bước nào sau khi dừng worker: script tự chép lại code cũ, khôi phục trạng thái và bật lại worker cũ.
+
+Thêm `-MocChauVnd <giá>` nếu vault chưa có giá điểm Mộc Châu. Giá chỉ lưu trong DPAPI, không vào Git.
+
+Các chế độ khác:
+- `-ScheduleOnly -DriveFolder ...`: chỉ đặt lịch.
+- `-RestartOnly`: dừng/bật lại an toàn.
+
+### Sẵn sàng cho 13h ngày mai
+
+1. Apps Script: đã chạy `installTrigger()`, xuất file trước 13:00.
+2. Google Drive for desktop đang chạy và đồng bộ đúng thư mục `-DriveFolder`.
+3. Máy bật, đăng nhập đúng tài khoản Windows lúc 13:00 (DPAPI cần tài khoản này), có mạng, không ngủ.
+4. Trên Telegram, `/status` báo lịch **ĐANG BẬT**. Nếu script báo kế hoạch đổi: gửi `/plan` rồi `/enable <mã>`.
+5. Đầu tháng: `/giugia` (hoặc gửi bảng giá mới) để lịch không bị dừng vì chưa xác nhận giá.
+
 ## 0. Kiểm trước (không đụng bot)
 
 ```powershell
