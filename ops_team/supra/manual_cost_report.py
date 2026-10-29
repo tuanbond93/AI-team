@@ -50,7 +50,7 @@ def _mixed_supra_truck(group, group_rows, mappings, orders, category, latest_del
     flags = set()
     if set(group.get('issues', [])) - {'duplicate_event_key'}:
         flags.add('raw_group_quality')
-    supra, other, seen = {}, Decimal(group['other_kg']), set()
+    supra, other, seen, warnings = {}, Decimal(group['other_kg']), set(), 0
     for raw_row, ref in group_rows:
         if ref not in mappings:
             continue
@@ -66,19 +66,24 @@ def _mixed_supra_truck(group, group_rows, mappings, orders, category, latest_del
             flags.add('invalid_weight')
             continue
         kg = grams / Decimal(1000)
-        related = [r for r in orders.get(order, []) if r['dispatch_date'] is not None and str(r['dispatch_date']) <= group['day']]
-        latest = max((str(r['dispatch_date']) for r in related), default=None)
-        cats = {category(r, gday) for r in related if str(r['dispatch_date']) == latest}
+        dated = [r for r in orders.get(order, []) if r['dispatch_date'] is not None]
+        before = [r for r in dated if str(r['dispatch_date']) <= group['day']]
+        # The Booking day of this leg: latest E on/before the load day, else (booked after an
+        # early delivery) the earliest E.
+        pick = max(before, key=lambda r: str(r['dispatch_date'])) if before else min(dated, key=lambda r: str(r['dispatch_date']), default=None)
+        cats = {category(r, gday) for r in dated if pick is not None and str(r['dispatch_date']) == str(pick['dispatch_date'])}
         if cats == {'gxt'}:
             supra[order] = str(Decimal(supra.get(order, '0')) + kg)
-        elif cats and None not in cats:
-            other += kg
         else:
-            flags.add('unknown_or_conflicting_mode')
+            # Other model, mixed or not-yet-priced Supra goods share the truck as other kg;
+            # their own pricing gap is reported separately (owner 29/10/2026).
+            other += kg
+            if not cats or None in cats or len(cats) > 1:
+                warnings += 1
     if not supra:
         return None
     return dict(day=group['day'], vehicle=group['plate'], supra_orders=supra, other_kg=str(other), valid=not flags,
-                sources=group['sources'], flags=sorted(flags))
+                sources=group['sources'], flags=sorted(flags), unpriced_supra_rows=warnings)
 
 
 def _blank_plate_points(data, rules, start, end, orders):

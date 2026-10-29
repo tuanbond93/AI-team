@@ -2297,3 +2297,20 @@ def test_mixed_supra_truck_counts_gxt_orders_and_redelivery_once(tmp_path):
         # Only 10/10 counts for SYN_G (latest log), once (3 kg); BC 1 kg is other goods: 40 * 3/4 = 30.
         assert g['eligible_vehicle_days']==1 and not g['held'] and Decimal(g['vehicle_supra_vnd'])==30 and Decimal(g['wage_supra_vnd'])==5
     finally:state.close()
+
+
+def test_mixed_truck_unpriced_or_early_delivery_supra_order_does_not_hold_truck(tmp_path):
+    from ops_team.supra.manual_cost_report import _calculate
+    state,facts,_,source,_,cfg=forecast_fixture(tmp_path)
+    try:
+        rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+        gxt=book('SYN_G',mode=0);unpriced=book('SYN_U',mode=0,do='D2');unpriced[10]='District 99'
+        early=book('SYN_E',mode=0,date='12/10/2026',do='D3')  # booked after it was delivered on 10/10
+        raws=[event('SYN_G',grams='3000'),event('SYN_U',grams='1000',trip=124),event('SYN_E',grams='1000',trip=125)]
+        data=parsed([gxt,unpriced,early],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+        out=_calculate(data,v,synthetic_cost_policy(cfg),vehicle_scope(v,'2026-10-10'),'a'*64,
+            vehicle_cost_status(data,v,'2026-10-10'),{'available':False},rules,'b'*64)
+        g=out['gxt']
+        assert g['eligible_vehicle_days']==1 and not g['held']
+        assert Decimal(g['vehicle_supra_vnd'])==Decimal(40)*Decimal(4)/Decimal(5)  # SYN_E is GXT on its E; SYN_U is other kg
+    finally:state.close()
