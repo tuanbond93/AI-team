@@ -155,3 +155,6 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | R7 | Kg cột L thiếu hoặc sai định dạng: lấy theo Raw | 29/10/2026 | Có: ưu tiên DELIVER thành công, rồi DELIVER, rồi PICK trong khoảng đợt; không cộng trùng lần giao thất bại |
 | R8 | "Raw chưa cập nhật": file Raw anh gửi cũng chỉ tới load 22/10 (xuất 23/10 08:00), 440 GHN mới có PICK | 29/10/2026 | Đúng là đang chờ giao; không phải lỗi |
 | R9 | 199 dòng thiếu biển S (đơn qua GXT): Mộc Châu tính theo điểm (giá owner đặt, lưu trong kho quy tắc mã hóa); khu vực khác là giao thẳng, không lương giao | 29/10/2026 | Có: `python -m ops_team.set_area_point_rate` đặt giá; điểm = cửa hàng × ngày load |
+| R10 | Đợt chưa có Raw (327 dòng): lấy theo file CS (ngày E) | 29/10/2026 | Có: không có chặng Raw thì theo danh mục tuyến CS của ngày E; đếm riêng `booking_routing_fallback_events` |
+| R11 | 139 dòng xe GXT: "biển S có mà sao không thấy" | 29/10/2026 | File Excel ghi lý do thật từng xe/ngày (chở lẫn, kg không khớp, dòng lỗi...) |
+| R12 | 4 dòng thiếu kg: lấy đúng ngày E của CS | 29/10/2026 | Excel liệt kê mọi dòng Raw của GHN đó để đối chiếu; chưa có kg ở ngày E thì vẫn giữ |

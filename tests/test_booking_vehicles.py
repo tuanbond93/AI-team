@@ -974,7 +974,8 @@ def test_direct_two_legs_only_unambiguous_gxt_and_opening_ftl_remains_unpriced(t
         # Event grain: the 10/10 Raw S leg belongs to the 10/10 booking; the 09/10 booking has no leg and stays held.
         assert revised['gxt']['eligible_vehicle_days']==1
         held=vehicle_cost_by_day(data,v,'2026-10-09 2026-10-10',rules)
-        assert held['unresolved_ghn']==1 and held['group_evidence'][0]['day']=='2026-10-09'
+        # Owner 29/10/2026: the 09/10 booking has no Raw leg, so it follows the CS routing (direct, no DC).
+        assert held['unresolved_ghn']==0 and held['booking_routing_fallback_events']==1
         bc=book('SYN_OPEN',mode=1);gxt=book('SYN_GXT',mode=0)
         data=parsed([bc,gxt],[event('SYN_OPEN',pl='99B12345'),event('SYN_GXT',pl='99B12345',trip=124)])
         v=vehicle_evidence(data,'2026-10',CUTOFF);before=deepcopy(v)
@@ -1001,13 +1002,12 @@ def test_two_leg_direct_gxt_uses_same_guard_for_dc_and_last_mile(tmp_path):
         assert Decimal(report['dc_incremental_vnd'])==250 and report['dc_included_vnd']=='0'
         data=parsed([booking],[event('OTHER',pl='99B12345')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
         dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
-        assert dc['unresolved_ghn']==1 and dc['direct_excluded_ghn']==0 and 'two_leg_unresolved' in dc['group_evidence'][0]['issues']
+        assert dc['unresolved_ghn']==0 and dc['direct_excluded_ghn']==1 and dc['booking_routing_fallback_events']==1
         next_day=book('SYN_ROUTE',mode=2,ag='99A12345',date='11/10/2026',do='D2');next_day[8]=''
         data=parsed([booking,next_day],[event('SYN_ROUTE',pl='99B12345')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
         dc=vehicle_cost_by_day(data,v,'2026-10-10 2026-10-11',rules)
-        # Per GHN/day event: 10/10 resolves to two legs; 11/10 has no Raw leg and no L, so only it is held.
-        assert Decimal(dc['eligible_vnd'])==250 and dc['component_vnd'] is None and dc['direct_excluded_ghn']==0
-        assert any('missing_weight' in x['issues'] and x['day']=='2026-10-11' for x in dc['group_evidence'])
+        # Per GHN/day event: 10/10 resolves to two legs; 11/10 has no Raw leg -> CS routing (direct, L not needed).
+        assert Decimal(dc['eligible_vnd'])==250 and Decimal(dc['component_vnd'])==250 and dc['direct_excluded_ghn']==1
         policy=synthetic_cost_policy(cfg);policy['selectors']['point_bc'].append('V0');policy['selectors']['gxt'].remove('V0')
         data=parsed([booking,book('SYN_BC_PHYSICAL',mode=0)],[event('SYN_ROUTE',pl='99B12345'),event('SYN_BC_PHYSICAL',pl='99B12345',trip=124)])
         v=vehicle_evidence(data,'2026-10',CUTOFF)
@@ -2131,7 +2131,7 @@ def test_two_leg_resolves_each_booking_day_of_a_multi_day_ghn(tmp_path):
     raws=[event('SYN_MULTI',pl='99B12345',date='2026-10-09'),event('SYN_MULTI',pl='99D12345',date='2026-10-12',trip=124)]
     data=parsed([d1,d2],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-09 2026-10-12',rules)
-    assert dc['unresolved_ghn']==1 and dc['group_evidence'][0]['day']=='2026-10-10'
+    assert dc['unresolved_ghn']==0 and dc['booking_routing_fallback_events']==1 and dc['direct_excluded_ghn']==1
 
 
 def test_invalid_l_uses_raw_kg_else_is_reported_once():
@@ -2170,13 +2170,12 @@ def test_two_leg_unresolved_reports_reason_per_event():
     raws=[event('SYN_TWO',pl='99B12345'),event('SYN_TWO',pl='99C12345',trip=124)]
     data=parsed([a,b],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
-    # Owner C4: SYN_TWO on two S trucks (both != AG) is two legs; SYN_NORAW has no Raw leg.
-    assert dc['two_leg_reasons']=={'raw_not_yet_updated':1} and dc['eligible_transfer_ghn']==1  # Raw ends on the booking day
+    # Owner C4: SYN_TWO on two S trucks (both != AG) is two legs; SYN_NORAW has no Raw leg -> CS routing.
+    assert dc['two_leg_reasons']=={} and dc['eligible_transfer_ghn']==1 and dc['booking_routing_fallback_events']==1
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-10'}}
     text=missing_checklist(report)[1]
-    assert 'Chưa quá hạn giao D+2, Raw chưa có chặng giao (Raw mới có đến 10/10/2026) — 1 đợt, ngày 10/10/2026:' in text
-    assert 'Chưa khớp được xe Raw' not in text
+    assert 'Chưa khớp được xe Raw' not in text and 'Raw chưa có chặng giao' not in text
 
 
 def test_event_on_ag_and_another_s_truck_splits_l_by_raw_grams():
@@ -2202,10 +2201,10 @@ def test_booking_day_after_last_raw_load_is_waiting_not_missing():
     # Raw ends 13/10: the 10/10 event is past D+2 (missing), the 12/10 event is still within D+2 (waiting).
     data=parsed([old,new],[event('OTHER',date='2026-10-13')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10 2026-10-12',rules)
-    assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1,'raw_not_yet_updated':1}
+    assert dc['two_leg_reasons']=={} and dc['booking_routing_fallback_events']==2 and dc['unresolved_ghn']==0
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-12'}}
-    assert 'Chưa quá hạn giao D+2, Raw chưa có chặng giao (Raw mới có đến 13/10/2026)' in missing_checklist(report)[1]
+    assert 'Raw chưa có chặng giao' not in missing_checklist(report)[1]
 
 
 def test_checklist_excel_lists_each_held_source_row_with_business_fields(tmp_path,monkeypatch):
@@ -2265,3 +2264,18 @@ def test_area_point_fee_for_blank_plate_counts_store_day_once_and_cli_stores_rat
         assert json.loads(load_protected(state.root/DECISIONS_FILENAME))[-1]['new_rules_sha256']==record['new_rules_sha256']
         with pytest.raises(ValueError):set_rate(state,123,'Sơn La','Mộc Châu','-5')
     finally:state.close()
+
+
+def test_excel_shows_gxt_reason_per_truck_and_raw_rows_for_missing_kg():
+    import io,openpyxl
+    from ops_team.supra.missing_export import checklist_workbook
+    blank=book('SYN_NOKG',date='10/10/2026');blank[8]=''
+    data=parsed([blank],[event('SYN_NOKG',date='2026-10-08')])
+    report={'dc':{'group_evidence':[{'order_id':'SYN_NOKG','day':'2026-10-10','issues':['missing_weight'],'sources':['SYNTHETIC BOOK 0']}]},
+            'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],
+            'gxt':{'held':[{'reason':'unverified_route_key_or_weight','sources':['Raw#x dòng 2'],'flags':['mixed_or_unknown_role']}]}}
+    wb=openpyxl.load_workbook(io.BytesIO(checklist_workbook(report,data)))
+    rows=list(wb['Chi tiết'].values);records=[dict(zip(rows[0],r)) for r in rows[1:]]
+    assert any(r['Lý do'].startswith('Xe chở lẫn đơn BC/FTL/NCC') for r in records)
+    related=[r for r in records if r['Lý do'].startswith('Raw liên quan')]
+    assert related and related[0]['Raw: ngày load']=='2026-10-08' and related[0]['Raw: loại dòng']=='DELIVER'

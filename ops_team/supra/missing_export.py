@@ -25,7 +25,7 @@ BOOKING_COLUMNS = [('GHN', 'order_id'), ('SO', 'source_so'), ('DO', 'source_do')
                    ('Kg cột L', 'source_ghn_weight'), ('Tải T', 'source_capacity_raw'), ('Biển AG', 'source_booking_plate'),
                    ('Tỉnh', 'source_province'), ('Huyện', 'source_district'), ('Ghi chú 2', 'source_note')]
 RAW_COLUMNS = [('Raw: mã đơn', 'order_code'), ('Raw: ngày load', 'load_date'), ('Raw: mã chuyến', 'trip_code'),
-               ('Raw: biển S', 'truck_plate_number'), ('Raw: gram', 'weight'), ('Raw: thành công', 'is_succeeded'),
+               ('Raw: biển S', 'truck_plate_number'), ('Raw: gram', 'weight'), ('Raw: loại dòng', 'type'), ('Raw: thành công', 'is_succeeded'),
                ('Raw: giờ kết thúc chuyến', 'time_ket_thuc_chuyen')]
 
 
@@ -44,8 +44,13 @@ def _issue_rows(report):
             for code in str(item.get('reason', '')).split(','):
                 what, send = catalog.get(code, (code, ''))
                 out.append((name, what, send, '', item.get('sources', [])))
+    gxt_labels = {'raw_group_quality': 'Raw của xe/ngày có dòng lỗi (thiếu chuyến/kg, trùng dòng)', 'mixed_or_unknown_role': 'Xe chở lẫn đơn BC/FTL/NCC hoặc mô hình chưa rõ',
+                  'duplicate_order_or_unconfirmed_route_or_weight': 'Có đơn lặp đúng mã chuyến, kg lỗi hoặc tuyến không phải GXT', 'source_weight_mismatch': 'Kg Supra của xe không khớp tổng (có đơn Supra khác mô hình trên xe)',
+                  'opening_ftl_shared_vehicle_day': 'Xe đi chung đơn khai trương', 'expected_representative_mismatch': 'Đơn NCC/Lai Châu/BC đi trên xe S thay vì xe đại diện',
+                  'unknown_or_conflicting_mode': 'Mô hình giao của đơn chưa rõ', 'missing_booking_vehicle': 'Booking thiếu biển AG', 'direct_vehicle_mismatch': 'Giao thẳng lệch biển AG/S'}
     for item in report['gxt'].get('held', []):
-        out.append(('Xe GXT/ngày', 'Xe GXT/ngày chưa tính được', 'Biển S, ngày load, kg chuyến; xe chở lẫn thì owner xác nhận', '', item.get('sources', [])))
+        why = '; '.join(gxt_labels.get(f, f) for f in item.get('flags', [])) or 'Xe GXT/ngày chưa tính được'
+        out.append(('Xe GXT/ngày', why, 'Xe chở lẫn thì owner xác nhận cách tính; dòng lỗi thì sửa Raw', '', item.get('sources', [])))
     if report.get('unpriced_booking_sources'):
         out.append(('Giá giao', 'Tuyến/cửa hàng chưa có giá theo phạm vi', 'Mô hình giao và giá đã duyệt', '', report['unpriced_booking_sources']))
     overlay = report.get('overlay') or {}
@@ -58,8 +63,19 @@ def checklist_workbook(report, data):
     import pandas as pd
     booking = {r['_source']: r for r in data.rows.to_dict('records')}
     raw = {item['sheet_row']: dict(zip(RAW_HEADERS, item['values'])) for item in data.vehicle_pair['data_supra']['rows']}
+    issues = _issue_rows(report)
+    # For events still missing kg, show every Raw row of that GHN (any day/type) so the owner can see why.
+    from .booking_quantity import business_key
+    by_order = {}
+    for item in data.vehicle_pair['data_supra']['rows']:
+        values = dict(zip(RAW_HEADERS, item['values']))
+        by_order.setdefault(business_key(values['order_code']), []).append(f"Raw#x dòng {item['sheet_row']}")
+    for item in report['dc'].get('group_evidence', []):
+        if 'missing_weight' in item.get('issues', []):
+            issues.append(('Bốc xếp DC', 'Raw liên quan của GHN đang thiếu kg (mọi ngày, mọi loại dòng)', 'Đối chiếu ngày load/loại dòng với ngày E',
+                           item.get('day', ''), by_order.get(item['order_id'], []) or ['(không có dòng Raw nào của GHN này)']))
     detail = []
-    for group, what, send, event_day, refs in _issue_rows(report):
+    for group, what, send, event_day, refs in issues:
         for ref in dict.fromkeys(refs):
             match = re.search(r'dòng\s+(\d+)', str(ref))
             line = int(match.group(1)) if match else None
@@ -70,6 +86,8 @@ def checklist_workbook(report, data):
             for label, key in (RAW_COLUMNS if is_raw else BOOKING_COLUMNS):
                 value = source.get(key, '')
                 row[label] = '' if value is None else str(value)
+            if line is None:
+                row['Tab'] = ''
             detail.append(row)
     columns = ['Nhóm', 'Lý do', 'Cần bổ sung', 'Ngày đợt', 'Tab', 'Dòng Sheet'] + [c for c, _ in BOOKING_COLUMNS] + [c for c, _ in RAW_COLUMNS]
     frame = pd.DataFrame(detail, columns=columns)

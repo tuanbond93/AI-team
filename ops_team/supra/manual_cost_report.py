@@ -334,6 +334,7 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             continue
         raw_rows[(str(d), vehicle)].append((r, f"Raw#{data.vehicle_pair['raw_digest'][:12]} dòng {row['sheet_row']}"))
     gxt_groups = []
+    group_flags = {}
     gxt_issue_counts = defaultdict(int)
     upstream_warning_groups = 0;two_leg_groups=0;opening_mixed_groups=0
     from .two_leg_evidence import direct_gxt_resolver
@@ -392,9 +393,13 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
         if valid and two_leg_candidate:two_leg_groups+=1
         for flag in issue_flags:
             gxt_issue_counts[flag] += 1
+        group_flags[(group['day'], group['plate'])] = sorted(issue_flags)
         gxt_groups.append(dict(day=group['day'], vehicle=group['plate'], supra_orders=supra_orders,
                                other_kg=group['other_kg'], valid=valid, sources=group['sources']))
     gxt = gxt_daily_cost(gxt_groups, rates['gxt_vehicle_day_vnd'], policy['wage']['tiers'])
+    by_sources = {tuple(g['sources']): group_flags.get((g['day'], g['vehicle']), []) for g in gxt_groups}
+    for item in gxt['held']:
+        item['flags'] = by_sources.get(tuple(item['sources']), [])
     gxt['issue_counts'] = dict(gxt_issue_counts)
     gxt['upstream_multi_ag_warning_groups'] = upstream_warning_groups
     if rules:gxt['two_leg_groups']=two_leg_groups;gxt['two_leg_upstream_vnd']=None

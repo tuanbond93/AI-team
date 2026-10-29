@@ -79,7 +79,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
     exception={(x['order_id'],x['day']):x for x in rules['handling_parts']}
     counters={k:0 for k in ('partial_scope','unknown_routing','mixed_routing','unknown_rate','mixed_rate','missing_weight','invalid_weight','conflicting_weight','two_leg_unresolved')}
     buckets={r['rate_id']:dict(rate_vnd_per_kg=r['vnd_per_kg'],effective_from=r['from'],effective_to=r['to'],eligible_ghn=0,eligible_kg=Decimal(0),eligible_vnd=Decimal(0),sources=[]) for r in catalog['rates']}
-    held=[];eligible=[];direct=0;issuesrc=[];raw_kg=raw_deliver_kg(pair);raw_filled=0;two_leg_reasons=defaultdict(int)
+    held=[];eligible=[];direct=0;issuesrc=[];raw_kg=raw_deliver_kg(pair);raw_filled=0;two_leg_reasons=defaultdict(int);booking_fallback=0
     booking_days=defaultdict(set)
     for r in data.rows.to_dict('records'):
         if r['order_id'] and (x:=day(r['dispatch_date'])) is not None:booking_days[r['order_id']].add(x)
@@ -93,7 +93,11 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             physical={classify(r,pair['vehicle_catalog'],day(key[1])) for r in rows}
             if physical=={'GXT_DIRECT'}:
                 resolution=resolve_direct(key[0],key[1])
+                reason=resolve_direct.reasons.get(key)
                 if resolution in ('TWO_LEGS','SPLIT'):modes={'TRANSFER'}
+                elif reason in ('raw_not_yet_updated','no_raw_deliver_in_window'):
+                    # Owner 29/10/2026: no Raw leg yet -> follow the CS (Booking) routing catalog for E day.
+                    booking_fallback+=1
                 elif resolution!='DIRECT_SAME_VEHICLE':
                     issues.append('two_leg_unresolved');reason=resolve_direct.reasons.get(key,'unknown');two_leg_reasons[reason]+=1
             if not issues and modes=={'DIRECT'}:
@@ -137,7 +141,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
         counters=counters,rate_buckets=[{**b,'eligible_kg':str(b['eligible_kg']) if b['eligible_ghn'] else None,'eligible_vnd':str(b['eligible_vnd']) if b['eligible_ghn'] else None} for b in buckets.values()],
         issue_sources=issuesrc+unassigned,sources_by_metric={},group_evidence=held,eligible_events=eligible,scope=scope,booking_rows=scoped_rows,
         boundary_ghn=0,booking_digest=pair['booking_digest'],handling_catalog_sha256=data.handling_catalog_sha256,total_cost_vnd=None,gross_profit_vnd=None,
-        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons),raw_last_day=evidence.get('raw_last_day'))
+        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons),raw_last_day=evidence.get('raw_last_day'),booking_routing_fallback_events=booking_fallback)
 
 
 def vehicle_cost_status(data, evidence, text=''):
