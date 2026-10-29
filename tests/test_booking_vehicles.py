@@ -2186,3 +2186,22 @@ def test_booking_day_after_last_raw_load_is_waiting_not_missing():
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-12'}}
     assert 'Raw chưa cập nhật tới ngày xuất của đợt (Raw mới có đến 11/10/2026)' in missing_checklist(report)[1]
+
+
+def test_checklist_excel_lists_each_held_source_row_with_business_fields(tmp_path,monkeypatch):
+    import io,openpyxl
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('export cannot call model'))
+        wb=openpyxl.load_workbook(io.BytesIO(a.checklist_workbook('2026-10-10 2026-10-20')))
+        assert wb.sheetnames==['Tóm tắt','Chi tiết']
+        rows=list(wb['Chi tiết'].values);head=rows[0]
+        records=[dict(zip(head,r)) for r in rows[1:]]
+        mixed=[r for r in records if r['Lý do'].startswith('Một đợt có cả dòng tính bốc xếp')]
+        assert {r['Dòng Sheet'] for r in mixed}=={11,12} and {r['GHN'] for r in mixed}=={'MIXED_ROUTE'} and all(r['Tab']=='Booking' for r in mixed)
+        summary=[dict(zip(list(wb['Tóm tắt'].values)[0],r)) for r in list(wb['Tóm tắt'].values)[1:]]
+        assert sum(r['Số dòng'] for r in summary)==len(records)
+    finally:state.close()

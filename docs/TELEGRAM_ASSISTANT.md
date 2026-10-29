@@ -174,3 +174,7 @@ Owner chốt 27/10/2026: công ty không cấp Viewer cho tài khoản dịch v�
 4. `drive_import` kiểm manifest/hash/header (Booking 37 cột, Raw 25 cột), nguồn/tab/gid/range phải trùng bản paired đã duyệt; catalog và policy luôn lấy từ vault, không lấy từ thư mục. Sai bất kỳ điểm nào thì từ chối, nguồn cũ giữ nguyên. Lịch chỉ gửi một lần cho mỗi job (receipt), Raw cũ không chặn gửi phần Booking.
 
 Lần nạp paired đầu tiên vẫn làm tay để có catalog đã duyệt. Máy tắt thì không gửi; xem phương án 24/7 trước khi chuyển lên dịch vụ cloud.
+
+## Xuất danh sách thiếu dữ liệu ra Excel
+
+`python -m ops_team.export_checklist --out "<đường dẫn>.xlsx" [--root <bản sao vault>] [YYYY-MM-DD YYYY-MM-DD]` dùng đúng phép tính của `/thieu`, ghi file gồm sheet "Tóm tắt" (nhóm, lý do, cần bổ sung, số dòng) và "Chi tiết" (mỗi dòng Booking/Raw đang giữ, kèm GHN, SO, DO, ngày, kg L, tải T, biển AG/S, gram Raw). File chứa định danh nghiệp vụ nên chỉ lưu trên máy owner, không gửi Telegram/model, không commit. Không gửi tin, không gọi AI.

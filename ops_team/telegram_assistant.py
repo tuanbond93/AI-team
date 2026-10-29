@@ -557,6 +557,18 @@ class AssistantResponder:
                 validation.tables[kind] = frame.loc[keep].copy()
         return validation, source, facts, period, warehouses, cutoff, removed
 
+    def checklist_workbook(self, text=''):
+        """Local Excel of the /thieu holds (owner request 29/10/2026); same calculation, no Telegram/model."""
+        from .supra.manual_cost_report import manual_cost_report
+        from .supra.missing_export import checklist_workbook
+        from .supra.booking import BookingData
+        data,source,facts,period,warehouses,cutoff,_=self._scoped()
+        if not isinstance(data,BookingData) or not getattr(data,'vehicle_pair',None):raise ValueError('Cần paired Booking + Raw đã duyệt.')
+        evidence=self._vehicle_evidence(data,period,cutoff)
+        report=manual_cost_report(self._policy_state(period),data,evidence,source,facts,self.owner,text)
+        if not report.get('available'):raise ValueError('Chưa tính được bảng chi phí cho khoảng này: '+str(report.get('reason')))
+        return checklist_workbook(report,data)
+
     def _ensure_month(self, period):
         """Owner rule 28/10/2026: carry last month's approved set into a new month once; True if rolled."""
         from .policy_periods import root_period, next_month, roll_forward
