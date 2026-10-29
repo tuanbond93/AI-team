@@ -2168,7 +2168,7 @@ def test_two_leg_unresolved_reports_reason_per_event():
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-10'}}
     text=missing_checklist(report)[1]
-    assert 'Raw chưa cập nhật tới ngày xuất của đợt (Raw mới có đến 10/10/2026) — 1 đợt, ngày 10/10/2026:' in text
+    assert 'Chưa quá hạn giao D+2, Raw chưa có chặng giao (Raw mới có đến 10/10/2026) — 1 đợt, ngày 10/10/2026:' in text
     assert 'Chưa khớp được xe Raw' not in text
 
 
@@ -2192,12 +2192,13 @@ def test_booking_day_after_last_raw_load_is_waiting_not_missing():
     from ops_team.supra.missing_data import missing_checklist
     rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
     old=book('SYN_OLD',mode=2,date='10/10/2026');new=book('SYN_NEW',mode=2,date='12/10/2026',do='D2')
-    data=parsed([old,new],[event('OTHER',date='2026-10-11')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    # Raw ends 13/10: the 10/10 event is past D+2 (missing), the 12/10 event is still within D+2 (waiting).
+    data=parsed([old,new],[event('OTHER',date='2026-10-13')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
     dc=vehicle_cost_by_day(data,v,'2026-10-10 2026-10-12',rules)
     assert dc['two_leg_reasons']=={'no_raw_deliver_in_window':1,'raw_not_yet_updated':1}
     report={'available':True,'dc':dc,'ftl':{'held':[]},'points':{'held':[]},'unpriced_booking_sources':[],'unpriced_ncc_routes':[],
             'gxt':{'held':[]},'scope':{'start':'2026-10-10','end':'2026-10-12'}}
-    assert 'Raw chưa cập nhật tới ngày xuất của đợt (Raw mới có đến 11/10/2026)' in missing_checklist(report)[1]
+    assert 'Chưa quá hạn giao D+2, Raw chưa có chặng giao (Raw mới có đến 13/10/2026)' in missing_checklist(report)[1]
 
 
 def test_checklist_excel_lists_each_held_source_row_with_business_fields(tmp_path,monkeypatch):
