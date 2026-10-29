@@ -154,3 +154,4 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | R6 | Xe GXT/ngày thiếu/lệch dữ liệu: lấy theo Raw | 29/10/2026 | Có: chi phí xe GXT dùng biển S trên Raw làm xe thật kể cả khi khác AG; bốc xếp DC vẫn dùng kiểm tra hai chặng |
 | R7 | Kg cột L thiếu hoặc sai định dạng: lấy theo Raw | 29/10/2026 | Có: ưu tiên DELIVER thành công, rồi DELIVER, rồi PICK trong khoảng đợt; không cộng trùng lần giao thất bại |
 | R8 | "Raw chưa cập nhật": file Raw anh gửi cũng chỉ tới load 22/10 (xuất 23/10 08:00), 440 GHN mới có PICK | 29/10/2026 | Đúng là đang chờ giao; không phải lỗi |
+| R9 | 199 dòng thiếu biển S (đơn qua GXT): Mộc Châu tính theo điểm (giá owner đặt, lưu trong kho quy tắc mã hóa); khu vực khác là giao thẳng, không lương giao | 29/10/2026 | Có: `python -m ops_team.set_area_point_rate` đặt giá; điểm = cửa hàng × ngày load |

@@ -54,6 +54,11 @@ def geography(value,*,province=False):
     return text
 
 
+def district_name(value):
+    """District without its administrative prefix (huyện/thị xã/thành phố/quận) for area rules."""
+    return re.sub(r'^(?:h|tx|tp|q) ','',geography(value))
+
+
 def _bounded_text(value,limit=300,empty=False):
     return isinstance(value,str) and len(value)<=limit and (empty or bool(value.strip())) and not any(ord(c)<32 for c in value)
 

@@ -34,6 +34,41 @@ def _rule(row, catalog, when=None):
     return matches[0] if len(matches) == 1 else None
 
 
+def _blank_plate_points(data, rules, start, end, orders):
+    """Owner 29/10/2026: Raw DELIVER with no plate in an area with an owner point fee (e.g. one
+    district) is paid per point = store x load day, never per DO; rates live in the rule layer."""
+    from .booking_handling import district_name
+    areas = {(geography(x['province'], province=True), district_name(x['district'])): Decimal(x['vnd_per_point'])
+             for x in (rules or {}).get('blank_plate_points', [])}
+    if not areas:
+        return None
+    points, held = {}, []
+    for item in data.vehicle_pair['data_supra']['rows']:
+        r = dict(zip(RAW_HEADERS, item['values']))
+        d = day(r['load_date'])
+        if cell(r['type']).upper() != 'DELIVER' or plate(r['truck_plate_number']) or d is None or not start <= str(d) <= end:
+            continue
+        ref = f"Raw#{data.vehicle_pair['raw_digest'][:12]} dòng {item['sheet_row']}"
+        related = [x for x in orders.get(business_key(r['order_code']), []) if x['dispatch_date'] is not None and str(x['dispatch_date']) <= str(d)]
+        if not related:
+            continue
+        latest = max(str(x['dispatch_date']) for x in related)
+        event = [x for x in related if str(x['dispatch_date']) == latest]
+        keys = {(geography(x['source_province'], province=True), district_name(x['source_district'])) for x in event}
+        stores = {x['source_store_id'] for x in event}
+        if not keys & set(areas):
+            continue
+        if len(keys) != 1 or len(stores) != 1 or '' in stores:
+            held.append(ref)
+            continue
+        points.setdefault((str(d), next(iter(stores))), (areas[next(iter(keys))], []))[1].append(ref)
+    with localcontext() as ctx:
+        ctx.prec = 100
+        amount = sum((rate for rate, _ in points.values()), Decimal(0))
+    return {'points': len(points), 'eligible_vnd': str(amount) if points else None, 'held_sources': held,
+            'sources': [ref for _, refs in points.values() for ref in refs]}
+
+
 def _split_multi_vehicle_ftl(ftl_rows, pair):
     """Owner rule 28/10/2026: a GHN on several Booking AG vehicles the same day is split by Raw grams.
 
@@ -364,6 +399,7 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
     gxt['upstream_multi_ag_warning_groups'] = upstream_warning_groups
     if rules:gxt['two_leg_groups']=two_leg_groups;gxt['two_leg_upstream_vnd']=None
     if rules:gxt['opening_mixed_groups']=opening_mixed_groups
+    blank_points = _blank_plate_points(data, rules, start, end, orders)
     quality = vehicle_scope_quality(data, evidence, start+' '+end)
     gxt['unassigned_quality'] = quality
     if quality and (quality['missing_plate'] or quality['undated']):
@@ -376,7 +412,7 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             'dc_included_vnd': str(included_dc) if gross is not None else None, 'dc_overlap_unknown_sources': sorted(set(unknown_dc)),
             'dc_incremental_vnd': str(incremental) if incremental is not None else None,
             'gxt': gxt, 'unpriced_booking_sources': unknown_refs, 'unpriced_ncc_routes': route_summary,
-            'rules_sha256':rules_sha,'opening_unpriced_events':len([key for key in opening if start<=key[1]<=end]),
+            'rules_sha256':rules_sha,'opening_unpriced_events':len([key for key in opening if start<=key[1]<=end]),'blank_points':blank_points,
             'total_cost_vnd': None, 'gross_profit_vnd': None}
 
 
@@ -427,7 +463,8 @@ def render_cost_report(report, *, details=False, audit=False, answered_text=None
             'Doanh thu dự kiến '+('đủ nguồn trong phạm vi' if revenue['complete'] else 'phần đủ nguồn, chưa đủ toàn phạm vi')+': '+money(revenue['eligible_vnd'])+' ('+str(revenue['eligible_units'])+' sản phẩm).',
             _projected_line(report,money),
             'Giao điểm: '+money(p['eligible_vnd'])+('; NCC vùng xa cơ bản: '+money(remote['eligible_vnd']) if remote else '')+'; FTL: '+money(f['eligible_vnd'])+' ('+str(f['eligible_trips'])+' chuyến dự kiến).',
-            'Xe GXT phân bổ theo kg: '+money(g['vehicle_supra_vnd'])+'; lương giao: '+money(g['wage_supra_vnd'])+'.',
+            'Xe GXT phân bổ theo kg: '+money(g['vehicle_supra_vnd'])+'; lương giao: '+money(g['wage_supra_vnd'])+'.'+
+                ((' Điểm giao không gán xe theo giá điểm khu vực: '+str(report['blank_points']['points'])+' điểm, '+money(report['blank_points']['eligible_vnd'])+'.') if report.get('blank_points') and report['blank_points']['points'] else ''),
             'Bốc xếp DC theo đơn giá gốc: '+money(dc.get('eligible_vnd'))+'; đã gồm trong gói: '+money(report['dc_included_vnd'])+'; ngoài gói: '+money(report['dc_incremental_vnd'])+'.',
             'Theo chỉ định cho Supra: xe trung chuyển '+money(overlay['allocations']['upstream_vnd'])+'; nhân sự bốc xếp GXT '+money(overlay['allocations']['warehouse_vnd'])+'.',
             (('Thiếu biển: '+str(overlay['missing_s_gxt_rows'])+' dòng GXT trong '+str(g['unassigned_quality']['missing_plate'] if g['unassigned_quality'] else 0)+' dòng toàn nguồn. ')

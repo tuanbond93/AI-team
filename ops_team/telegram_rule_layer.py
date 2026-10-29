@@ -8,7 +8,7 @@ from .telegram_vehicle_forecast import FILENAME as FORECAST_FILENAME
 from .telegram_cost_overlay import FILENAME as OVERLAY_FILENAME,validate_overlay
 from .supra.booking_vehicles import plate,capacity_kg,RAW_HEADERS,day,classify
 from .supra.booking_quantity import business_key,cell
-from .supra.booking_handling import geography
+from .supra.booking_handling import geography,district_name
 from .supra.manual_cost_rules import _number
 from .supra.booking_weight import parse_kg
 
@@ -125,7 +125,14 @@ def validate_rules_v2(config,state,data,source,facts,owner_id):
     try:
         required={'schema','base_sha256','forecast_sha256','overlay_sha256','vehicle_catalog_sha256','handling_catalog_sha256','window',
             'direct_gxt_two_legs','booked_class_basis','handling_parts','opening_ftl','provenance'}
-        if not isinstance(config,dict) or set(config)!=required or config['schema']!=SCHEMA_V2:raise ValueError
+        if not isinstance(config,dict) or not required<=set(config)<=required|{'blank_plate_points'} or config['schema']!=SCHEMA_V2:raise ValueError
+        seen=set()
+        for item in config.get('blank_plate_points',[]):
+            if (not isinstance(item,dict) or set(item)!={'province','district','vnd_per_point'} or not isinstance(item['province'],str)
+                    or not isinstance(item['district'],str) or not item['district'].strip() or len(item['district'])>100):raise ValueError
+            area=(geography(item['province'],province=True),district_name(item['district']))
+            if area in seen:raise ValueError
+            seen.add(area);_number(item['vnd_per_point'],positive=True)
         base_raw=load_protected(state.root/BASE_FILENAME);forecast_raw=load_protected(state.root/FORECAST_FILENAME);overlay_raw=load_protected(state.root/OVERLAY_FILENAME)
         for field,raw in (('base_sha256',base_raw),('forecast_sha256',forecast_raw),('overlay_sha256',overlay_raw)):
             if config[field]!=hashlib.sha256(raw).hexdigest():raise ValueError

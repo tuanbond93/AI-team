@@ -137,6 +137,8 @@ def missing_checklist(report):
     if overlay.get('missing_s_gxt_sources'):
         total = f' Toàn Raw có {quality["missing_plate"]} dòng DELIVER thiếu biển, gồm cả đơn không thuộc chi phí GXT Supra.' if quality.get('missing_plate') else ''
         items.append(f'• Đơn Supra GXT thiếu biển S trên Raw — {_rows_text(overlay["missing_s_gxt_sources"])}. Cần: biển S thực chở; không suy từ biển AG.{total}')
+    if (report.get('blank_points') or {}).get('held_sources'):
+        items.append(f'• Điểm giao không gán xe ở khu vực có giá điểm nhưng thiếu/lẫn mã cửa hàng hoặc huyện — {_rows_text(report["blank_points"]["held_sources"])}. Cần: mã cửa hàng (cột H) và huyện đúng.')
     if report.get('opening_unpriced_events'):
         items.append(f'• {report["opening_unpriced_events"]} đợt khai trương (FTL theo loại tải Booking) chưa có km thực tế và đơn giá. Cần: nhật trình km và giá FTL đã duyệt cho đơn đó.')
     remote = report.get('remote')

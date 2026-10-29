@@ -21,10 +21,13 @@ OPENING_NOTE=re.compile(r'(?<![A-Za-zÀ-ỹĐđ])(?:CHKT|KT)(?![A-Za-zÀ-ỹĐđ
 # Owner 28/10/2026: a Raw DELIVER row with a blank plate on a direct-delivery GHN is the
 # Booking AG truck itself; staff tick "không gán giao" so no GXT wage is attributed.
 DIRECT_MODES={'GXT_DIRECT','NCC_DIRECT','LAI_CHAU_DIRECT'}
+# Owner 29/10/2026: a blank plate on a GXT-hub GHN is also not a GXT delivery (direct,
+# no wage), except areas with an owner point fee (rule layer ``blank_plate_points``).
+BLANK_PLATE_MODES=DIRECT_MODES|{'TRANSFER_GXT'}
 
 
 def unassigned_direct(order_rows,catalog,when):
-    return bool(order_rows) and when is not None and all(classify(r,catalog,when) in DIRECT_MODES for r in order_rows)
+    return bool(order_rows) and when is not None and all(classify(r,catalog,when) in BLANK_PLATE_MODES for r in order_rows)
 
 
 def is_opening_note(value):

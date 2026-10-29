@@ -175,7 +175,8 @@ def test_duplicate_key_holds_all_records_no_first_last_or_silent_sum(different_w
 
 
 def test_missing_date_plate_zero_weight_and_coverage_are_explicit():
-    v=evidence([book(date='26/10/2026')],[event(pl=''),event(date=''),event('OTHER',pl='99C12345',grams='0')])
+    # BC (representative last-mile) GHN: a blank Raw plate is still a missing plate.
+    v=evidence([book(mode=1,date='26/10/2026')],[event(pl=''),event(date=''),event('OTHER',pl='99C12345',grams='0')])
     assert v['quality']['missing_plate']==1 and v['quality']['missing_date']==1
     assert v['quality']['zero_denominator_groups']==1 and v['groups'][0]['share'] is None
     text=vehicle_view(v)
@@ -1132,7 +1133,8 @@ def test_missing_plate_classification_does_not_assign_other_scope_to_gxt(tmp_pat
         report={'scope':vehicle_scope(v,'2026-10-10'),'upstream':{'available':False},'warehouse':{'shared_pool_vnd':'40'},
             'points':{'eligible_vnd':None},'ftl':{'eligible_vnd':None},'gxt':{'vehicle_supra_vnd':None,'wage_supra_vnd':None},'dc_incremental_vnd':None}
         out=calculate_overlay(data,v,report,policy,config,'a'*64)
-        assert out['missing_s_gxt_rows']==1 and len(out['missing_s_gxt_sources'])==1
+        # Owner 29/10/2026: a blank plate on a GXT-hub GHN is a direct delivery, not a missing S plate.
+        assert out['missing_s_gxt_rows']==0 and v['quality']['unassigned_direct_rows']==2  # GXT-hub and NCC-direct GHNs
     finally:state.close()
 
 
@@ -2153,9 +2155,11 @@ def test_blank_raw_plate_on_direct_ghn_is_the_booking_truck_not_missing():
     assert vehicle_scope_quality(data,v,'2026-10-10')=={'missing_plate':0,'representative':0,'undated':False,'unassigned_direct':1}
     dc=vehicle_cost_by_day(data,v,'2026-10-10',rules)
     assert dc['unresolved_ghn']==0 and dc['counters']['two_leg_unresolved']==0 and dc['direct_excluded_ghn']==1
-    # A blank plate on a GHN that goes through the GXT hub is still a missing S plate.
+    # Owner 29/10/2026: also a GXT-hub GHN with a blank plate is direct; a BC GHN still lacks its plate.
     hub=book('SYN_HUB',mode=0);data=parsed([hub],[event('SYN_HUB',pl='')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
-    assert v['quality']['missing_plate']==1 and v['quality'].get('unassigned_direct_rows',0)==0
+    assert v['quality'].get('missing_plate',0)==0 and v['quality']['unassigned_direct_rows']==1
+    bc=book('SYN_BC',mode=1);data=parsed([bc],[event('SYN_BC',pl='')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    assert v['quality']['missing_plate']==1
 
 
 def test_two_leg_unresolved_reports_reason_per_event():
@@ -2234,3 +2238,30 @@ def test_raw_kg_prefers_successful_delivery_then_pick_never_double():
     assert kg==3 and len(refs)==1  # failed attempt + redelivery: counted once
     pair['data_supra']['rows']=[row(4,'PICK','','3000',9)]
     assert raw_event_kg(raw_deliver_kg(pair),'SYN_G',D(2026,10,10),None)[0]==3  # not yet delivered: PICK kg
+
+
+def test_area_point_fee_for_blank_plate_counts_store_day_once_and_cli_stores_rate(tmp_path):
+    from ops_team.supra.manual_cost_report import _blank_plate_points
+    from ops_team.set_area_point_rate import set_rate
+    from ops_team.telegram_rule_layer import ingest_rules,load_rules,DECISIONS_FILENAME
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    a=book('SYN_A',mode=0,do='D1');a[10]='H. Mộc Châu';a[9]='Sơn La'
+    b=book('SYN_A',mode=0,do='D2');b[10]='H. Mộc Châu';b[9]='Sơn La'
+    other=book('SYN_B',mode=0);other[6]='STORE_2'
+    data=parsed([a,b,other],[event('SYN_A',pl=''),event('SYN_A',pl='',trip=124),event('SYN_B',pl='')])
+    orders={}
+    for r in data.rows.to_dict('records'):orders.setdefault(r['order_id'],[]).append(r)
+    rules={'blank_plate_points':[{'province':'Sơn La','district':'Mộc Châu','vnd_per_point':'100'}]}
+    out=_blank_plate_points(data,rules,'2026-10-10','2026-10-10',orders)
+    assert out['points']==1 and out['eligible_vnd']=='100' and len(out['sources'])==2  # 2 DO/trips, 1 store/day, other area excluded
+    assert _blank_plate_points(data,{},'2026-10-10','2026-10-10',orders) is None
+    state,facts,data2,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);p,d=stage_overlay(tmp_path,config);ingest_overlay(p,d,state,123)
+        r=synthetic_owner_rules(state,data2);p,d=stage_rule_layer(tmp_path,r);ingest_rules(p,d,state,123)
+        record=set_rate(state,123,'Sơn La','Mộc Châu','100')
+        data2,source=load_snapshot(state,facts);loaded,_=load_rules(state,data2,source,facts,123)
+        assert loaded['blank_plate_points']==[{'province':'Sơn La','district':'Mộc Châu','vnd_per_point':'100'}]
+        assert json.loads(load_protected(state.root/DECISIONS_FILENAME))[-1]['new_rules_sha256']==record['new_rules_sha256']
+        with pytest.raises(ValueError):set_rate(state,123,'Sơn La','Mộc Châu','-5')
+    finally:state.close()
