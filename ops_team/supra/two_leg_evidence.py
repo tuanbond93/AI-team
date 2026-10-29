@@ -49,7 +49,8 @@ def direct_gxt_resolver(data,evidence,policy=None):
         # truck/day must pass the same checks, and all must agree (all S != AG, or all S == AG).
         for raw_day,raw_plate in sorted(locations):
             group=groups.get((raw_day,raw_plate))
-            if not group or group.get('share') is None:return done(key,'UNKNOWN','raw_truck_day_data_issue')
+            # A repeated row (failed attempt redelivered) does not make the truck/day unusable (owner 29/10/2026).
+            if not group or set(group.get('issues',[]))-{'duplicate_event_key'}:return done(key,'UNKNOWN','raw_truck_day_data_issue')
             if any(m['mode'] not in ('GXT_DIRECT','TRANSFER_GXT') or 'unknown_or_conflicting_mode' in m['flags'] for m in by_vehicle[(raw_day,raw_plate)]):
                 return done(key,'UNKNOWN','s_truck_shared_with_other_mode')
             if policy is not None:

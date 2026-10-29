@@ -38,6 +38,8 @@ def booking_intake(r):
             lines.append('Raw chưa có bản mới trong 15 phút trước giờ gửi: phần Booking vẫn gửi, bốc xếp theo quy tắc hai chặng để N/A tới lượt Raw mới.')
         elif h.get('reason')=='OWNER_RULES_INVALID_OR_STALE':
             lines.append('Quy tắc bốc xếp owner đã cài không còn khớp nguồn/cấu hình hiện tại nên bốc xếp để N/A, không dùng cách tính cũ. Cần nạp lại quy tắc cho đúng bản nguồn.')
+        if h.get('ghn_l_borrowed_events') and h.get('eligible_vnd') is not None:
+            lines.append(str(h['ghn_l_borrowed_events'])+' đợt trống cột L dùng cột L của cùng mã GHN ở dòng khác theo quy tắc owner; nếu GHN chia nhiều ngày, kiểm tra tránh tính trùng.')
         if h.get('raw_weight_filled_events') and h.get('eligible_vnd') is not None:
             lines.append(str(h['raw_weight_filled_events'])+' đợt trống cột L được lấy kg từ Raw cùng GHN, từ ngày xuất tới trước lần xuất kế tiếp (gram/1.000) theo quy tắc owner.')
         for b in r['handling_rate_buckets']:

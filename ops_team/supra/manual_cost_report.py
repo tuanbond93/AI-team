@@ -34,6 +34,53 @@ def _rule(row, catalog, when=None):
     return matches[0] if len(matches) == 1 else None
 
 
+def _mixed_supra_truck(group, group_rows, mappings, orders, category, latest_deliver):
+    """Owner 29/10/2026: one S truck/day may carry Supra orders of several models.
+
+    GXT-model orders share the truck cost by their own kg and get the delivery
+    wage; Supra orders of other models (BC/FTL/NCC/opening) are paid by their own
+    model, so their kg counts with the other goods. An order redelivered after a
+    failed attempt counts once, on its latest Raw load day; repeated rows of the
+    same trip count once. Only unreadable grams or Raw row errors hold the group.
+    """
+    gday = day(group['day'])
+    selected = [mappings[ref] for _, ref in group_rows if ref in mappings]
+    if not selected:
+        return None
+    flags = set()
+    if set(group.get('issues', [])) - {'duplicate_event_key'}:
+        flags.add('raw_group_quality')
+    supra, other, seen = {}, Decimal(group['other_kg']), set()
+    for raw_row, ref in group_rows:
+        if ref not in mappings:
+            continue
+        order = business_key(raw_row['order_code'])
+        if not order or latest_deliver.get(order) != gday:
+            continue
+        trip = business_key(raw_row['trip_code'])
+        if (order, trip) in seen:
+            continue
+        seen.add((order, trip))
+        grams, status = parse_kg(raw_row['weight'])
+        if status != 'VALID':
+            flags.add('invalid_weight')
+            continue
+        kg = grams / Decimal(1000)
+        related = [r for r in orders.get(order, []) if r['dispatch_date'] is not None and str(r['dispatch_date']) <= group['day']]
+        latest = max((str(r['dispatch_date']) for r in related), default=None)
+        cats = {category(r, gday) for r in related if str(r['dispatch_date']) == latest}
+        if cats == {'gxt'}:
+            supra[order] = str(Decimal(supra.get(order, '0')) + kg)
+        elif cats and None not in cats:
+            other += kg
+        else:
+            flags.add('unknown_or_conflicting_mode')
+    if not supra:
+        return None
+    return dict(day=group['day'], vehicle=group['plate'], supra_orders=supra, other_kg=str(other), valid=not flags,
+                sources=group['sources'], flags=sorted(flags))
+
+
 def _blank_plate_points(data, rules, start, end, orders):
     """Owner 29/10/2026: Raw DELIVER with no plate in an area with an owner point fee (e.g. one
     district) is paid per point = store x load day, never per DO; rates live in the rule layer."""
@@ -348,10 +395,25 @@ def _calculate(data, evidence, policy, scope, sha, dc, upstream, rules=None, rul
             # even when it differs from Booking AG (DC handling still uses the two-leg resolver).
             flags -= {'direct_vehicle_mismatch', 'multiple_booking_vehicles'}
         return flags
+    latest_deliver = {}
+    for row in data.vehicle_pair['data_supra']['rows']:
+        r = dict(zip(RAW_HEADERS, row['values']))
+        d = day(r['load_date']); order = business_key(r['order_code'])
+        if cell(r['type']).upper() == 'DELIVER' and d is not None and order:
+            latest_deliver[order] = max(latest_deliver.get(order, d), d)
     for group in evidence['groups']:
         if not start <= group['day'] <= end:
             continue
         group_rows = raw_rows.get((group['day'], group['plate']), [])
+        if rules:
+            item = _mixed_supra_truck(group, group_rows, mappings, orders, category, latest_deliver)
+            if item is None:
+                continue
+            for flag in item['flags']:
+                gxt_issue_counts[flag] += 1
+            group_flags[(group['day'], group['plate'])] = item['flags']
+            gxt_groups.append({k: item[k] for k in ('day', 'vehicle', 'supra_orders', 'other_kg', 'valid', 'sources')})
+            continue
         selected = [mappings[ref] for _, ref in group_rows if ref in mappings]
         mapped_categories = {category(row, day(group['day'])) for m in selected for row in orders.get(m['order'], [])}
         if not selected or (mapped_categories and mapped_categories <= {'point_bc', 'point_lc', 'point_remote', 'ftl'} and all(not m['flags'] for m in selected)):

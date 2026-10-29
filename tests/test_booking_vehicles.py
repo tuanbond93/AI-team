@@ -983,7 +983,8 @@ def test_direct_two_legs_only_unambiguous_gxt_and_opening_ftl_remains_unpriced(t
         revised=_calculate(data,v,policy,scope,'a'*64,vehicle_cost_by_day(data,v,'2026-10-10',rules),{'available':False},rules,'b'*64)
         assert revised['opening_unpriced_events']==1 and revised['points']['eligible_vnd'] is None
         assert revised['ftl']['eligible_vnd'] is None and revised['dc_overlap_unknown_sources']
-        assert revised['gxt']['eligible_vehicle_days']==0 and revised['gxt']['held'] and v==before
+        # Owner 29/10/2026: the GXT order on a truck shared with the opening order is costed; the opening kg counts as other goods.
+        assert revised['gxt']['eligible_vehicle_days']==1 and not revised['gxt']['held'] and v==before
     finally:state.close()
 
 
@@ -1014,7 +1015,7 @@ def test_two_leg_direct_gxt_uses_same_guard_for_dc_and_last_mile(tmp_path):
         dc=vehicle_cost_by_day(data,v,'2026-10-10',rules,policy)
         report=_calculate(data,v,policy,vehicle_scope(v,'2026-10-10'),'a'*64,dc,{'available':False},rules,'b'*64)
         assert any('two_leg_unresolved' in x['issues'] for x in dc['group_evidence'])
-        assert report['gxt']['eligible_vehicle_days']==0
+        assert report['gxt']['eligible_vehicle_days']==1  # owner 29/10: mixed Supra truck, BC order kg counts as other
     finally:state.close()
 
 
@@ -1854,23 +1855,22 @@ def test_blank_l_event_uses_raw_kg_in_event_window_only_when_unambiguous():
     blank=book('SYN_BLANK',date='11/10/2026',do='D1');blank[8]=''
     other=book('SYN_BLANK',date='10/10/2026',do='D0');other[8]='9'
     rules={'handling_parts':[]}
-    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='1500',date='2026-10-11',trip=124)])
+    # Owner 29/10/2026: the GHN's own column L (any row) comes first.
+    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-11')]);v=vehicle_evidence(data,'2026-10',CUTOFF)
+    out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
+    assert Decimal(out['eligible_kg'])==9 and out['ghn_l_borrowed_events']==1 and out['eligible_events'][0]['weight_source']=='BOOKING_L_SAME_GHN'
+    # No L anywhere for the GHN: Raw kg in the event window (E until the next E).
+    data=parsed([blank],[event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='1500',date='2026-10-12',trip=124)])
     v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
     assert out['unresolved_ghn']==0 and Decimal(out['eligible_kg'])==4 and out['raw_weight_filled_events']==1
     assert out['eligible_events'][0]['weight_source']=='RAW_DELIVER_EVENT_WINDOW'
-    # Owner 29/10/2026: a later S load (before the GHN's next E day) counts for this event.
-    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-12')])
-    v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
-    assert out['unresolved_ghn']==0 and Decimal(out['eligible_kg'])==Decimal('2.5')
-    # Never borrows the other day's L (9 kg) and never uses a Raw load from before E.
-    data=parsed([other,blank],[event('SYN_BLANK',grams='2500',date='2026-10-10')])
-    v=vehicle_evidence(data,'2026-10',CUTOFF);out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
-    assert out['unresolved_ghn']==1 and 'missing_weight' in out['group_evidence'][0]['issues']
-    # Repeated trip/plate key or invalid grams: ambiguous, stays held.
-    data=parsed([blank],[event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='2500',date='2026-10-11')])
-    v=vehicle_evidence(data,'2026-10',CUTOFF);assert vehicle_cost_by_day(data,v,'2026-10-11',rules)['unresolved_ghn']==1
-    data=parsed([blank],[event('SYN_BLANK',grams='x',date='2026-10-11')])
-    v=vehicle_evidence(data,'2026-10',CUTOFF);assert vehicle_cost_by_day(data,v,'2026-10-11',rules)['unresolved_ghn']==1
+    # Raw before E never counts; repeated trip/plate or invalid grams stay held.
+    for raws in ([event('SYN_BLANK',grams='2500',date='2026-10-10')],
+                 [event('SYN_BLANK',grams='2500',date='2026-10-11'),event('SYN_BLANK',grams='2500',date='2026-10-11')],
+                 [event('SYN_BLANK',grams='x',date='2026-10-11')]):
+        data=parsed([blank],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+        out=vehicle_cost_by_day(data,v,'2026-10-11',rules)
+        assert out['unresolved_ghn']==1 and 'missing_weight' in out['group_evidence'][0]['issues']
 
 
 def _drive_export(folder,state,books,raws,**override):
@@ -2279,3 +2279,21 @@ def test_excel_shows_gxt_reason_per_truck_and_raw_rows_for_missing_kg():
     assert any(r['Lý do'].startswith('Xe chở lẫn đơn BC/FTL/NCC') for r in records)
     related=[r for r in records if r['Lý do'].startswith('Raw liên quan')]
     assert related and related[0]['Raw: ngày load']=='2026-10-08' and related[0]['Raw: loại dòng']=='DELIVER'
+
+
+def test_mixed_supra_truck_counts_gxt_orders_and_redelivery_once(tmp_path):
+    from ops_team.supra.manual_cost_report import _calculate
+    state,facts,_,source,_,cfg=forecast_fixture(tmp_path)
+    try:
+        rules={'opening_ftl':[],'booked_trips':[],'handling_parts':[],'direct_gxt_two_legs':True}
+        gxt=book('SYN_G',mode=0);bc=book('SYN_BC',mode=1,do='D2')
+        raws=[event('SYN_G',pl='99B12345',grams='3000',date='2026-10-09'),  # failed attempt the day before
+              event('SYN_G',pl='99B12345',grams='3000',date='2026-10-10',trip=124),event('SYN_G',pl='99B12345',grams='3000',date='2026-10-10',trip=124),
+              event('SYN_BC',pl='99B12345',grams='1000',date='2026-10-10',trip=124)]
+        data=parsed([gxt,bc],raws);v=vehicle_evidence(data,'2026-10',CUTOFF)
+        out=_calculate(data,v,synthetic_cost_policy(cfg),vehicle_scope(v,'2026-10-09 2026-10-10'),'a'*64,
+            vehicle_cost_status(data,v,'2026-10-09 2026-10-10'),{'available':False},rules,'b'*64)
+        g=out['gxt']
+        # Only 10/10 counts for SYN_G (latest log), once (3 kg); BC 1 kg is other goods: 40 * 3/4 = 30.
+        assert g['eligible_vehicle_days']==1 and not g['held'] and Decimal(g['vehicle_supra_vnd'])==30 and Decimal(g['wage_supra_vnd'])==5
+    finally:state.close()

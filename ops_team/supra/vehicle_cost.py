@@ -84,6 +84,11 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
     for r in data.rows.to_dict('records'):
         if r['order_id'] and (x:=day(r['dispatch_date'])) is not None:booking_days[r['order_id']].add(x)
     booking_days={k:sorted(v) for k,v in booking_days.items()}
+    ghn_l=defaultdict(set)
+    for r in data.rows.to_dict('records'):
+        value,status=parse_kg(r['source_ghn_weight'])
+        if r['order_id'] and status=='VALID':ghn_l[r['order_id']].add(value)
+    borrowed=0
     with localcontext() as ctx:
         ctx.prec=140
         for key,rows in sorted(events.items()):
@@ -107,6 +112,10 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             weights=[parse_kg(r['source_ghn_weight']) for r in rows];values={v for v,s in weights if s=='VALID'}
             if any(s=='INVALID' for v,s in weights):issues.append('invalid_weight')
             override=exception.get(key);filled=None
+            if not values and not override and len(ghn_l.get(key[0],()))==1:
+                # Owner 29/10/2026: L missing on this day -> the GHN's own L (column L is the GHN total).
+                values={next(iter(ghn_l[key[0]]))};filled=('BOOKING_L_SAME_GHN',[])
+                if 'invalid_weight' in issues:issues.remove('invalid_weight')
             if not values and not override:
                 # Owner 29/10/2026: blank or unreadable L -> take the GHN's kg from Raw.
                 booked=booking_days.get(key[0],[]);event_day=day(key[1])
@@ -128,9 +137,10 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
             if share is not None:kg=kg*share  # only the S-truck (two-leg) part carries DC handling
             rate=matches[0];b=buckets[rate['rate_id']];amount=kg*Decimal(rate['vnd_per_kg'])
             b['eligible_ghn']+=1;b['eligible_kg']+=kg;b['eligible_vnd']+=amount;b['sources']+=refs
-            if filled:raw_filled+=1;b['sources']+=filled[1]
+            if filled and filled[0]=='BOOKING_L_SAME_GHN':borrowed+=1
+            elif filled:raw_filled+=1;b['sources']+=filled[1]
             eligible.append(dict(order_id=key[0],day=key[1],sources=refs+(filled[1] if filled else []),kg=str(kg),amount_vnd=str(amount),rate_id=rate['rate_id'],
-                weight_source='RAW_DELIVER_EVENT_WINDOW' if filled else 'BOOKING_L',**({'s_leg_share':str(share)} if share is not None else {})))
+                weight_source=('BOOKING_L_SAME_GHN' if filled[0]=='BOOKING_L_SAME_GHN' else 'RAW_DELIVER_EVENT_WINDOW') if filled else 'BOOKING_L',**({'s_leg_share':str(share)} if share is not None else {})))
         accepted=[b for b in buckets.values() if b['eligible_ghn']]
         known=bool(accepted) or bool(direct and not held and not unassigned)
         total=str(sum((b['eligible_vnd'] for b in accepted),Decimal(0))) if known else None
@@ -141,7 +151,7 @@ def vehicle_cost_by_day(data,evidence,text,rules,policy=None):
         counters=counters,rate_buckets=[{**b,'eligible_kg':str(b['eligible_kg']) if b['eligible_ghn'] else None,'eligible_vnd':str(b['eligible_vnd']) if b['eligible_ghn'] else None} for b in buckets.values()],
         issue_sources=issuesrc+unassigned,sources_by_metric={},group_evidence=held,eligible_events=eligible,scope=scope,booking_rows=scoped_rows,
         boundary_ghn=0,booking_digest=pair['booking_digest'],handling_catalog_sha256=data.handling_catalog_sha256,total_cost_vnd=None,gross_profit_vnd=None,
-        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons),raw_last_day=evidence.get('raw_last_day'),booking_routing_fallback_events=booking_fallback)
+        reason='OWNER_TERMS_COMPLETE' if complete else 'PARTIAL_EVENT_NOT_WHOLE_SCOPE',grain='GHN_BOOKING_E_DAY',raw_weight_filled_events=raw_filled,two_leg_reasons=dict(two_leg_reasons),raw_last_day=evidence.get('raw_last_day'),booking_routing_fallback_events=booking_fallback,ghn_l_borrowed_events=borrowed)
 
 
 def vehicle_cost_status(data, evidence, text=''):

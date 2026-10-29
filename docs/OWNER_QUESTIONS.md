@@ -158,3 +158,6 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 | R10 | Đợt chưa có Raw (327 dòng): lấy theo file CS (ngày E) | 29/10/2026 | Có: không có chặng Raw thì theo danh mục tuyến CS của ngày E; đếm riêng `booking_routing_fallback_events` |
 | R11 | 139 dòng xe GXT: "biển S có mà sao không thấy" | 29/10/2026 | File Excel ghi lý do thật từng xe/ngày (chở lẫn, kg không khớp, dòng lỗi...) |
 | R12 | 4 dòng thiếu kg: lấy đúng ngày E của CS | 29/10/2026 | Excel liệt kê mọi dòng Raw của GHN đó để đối chiếu; chưa có kg ở ngày E thì vẫn giữ |
+| R13 | Xe S chở lẫn đơn Supra nhiều mô hình; đơn lặp do giao thất bại hôm trước: lấy log ngày mới nhất, ghi nhận 1 lần | 29/10/2026 | Có: đơn GXT chia chi phí xe theo kg + lương giao; đơn Supra mô hình khác (BC/FTL/NCC/khai trương) tính vào hàng khác vì đã trả theo mô hình riêng; đơn chỉ tính ở ngày load mới nhất, lặp cùng chuyến tính 1 lần |
+| R14 | Thiếu kg: lấy cột L theo mã GHN, không có thì theo Raw | 29/10/2026 | Có: L của cùng GHN (một giá trị duy nhất) trước, rồi Raw; báo số đợt mượn L để kiểm tránh trùng |
+| R15 | 3 dòng chưa có dữ liệu: ghi chú CS bổ sung | 29/10/2026 | Có: nhãn "CS bổ sung cột L" |

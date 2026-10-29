@@ -8,7 +8,7 @@ from collections import defaultdict
 
 # issue code -> (what is missing, what to send)
 DC_ISSUES = {
-    'missing_weight': ('Thiếu tổng kg (cột L) của đợt GHN/ngày', 'tổng kg đúng của đợt đó; không lấy kg ngày khác'),
+    'missing_weight': ('Thiếu kg: cột L của GHN và Raw đều chưa có', 'CS bổ sung cột L (dữ liệu chưa cập nhật)'),
     'invalid_weight': ('Kg cột L sai định dạng', 'số kg đúng (chỉ số, dấu phẩy thập phân)'),
     'conflicting_weight': ('Cùng GHN cùng ngày có nhiều tổng kg khác nhau (cột L)', 'tổng kg đúng, hoặc xác nhận các phần kg được cộng'),
     'unknown_routing': ('Cửa hàng/huyện chưa có trong danh mục điều kiện bốc xếp (cột H/N/O)', 'điều kiện phí của địa bàn/cửa hàng này'),
