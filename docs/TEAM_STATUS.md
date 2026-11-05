@@ -1,6 +1,6 @@
 # Trạng thái đội AI vận hành theo mảng
 
-Rà soát ngày 05/11/2026 trên nhánh `claude/awesome-ptolemy-t1t3g0` từ commit `1044d28`. Mọi ô đã kiểm bằng đọc code và chạy test: 706 đạt, 29 bỏ qua. Toàn bộ chỉ kiểm bằng dữ liệu tổng hợp, chưa chạy trên vault thật.
+Rà soát ngày 05/11/2026 trên nhánh `claude/awesome-ptolemy-t1t3g0` từ commit `1044d28` (lúc đó 706 test đạt, 29 bỏ qua). Bảng dưới là hiện trạng lúc rà soát; phần đã làm xem mục **Tiến độ** và **Sau đợt này**. Toàn bộ chỉ kiểm bằng dữ liệu tổng hợp, chưa chạy trên vault thật.
 
 Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** nghĩa là cần người gửi file; **quyết định** nghĩa là cần owner chốt quy tắc (ghi ở `docs/OWNER_QUESTIONS.md`, nhóm J).
 
@@ -42,3 +42,17 @@ Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** ngh�
 | 5 | Kế toán: lãi gộp khi đủ nguồn + nhật trình km (schema, mẫu, nhập, đối chiếu) | xong (dữ liệu giả); chờ bảng kê và nhật trình thật, biểu giá km | xem git log |
 | 6 | Đội xe (`/doixe`) + Nhân sự (theo người, chấm công): schema, mẫu, nhập, N/A rõ ràng | xong phần code (dữ liệu giả); chờ nhật trình, danh sách tài xế–xe, chấm công; J2, J3, J4, J10, J11 | xem git log |
 | 7 | Vai trò AI chung số với code; Kiểm toán đối soát chứng từ | xong (dữ liệu giả, model giả) | xem git log |
+
+## Sau đợt này (05/11/2026)
+
+| Mảng | Còn thiếu | Thiếu do | Ai cung cấp |
+|---|---|---|---|
+| Chi phí | Chi phí/đơn vị theo tuyến và cửa hàng | quyết định | Owner: J1. Có bảng kê thì thêm nguồn thực chi |
+| Kế toán | Đối soát thực chi, tiền theo km | dữ liệu | Kế toán: bảng kê NCC. NCC: nhật trình km. Owner: biểu giá km (câu 17) |
+| Nhân sự | Theo người, OT, năng suất, lỗi | dữ liệu + quyết định | Owner/điều phối: danh sách tài xế–xe, chấm công. Owner: J10, J11 |
+| Đội xe | Km rỗng, giờ chờ thật; chi phí/chuyến; dự báo | dữ liệu + quyết định | NCC: nhật trình. Owner: J2, J3, J4 |
+| Vận hành | — (đã có) | — | Owner xác nhận J5 |
+| KPI | OT, xe rỗng | dữ liệu | Như Nhân sự / Đội xe. Owner: mục tiêu (`/muctieu`), J6, J7 |
+| Kiểm toán | Chứng từ thật | dữ liệu | Kế toán, NCC |
+| Điều phối | Người phụ trách chính thức; dùng mẫu này cho báo cáo 13h | quyết định | Owner: J8; duyệt đổi mẫu báo cáo lịch |
+| Vai trò AI | Chất lượng câu chữ với model thật | chưa cấu hình model | Owner cấu hình model khi muốn |

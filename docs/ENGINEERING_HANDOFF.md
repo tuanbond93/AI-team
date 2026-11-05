@@ -74,3 +74,7 @@ Các câu trả lời owner và nơi đã áp nằm trong `docs/OWNER_QUESTIONS.
 ## Trạng thái 29/10/2026 (Claude) — sẵn sàng triển khai
 
 Toàn bộ câu trả lời owner nằm ở `docs/OWNER_QUESTIONS.md` (bảng ghi nhận). Trên dữ liệu thật (vault tạm, 01–22/10), `/thieu` chỉ còn đợt thiếu kg do CS chưa cập nhật; báo cáo 13h tự ghi dòng "CẦN CS BỔ SUNG". Công cụ: `ops_team.preflight` (kiểm sức khỏe trước/sau triển khai), `ops_team.export_checklist` (Excel), `ops_team.set_area_point_rate` (giá điểm theo khu vực, DPAPI), `ops_team.drive_import` (Apps Script → Drive → bot). Quy trình triển khai/quay lại: `docs/DEPLOY_WINDOWS.md`. Chưa đưa vào bot đang chạy.
+
+## Cập nhật 05/11/2026 (Claude): đội AI theo mảng
+
+Trạng thái từng mảng và ai cần gửi gì: `docs/TEAM_STATUS.md`. Lệnh, định nghĩa, mẫu file: `docs/DOMAIN_AGENTS.md`. Câu cần owner quyết: nhóm J trong `docs/OWNER_QUESTIONS.md`. Mới: báo cáo 13h và model dùng cùng bảng `/chiphi` (`supra/cost_summary.py`); `/vanhanh`, `/doixe`; `/tongquan` thành báo cáo ngày; KPI có xu hướng và cảnh báo; nhập `/import km|taixe|chamcong`; vai trò AI chạy agent bằng code khi chưa có model; agent không in biển xe. Tất cả kiểm bằng dữ liệu tổng hợp; chưa đưa vào bot đang chạy.

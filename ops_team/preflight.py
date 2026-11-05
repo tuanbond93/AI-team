@@ -17,7 +17,8 @@ def run_checks(responder, owner, dates=''):
         raise RuntimeError('preflight không gọi AI')
     responder._get_agent = no_model
     results = []
-    commands = [('chiphi', dates), ('thieu', dates), ('xe', dates), ('sla', dates), ('duyet', ''), ('status', '')]
+    commands = [('chiphi', dates), ('thieu', dates), ('xe', dates), ('sla', dates), ('vanhanh', dates), ('kiemtoan', dates),
+                ('tongquan', dates), ('duyet', ''), ('status', '')]
     for i, (command, text) in enumerate(commands, 1):
         try:
             reply = responder.answer(Incoming(GROUP_ID, owner, 900000+i, None, command, text))
