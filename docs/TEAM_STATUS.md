@@ -36,3 +36,5 @@ Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** ngh�
 |---|---|---|---|
 | 1 | Chi phí: báo cáo lịch + ngữ cảnh model dùng bảng `/chiphi` | xong (dữ liệu giả); chi phí theo tuyến chờ J1 | xem git log |
 | 2 | Vận hành: sản lượng + tồn đọng (`/vanhanh`) | xong (dữ liệu giả); định nghĩa chờ J5 xác nhận | xem git log |
+| — | Bảo mật: agent không in biển xe (mã V1/V2, số dòng) | xong | xem git log |
+| 3 | Điều phối: `/tongquan` thành báo cáo ngày | xong (dữ liệu giả); phụ trách chờ J8; lịch 13h giữ mẫu cũ | xem git log |

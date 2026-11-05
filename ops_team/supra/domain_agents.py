@@ -117,6 +117,21 @@ def workforce(report, scope, limit=12, evidence=None):
 
 
 # ---------------- Vận hành ----------------
+def operations_stats(data, scope, now, period, cutoff):
+    """Counts shared by /vanhanh and the daily brief (no rendering)."""
+    from collections import Counter
+    from .booking_quantity import quantity_summary
+    from .booking_weight import weight_summary
+    from .sla import classify_events
+    events, stamp = classify_events(data, scope['start'], scope['end'], now)
+    rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and scope['start'] <= str(d) <= scope['end'])]
+    status = Counter(e['status'] for e in events)
+    return dict(events=events, stamp=stamp, rows=rows, status=status, by_day=Counter(e['day'] for e in events),
+                open=status['pending']+status['overdue']+status['no_rule_open'],
+                overdue_sources=[src for e in events if e['status'] == 'overdue' for src in e['sources']],
+                products=quantity_summary(data, rows).get('product_units'), kg=weight_summary(data, rows, period, cutoff).get('weight_kg'))
+
+
 def operations(data, scope, now, period, cutoff, limit_days=10):
     """Volume per Booking E day and backlog (dispatched, no successful DELIVER yet).
 
@@ -130,20 +145,15 @@ def operations(data, scope, now, period, cutoff, limit_days=10):
     from .booking_weight import weight_summary
     from .missing_data import _rows_text
     from .sla import classify_events
-    events, stamp = classify_events(data, scope['start'], scope['end'], now)
-    rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and scope['start'] <= str(d) <= scope['end'])]
+    stats = operations_stats(data, scope, now, period, cutoff)
+    events, stamp, rows = stats['events'], stats['stamp'], stats['rows']
     lines = []
     if stamp:
         lines.append(f'Vận hành {span(scope)}: tồn đọng N/A vì cột giờ kết thúc chuyến trên Raw là dấu thời gian hàng loạt; '
                      'cần owner chỉ cột giờ giao thật (như /sla).')
         return '\n'.join(lines)
-    by_day = Counter(e['day'] for e in events)
-    status = Counter(e['status'] for e in events)
-    open_events = status['pending']+status['overdue']+status['no_rule_open']
-    quantity = quantity_summary(data, rows)
-    weight = weight_summary(data, rows, period, cutoff)
-    products = quantity.get('product_units')
-    kg = weight.get('weight_kg')
+    by_day, status, open_events = stats['by_day'], stats['status'], stats['open']
+    products, kg = stats['products'], stats['kg']
     lines.append(f'Vận hành {span(scope)}: {len(events)} đợt xuất, tồn đọng {open_events} đợt '
                  f'({status["overdue"]} quá hạn, {status["pending"]} chưa tới hạn'
                  +(f', {status["no_rule_open"]} ở tỉnh chưa có hạn SLA' if status['no_rule_open'] else '')+').')
@@ -193,7 +203,8 @@ def load_factor(evidence, scope, capacities):
     return (used/cap_total*100 if cap_total else None), counted, sorted(missing)
 
 
-def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
+def kpi_rows(targets, scope, sla, report, weight, orders, evidence, capacities):
+    """(rows, load_meta): each row = dict(key, name, unit, sense, value, why, target, ok). Shared by /kpi and the daily brief."""
     from .manual_cost_overlay import projected_totals
     from ..kpi_targets import TARGETS
     rows = []
@@ -210,21 +221,40 @@ def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
     load, counted, missing = load_factor(evidence, scope, capacities)
     names = aliases(evidence)
     rows.append(('tai', load, ('chưa có tải trọng xe '+', '.join(car(p, names) for p in missing[:6])+'; xem mã xe bằng /xe') if load is None else ''))
-    lines = [f'KPI {span(scope)}:']
-    passed = failed = 0
+    out = []
     for key, value, why in rows:
         name, unit, sense = TARGETS[key]
-        shown = (pct(value) if unit == '%' else vnd(value)+unit[1:]) if value is not None else 'N/A'
         target = targets.get(key)
-        verdict = ''
+        ok = None
         if value is not None and target:
             ok = value >= target['value'] if sense == 'min' else value <= target['value']
-            passed, failed = passed+ok, failed+(not ok)
-            goal = (pct(target['value'], 0) if unit == '%' else vnd(target['value'])+unit[1:])
-            verdict = (' — đạt' if ok else ' — CHƯA ĐẠT')+f' (mục tiêu {"≥" if sense == "min" else "≤"} {goal})'
-        elif value is not None:
+        out.append(dict(key=key, name=name, unit=unit, sense=sense, value=value, why=why, target=target['value'] if target else None, ok=ok))
+    return out, dict(load=load, counted=counted, missing=missing)
+
+
+def kpi_value(row, value=None):
+    value = row['value'] if value is None else value
+    return (pct(value) if row['unit'] == '%' else vnd(value)+row['unit'][1:]) if value is not None else 'N/A'
+
+
+def kpi_goal(row):
+    goal = pct(row['target'], 0) if row['unit'] == '%' else vnd(row['target'])+row['unit'][1:]
+    return f'mục tiêu {"≥" if row["sense"] == "min" else "≤"} {goal}'
+
+
+def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
+    rows, meta = kpi_rows(targets, scope, sla, report, weight, orders, evidence, capacities)
+    load, counted, missing = meta['load'], meta['counted'], meta['missing']
+    lines = [f'KPI {span(scope)}:']
+    passed = sum(r['ok'] is True for r in rows)
+    failed = sum(r['ok'] is False for r in rows)
+    for r in rows:
+        verdict = ''
+        if r['ok'] is not None:
+            verdict = (' — đạt' if r['ok'] else ' — CHƯA ĐẠT')+f' ({kpi_goal(r)})'
+        elif r['value'] is not None:
             verdict = ' — chưa đặt mục tiêu'
-        lines.append(f'• {name}: {shown}{verdict}'+(f' ({why})' if why else ''))
+        lines.append(f'• {r["name"]}: {kpi_value(r)}{verdict}'+(f' ({r["why"]})' if r['why'] else ''))
     if load is not None and missing:
         lines.append(f'Tỷ lệ tải tính trên {counted} lượt xe/ngày có tải trọng; {len(missing)} xe chưa có tải trọng nên chưa tính.')
     if load is not None:
@@ -237,8 +267,8 @@ def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
 
 
 # ---------------- Kiểm toán ----------------
-def audit(report, evidence, sla, scope, today=None):
-    """Independent re-checks of the code's own results. Returns (passed, total, text)."""
+def audit_checks(report, evidence, sla, scope):
+    """[(name, ok, detail)]: independent re-checks of the code's own results."""
     from .manual_cost_overlay import projected_totals
     checks = []
     names = aliases(evidence)
@@ -276,6 +306,12 @@ def audit(report, evidence, sla, scope, today=None):
         check('Bảng chi phí tính được cho khoảng này', False, (report or {}).get('reason', 'chưa có'))
     if sla:
         check('Giờ kết thúc chuyến trong Raw không bị đóng dấu hàng loạt', not sla.get('batch_stamp'), 'có dấu thời gian hàng loạt, SLA có thể sai' if sla.get('batch_stamp') else '')
+    return checks
+
+
+def audit(report, evidence, sla, scope, today=None):
+    """Returns (passed, total, text)."""
+    checks = audit_checks(report, evidence, sla, scope)
     passed = sum(ok for _, ok, _ in checks)
     lines = [f'Kiểm toán {span(scope)}: đạt {passed}/{len(checks)} phép kiểm.']
     fails = [(n, d) for n, ok, d in checks if not ok]
@@ -289,14 +325,94 @@ def audit(report, evidence, sla, scope, today=None):
 
 
 # ---------------- Điều phối ----------------
+# Suggested owners for each kind of action; OWNER J8 not answered yet, so the brief says "đề xuất".
+ROLE = {'decide': 'owner', 'booking': 'CS (Booking)', 'raw': 'điều phối GXT (Raw)', 'data': 'CS / điều phối GXT', 'overdue': 'điều phối GXT', 'kpi': 'owner', 'audit': 'owner',
+        'ncc': 'kế toán', 'km': 'NCC', 'targets': 'owner (/muctieu)', 'capacity': 'owner (/taitrong)'}
+
+
+def who_for(line):
+    """Suggested owner for one /thieu line, from its "Cần: …" text (prices, rules, confirmations → owner)."""
+    import re
+    from ..intent import _plain
+    need = _plain(line.rsplit('Cần:', 1)[-1])
+    if re.search(r'gia|xac nhan|owner|quy tac|chinh sach|duyet|mo hinh', need):
+        return ROLE['decide']
+    if re.search(r'\braw\b|bien s\b|chuyen|ngay load', need):
+        return ROLE['raw']
+    if re.search(r'cot l|bien ag|booking|cs\b|kg', need):
+        return ROLE['booking']
+    return ROLE['data']
+
+
+def daily_brief(scope, report, missing, ops, kpi_result, checks, has_statement, parts):
+    """The coordinator's daily brief: conclusion, ranked actions with a suggested owner, data to supply, key numbers.
+
+    missing = (count, text) from missing_checklist; ops = operations_stats; kpi_result = (rows, meta);
+    checks = audit_checks; parts = [(label, first line)] for the key-number section.
+    Ranking (presentation only): data that blocks the cost total, overdue deliveries, KPI misses, audit failures.
+    """
+    from .manual_cost_overlay import projected_totals
+    from .missing_data import _rows_text
+    actions, needs = [], []
+    count, text = missing if missing else (None, '')
+    if count:
+        groups = {}
+        for line in (l for l in text.split('\n') if l.startswith('• ')):
+            groups.setdefault(who_for(line), []).append(line)
+        for who, lines_ in sorted(groups.items(), key=lambda kv: -len(kv[1])):
+            what = 'Quyết/duyệt' if who == ROLE['decide'] else 'Bổ sung'
+            actions.append((f'{what} {len(lines_)} nhóm dữ liệu đang giữ N/A (chặn tổng chi phí)', who, lines_[:3]))
+    if ops and not ops['stamp'] and ops['status']['overdue']:
+        actions.append((f'Kiểm tra {ops["status"]["overdue"]} đợt quá hạn chưa có giao thành công', ROLE['overdue'],
+                        ['• '+_rows_text(ops['overdue_sources'])]))
+    rows, meta = kpi_result if kpi_result else ([], {})
+    misses = [r for r in rows if r['ok'] is False]
+    if misses:
+        actions.append(('KPI chưa đạt: '+'; '.join(f'{r["name"]} {kpi_value(r)} ({kpi_goal(r)})' for r in misses), ROLE['kpi'], []))
+    fails = [(n, d) for n, ok, d in (checks or []) if not ok]
+    if fails:
+        actions.append((f'Kiểm toán chưa đạt {len(fails)} phép', ROLE['audit'], ['• '+n+(f': {d}' if d else '') for n, d in fails[:3]]))
+    if not has_statement:
+        needs.append(('Bảng kê NCC tháng này (Excel/CSV, chú thích /import ncc) để đối soát thực chi', ROLE['ncc']))
+    if report and report.get('available') and (report.get('unpriced_ncc_routes') or (report.get('remote') and report['remote'].get('km_extra_vnd') is None)):
+        needs.append(('Nhật trình km NCC (ngày, biển, tuyến, km) để tính cước theo km', ROLE['km']))
+    if rows and not any(r['target'] is not None for r in rows):
+        needs.append(('Mục tiêu KPI (SLA, chi phí/kg, chi phí/đơn, tỷ lệ tải)', ROLE['targets']))
+    if meta.get('missing'):
+        needs.append((f'Tải trọng của {len(meta["missing"])} xe chưa có (mã xe xem bằng /xe)', ROLE['capacity']))
+    total = projected_totals(report)[0] if report and report.get('available') else None
+    blockers = projected_totals(report)[2] if report and report.get('available') else ['chưa tính được bảng chi phí']
+    cost = 'tổng chi phí dự kiến đã đủ nguồn' if total is not None else 'tổng chi phí chưa chốt ('+blockers[0]+')'
+    backlog = (f'; tồn đọng {ops["open"]} đợt ({ops["status"]["overdue"]} quá hạn)' if ops and not ops['stamp'] else '')
+    lines = [f'Báo cáo ngày {span(scope)}: {len(actions)} việc cần xử lý; {cost}{backlog}.']
+    if actions:
+        lines.append('Việc ưu tiên:')
+        for i, (what, who, detail) in enumerate(actions, 1):
+            lines.append(f'{i}. {what}. Phụ trách: {who}.')
+            lines += ['   '+d for d in detail]
+    if needs:
+        lines.append('Cần bổ sung:')
+        lines += [f'• {what} — {who}' for what, who in needs]
+    lines.append('Số chính:')
+    for label, first in parts:
+        lines.append(f'• {label}: {first}')
+    lines.append('Người phụ trách là đề xuất, chờ owner chốt (J8). Nhắn tên mảng để xem chi tiết.')
+    return '\n'.join(lines)
+
+
+def first_line(text):
+    """First line of an agent reply, without a prefix the label already says."""
+    import re
+    first = (text or 'N/A').strip().split('\n', 1)[0]
+    first = re.sub(r'^CẦN ANH BỔ SUNG(?: — [^:]+)?: (\d+ nhóm dữ liệu)\..*$', r'còn \1 cần bổ sung.', first)
+    first = re.sub(r'^(KPI|Kiểm toán|Vận hành|Lương giao GXT|Chi phí dự kiến) [^:]+: ', '', first)
+    return first[:1].lower()+first[1:] if first[1:2].islower() else first
+
+
 def overview(parts):
     """parts: [(label, text)] from the other agents; first line of each, in one message."""
     lines = ['Tổng quan nhanh từng mảng:']
-    import re
     for label, text in parts:
-        first = (text or 'N/A').strip().split('\n', 1)[0]
-        first = re.sub(r'^CẦN ANH BỔ SUNG(?: — [^:]+)?: (\d+ nhóm dữ liệu)\..*$', r'còn \1 cần bổ sung.', first)
-        first = re.sub(r'^(KPI|Kiểm toán) [^:]+: ', '', first)  # the label already says it
-        lines.append(f'• {label}: {first[:1].lower()+first[1:] if first[1:2].islower() else first}')
+        lines.append(f'• {label}: {first_line(text)}')
     lines.append('Nhắn tên mảng (chi phí, SLA, xe, lương giao, KPI, kiểm toán, kế toán, còn thiếu gì) để xem chi tiết.')
     return '\n'.join(lines)

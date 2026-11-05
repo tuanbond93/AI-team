@@ -274,3 +274,63 @@ def test_vanhanh_command_owner_only(tmp_path, monkeypatch):
         assert 'owner' in r.answer(Incoming(GROUP_ID, 456, 3, None, 'ask', 'tồn đọng tuần này'))
     finally:
         state.close()
+
+
+MISSING_TEXT = '\n'.join([
+    'CẦN ANH BỔ SUNG — 10/10/2026–12/10/2026: 3 nhóm dữ liệu. Bổ sung xong em tính lại.',
+    '• Loại tải Booking (cột T) chưa có giá FTL — Booking dòng 4. Cần: giá FTL cho loại tải này.',
+    '• Thiếu kg — Booking dòng 9. Cần: CS bổ sung cột L.',
+    '• Raw thiếu biển S — Raw dòng 33. Cần: biển S thực chở.'])
+
+
+def test_daily_brief_ranks_actions_with_suggested_owner_and_data_needs():
+    from datetime import datetime
+    from tests.test_booking_vehicles import CUTOFF
+    from ops_team.supra.sla import TZ
+    data = _ops_data()
+    now = datetime(2026, 10, 29, 10, 0, tzinfo=TZ)
+    scope = {'start': '2026-10-10', 'end': '2026-10-28'}
+    ops = agents.operations_stats(data, scope, now, '2026-10', CUTOFF)
+    targets = {'sla': {'value': Decimal(95)}}
+    kpi_result = agents.kpi_rows(targets, scope, {'on_time_rate': 0.5}, gxt_report(), None, 0, EVIDENCE, {})
+    checks = [('Raw đã cập nhật tới cuối khoảng xem', False, 'Raw mới tới 2026-10-14'), ('x', True, '')]
+    text = agents.daily_brief(scope, gxt_report(), (3, MISSING_TEXT), ops, kpi_result, checks, False, [('Chi phí', 'mới tính được phần đủ nguồn')])
+    lines = text.split('\n')
+    assert lines[0] == 'Báo cáo ngày 10/10–28/10: 6 việc cần xử lý; tổng chi phí chưa chốt (chưa có chính sách doanh thu/phân bổ); tồn đọng 3 đợt (1 quá hạn).'
+    assert '1. Quyết/duyệt 1 nhóm dữ liệu đang giữ N/A (chặn tổng chi phí). Phụ trách: owner.' in lines
+    assert 'Bổ sung 1 nhóm dữ liệu đang giữ N/A (chặn tổng chi phí). Phụ trách: CS (Booking).' in text
+    assert 'Phụ trách: điều phối GXT (Raw).' in text and 'Kiểm tra 1 đợt quá hạn chưa có giao thành công. Phụ trách: điều phối GXT.' in text
+    assert 'KPI chưa đạt: SLA đúng hạn 50,0% (mục tiêu ≥ 95%). Phụ trách: owner.' in text
+    assert 'Kiểm toán chưa đạt 1 phép. Phụ trách: owner.' in text and 'Raw mới tới 2026-10-14' in text
+    assert 'Bảng kê NCC tháng này' in text and '— kế toán' in text and 'Mục tiêu KPI' not in text  # a target exists
+    assert 'Tải trọng của 1 xe chưa có' in text and '(J8)' in text
+    assert 'SYN_' not in text and '29C' not in text
+
+
+def test_daily_brief_overdue_full_equals_halves_and_no_action_when_clean():
+    from datetime import datetime
+    from tests.test_booking_vehicles import CUTOFF
+    from ops_team.supra.sla import TZ
+    data = _ops_data()
+    now = datetime(2026, 10, 29, 10, 0, tzinfo=TZ)
+    stats = lambda a, b: agents.operations_stats(data, {'start': a, 'end': b}, now, '2026-10', CUTOFF)
+    whole, first, second = stats('2026-10-10', '2026-10-28'), stats('2026-10-10', '2026-10-19'), stats('2026-10-20', '2026-10-28')
+    assert whole['status']['overdue'] == first['status']['overdue']+second['status']['overdue']
+    assert whole['open'] == first['open']+second['open'] and len(whole['events']) == len(first['events'])+len(second['events'])
+    clean = agents.daily_brief({'start': '2026-10-20', 'end': '2026-10-28'}, None, (0, ''), second, ([], {}), [('x', True, '')], True, [])
+    assert clean.startswith('Báo cáo ngày 20/10–28/10: 0 việc cần xử lý; tổng chi phí chưa chốt (chưa tính được bảng chi phí); tồn đọng 1 đợt (0 quá hạn).')
+    assert 'Việc ưu tiên' not in clean and 'Bảng kê NCC' not in clean
+
+
+def test_tongquan_is_owner_only(tmp_path, monkeypatch):
+    from ops_team.telegram_assistant import AssistantResponder
+    from ops_team.telegram_bridge import Incoming
+    from ops_team.telegram_state import GROUP_ID
+    state = BusinessState(tmp_path/'vault')
+    try:
+        r = AssistantResponder(state, {'owner_id': 123, 'models': {}})
+        monkeypatch.setattr(r, '_domain', lambda command, text: 'brief')
+        assert r.answer(Incoming(GROUP_ID, 123, 1, None, 'tongquan', '')) == 'brief'
+        assert 'Chỉ owner' in r.answer(Incoming(GROUP_ID, 456, 2, None, 'tongquan', ''))
+    finally:
+        state.close()

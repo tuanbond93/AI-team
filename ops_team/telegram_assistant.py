@@ -49,7 +49,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /sla [YYYY-MM-DD] [YYYY-MM-DD] — tỷ lệ giao đúng hạn D+1/D+2 theo Raw
 /thieu [YYYY-MM-DD] [YYYY-MM-DD] — danh sách dữ liệu cần bổ sung: trường nào, ngày nào, dòng nào trong Sheet
 /nho — xem bot đang nhớ gì về bạn; /quen <số> hoặc /quen all — xóa
-/tongquan — tổng quan mọi mảng; /ketoan — chi phí trước/sau VAT 8% và đối soát bảng kê NCC (gửi file kèm /import ncc)
+/tongquan — báo cáo ngày: việc ưu tiên, người phụ trách, dữ liệu cần bổ sung, số chính từng mảng; /ketoan — chi phí trước/sau VAT 8% và đối soát bảng kê NCC (gửi file kèm /import ncc)
 /nhansu — lương giao GXT theo xe/ngày; /kpi — chấm SLA, chi phí/kg, chi phí/đơn, tỷ lệ tải theo mục tiêu
 /vanhanh — sản lượng theo ngày xuất và tồn đọng (quá hạn/chưa tới hạn)
 /kiemtoan — kiểm tra lại các phép cộng, kg, điều kiện công bố tổng; /muctieu, /taitrong — owner đặt mục tiêu, tải trọng xe
@@ -568,20 +568,36 @@ class AssistantResponder:
             return agents.audit(report, evidence, sla(), scope)[2]
         from .supra.manual_cost_report import render_cost_report
         from .supra.missing_data import missing_checklist
+        from .supra.ncc_invoice import load_statement
         from .supra.sla import render_sla
+        now = datetime.now(TZ)
+        def safe(make):
+            try:
+                return make()
+            except Exception:
+                return None  # one area failing never blocks the brief; it shows "chưa tính được"
+        sla_result = safe(sla)
+        ops = safe(lambda: agents.operations_stats(data, scope, now, x["period"], x["cutoff"]))
+        def kpi_inputs():
+            rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and scope["start"] <= str(d) <= scope["end"])]
+            store = KpiStore(self.state)
+            return agents.kpi_rows(store.targets(), scope, sla_result, report, weight_summary(data, rows, x["period"], x["cutoff"]),
+                                   len(set(rows.order_id)-{""}), evidence, store.capacities())
+        kpi_result = safe(kpi_inputs)
+        checks = safe(lambda: agents.audit_checks(report, evidence, sla_result, scope))
+        missing = safe(lambda: missing_checklist(report)) if report.get("available") else None
+        months = sorted({scope["start"][:7], scope["end"][:7]})
+        has_statement = bool(safe(lambda: any(load_statement(self.state, m) for m in months)))
         parts = []
         for label, make in (("Chi phí", lambda: render_cost_report(report).removeprefix("Kết luận: ")),
-                            ("SLA", lambda: render_sla(sla(), scope["start"], scope["end"]).split(": ", 1)[-1]),
-                            ("Vận hành", lambda: agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"]).split(": ", 1)[-1]),
+                            ("SLA", lambda: render_sla(sla_result, scope["start"], scope["end"]).split(": ", 1)[-1]),
+                            ("Vận hành", lambda: agents.operations(data, scope, now, x["period"], x["cutoff"])),
                             ("Lương giao", lambda: agents.workforce(report, scope, evidence=evidence)), ("KPI", kpi),
-                            ("Kiểm toán", lambda: agents.audit(report, evidence, sla(), scope)[2]),
-                            ("Dữ liệu thiếu", lambda: missing_checklist(report)[1] if report.get("available") else "chưa lập được danh sách"),
+                            ("Kiểm toán", lambda: agents.audit(report, evidence, sla_result, scope)[2]),
                             ("Kế toán", accounting)):
-            try:
-                parts.append((label, make()))
-            except Exception:
-                parts.append((label, "chưa tính được"))
-        return agents.overview(parts)
+            text = safe(make)
+            parts.append((label, agents.first_line(text) if text else "chưa tính được"))
+        return agents.daily_brief(scope, report, missing, ops, kpi_result, checks, has_statement, parts)
 
     def _kpi_setting(self, command, text, request):
         from .kpi_targets import KpiStore, TARGETS

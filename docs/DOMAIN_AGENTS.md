@@ -15,7 +15,7 @@ Hiện có 9 mảng; 4 mảng có từ trước, 5 mảng làm thêm đợt này
 | **Nhân sự** | `/nhansu` | "lương giao tuần này" | Lương giao GXT theo xe/ngày: số đơn, kg, tiền theo bậc kg từng đơn. Đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương. Điểm giao BC tách riêng. | Danh sách nhân viên/tài xế theo xe để tính theo từng người |
 | **KPI** | `/kpi` | "KPI tháng 10", "tỷ lệ tải xe" | SLA %, chi phí/kg, chi phí/đơn, tỷ lệ tải. Chấm đạt/chưa đạt theo mục tiêu owner đặt. Chi phí/kg và chi phí/đơn chỉ có khi tổng chi phí đã chốt, không dùng tổng tạm. | Mục tiêu (`/muctieu`), tải trọng xe S (`/taitrong`) |
 | **Kiểm toán** | `/kiemtoan` | "kiểm toán lại số", "số có khớp không" | Tính lại độc lập: tổng tiền xe/lương = tổng từng xe/ngày; phần Supra không vượt tiền xe; kg bảng chi phí khớp kg Raw; Raw cập nhật đủ; tổng chỉ công bố khi đủ nguồn; còn nhóm giữ riêng; dấu thời gian hàng loạt (SLA). | Chưa thay đối soát chứng từ |
-| **Điều phối** | `/tongquan` | "tổng quan tuần này" | Một dòng cho mỗi mảng trong một tin. | |
+| **Điều phối** | `/tongquan` | "tổng quan tuần này" | Báo cáo ngày: kết luận (số việc, tình trạng tổng chi phí, tồn đọng); việc ưu tiên xếp theo: dữ liệu chặn tổng chi phí (tách việc owner quyết với việc CS / điều phối GXT bổ sung), đơn quá hạn, KPI chưa đạt, kiểm toán chưa đạt; mục cần bổ sung (bảng kê NCC, nhật trình km, mục tiêu KPI, tải trọng xe) kèm người gửi; số chính mỗi mảng. Một mảng lỗi không chặn cả báo cáo. | Người phụ trách là đề xuất, chờ owner chốt (J8). Báo cáo lịch 13h chưa đổi theo mẫu này (cần owner duyệt) |
 
 ## Owner đặt mục tiêu và tải trọng
 
