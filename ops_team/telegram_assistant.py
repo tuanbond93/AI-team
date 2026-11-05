@@ -51,6 +51,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /nho — xem bot đang nhớ gì về bạn; /quen <số> hoặc /quen all — xóa
 /tongquan — tổng quan mọi mảng; /ketoan — chi phí trước/sau VAT 8% và đối soát bảng kê NCC (gửi file kèm /import ncc)
 /nhansu — lương giao GXT theo xe/ngày; /kpi — chấm SLA, chi phí/kg, chi phí/đơn, tỷ lệ tải theo mục tiêu
+/vanhanh — sản lượng theo ngày xuất và tồn đọng (quá hạn/chưa tới hạn)
 /kiemtoan — kiểm tra lại các phép cộng, kg, điều kiện công bố tổng; /muctieu, /taitrong — owner đặt mục tiêu, tải trọng xe
 Nhắn tự nhiên cũng được: "chi phí tuần này", "còn thiếu gì không", "nhớ giúp anh là…"
 /reset — xóa hội thoại RAM của bạn trong chủ đề
@@ -212,7 +213,7 @@ class AssistantResponder:
             ai = "AI đã cấu hình; chỉ gọi khi bạn hỏi hoặc lịch đã duyệt" if self.settings.get("models") else "CHƯA CÓ AI/MODEL — onboarding và báo cáo số liệu bằng code vẫn dùng được"
             return f"Nhóm cố định: {GROUP_ID}. Owner ID: {self.owner}.\n{ai}\nLịch: {'ĐANG BẬT' if self.state.control('schedule_enabled', False) else 'TẠM DỪNG'}.\nNguồn được đọc mới mỗi lần báo cáo. Máy ngủ/tắt hoặc mất mạng thì worker không hoạt động."
         owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla", "duyet", "giugia",
-                          "ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "muctieu", "taitrong"}
+                          "ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "muctieu", "taitrong", "vanhanh"}
         if command in owner_commands and not owner:
             if command == "details":
                 return "Chỉ chủ sở hữu đã xác minh được xem chi tiết truy vết."
@@ -443,7 +444,7 @@ class AssistantResponder:
                     'source_pin':{k:raw[k] for k in ('spreadsheet_id','tab','gid')} if raw else None}
                 if len(self._code_details)>100:self._code_details.pop(next(iter(self._code_details)))
                 return result
-            if command in ("ketoan", "nhansu", "kpi", "kiemtoan", "tongquan"):
+            if command in ("ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "vanhanh"):
                 return self._domain(command, text)
             if command in ("muctieu", "taitrong"):
                 return self._kpi_setting(command, text, request)
@@ -559,6 +560,8 @@ class AssistantResponder:
             return accounting()
         if command == "nhansu":
             return agents.workforce(report, scope)
+        if command == "vanhanh":
+            return agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"])
         if command == "kpi":
             return kpi()
         if command == "kiemtoan":
@@ -569,6 +572,7 @@ class AssistantResponder:
         parts = []
         for label, make in (("Chi phí", lambda: render_cost_report(report).removeprefix("Kết luận: ")),
                             ("SLA", lambda: render_sla(sla(), scope["start"], scope["end"]).split(": ", 1)[-1]),
+                            ("Vận hành", lambda: agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"]).split(": ", 1)[-1]),
                             ("Lương giao", lambda: agents.workforce(report, scope)), ("KPI", kpi),
                             ("Kiểm toán", lambda: agents.audit(report, evidence, sla(), scope)[2]),
                             ("Dữ liệu thiếu", lambda: missing_checklist(report)[1] if report.get("available") else "chưa lập được danh sách"),

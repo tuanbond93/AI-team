@@ -2381,7 +2381,7 @@ def test_domain_agents_run_on_paired_source_without_model(tmp_path,monkeypatch):
         assert 'Chưa có bảng kê NCC' in a.answer(Incoming(GROUP_ID,123,3,None,'ketoan',span))
         assert 'lương giao' in a.answer(Incoming(GROUP_ID,123,4,None,'nhansu',span)).casefold()
         overview=a.answer(Incoming(GROUP_ID,123,5,None,'tongquan',span))
-        assert overview.count('\n• ')==7 and 'chưa tính được' not in overview and 'CẦN ANH' not in overview
+        assert overview.count('\n• ')==8 and 'Vận hành:' in overview and 'chưa tính được' not in overview and 'CẦN ANH' not in overview
         assert 'chưa làm được' in a.answer(Incoming(GROUP_ID,123,6,None,'ask','kiểm toán từ 1/9/2026 đến 5/9/2026'))
     finally:state.close()
 

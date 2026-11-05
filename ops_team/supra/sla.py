@@ -63,8 +63,16 @@ def _moment(value):
     return moment.astimezone(TZ) if moment.tzinfo else moment.replace(tzinfo=TZ)
 
 
-def sla_summary(data, start, end, now):
-    """Events are GHN + Booking E day inside [start, end] (ISO dates)."""
+def classify_events(data, start, end, now):
+    """(events, batch) for every GHN + Booking E day inside [start, end] (ISO dates).
+
+    Each event: day, status, sources, and delivered/deadline when known. Statuses:
+    on_time, late, pending (no successful DELIVER yet, deadline not passed),
+    overdue (no successful DELIVER, deadline passed), held (unreadable Raw evidence),
+    no_rule_delivered / no_rule_open (province without an SLA rule).
+    Shared by the SLA and the operations backlog so both count the same events.
+    If ``batch`` is set the delivery-time column is a batch stamp and events is empty.
+    """
     pair = data.vehicle_pair
     events = defaultdict(list)
     for row in data.rows.to_dict('records'):
@@ -79,21 +87,18 @@ def sla_summary(data, start, end, now):
         r = dict(zip(RAW_HEADERS, item['values']))
         if cell(r['type']).upper() == 'DELIVER' and business_key(r['order_code']):
             raw[business_key(r['order_code'])].append((r, f"Raw#{pair['raw_digest'][:12]} dòng {item['sheet_row']}"))
-    out = dict(on_time=0, late=0, pending=0, held=[], late_events=[], no_rule=0)
     stamp = batch_stamp(r for rows in raw.values() for r, _ in rows)
     if stamp:
-        return {**out, 'on_time_rate': None, 'complete': False, 'batch_stamp': stamp}
+        return [], stamp
+    out = []
     for (order, d), rows in sorted(events.items()):
         if not start <= str(d) <= end:
             continue
         refs = [r['_source'] for r in rows]
         provinces = {geography(r['source_province'], province=True) for r in rows}
         rule = {SLA_DAYS.get(p) for p in provinces}
-        if len(rule) != 1 or None in rule:
-            out['no_rule'] += 1
-            out['held'].append(dict(day=str(d), reason='no_sla_rule', sources=refs))
-            continue
-        deadline = datetime.combine(d+timedelta(days=rule.pop()), time(23, 59, 59), TZ)
+        deadline = (datetime.combine(d+timedelta(days=next(iter(rule))), time(23, 59, 59), TZ)
+                    if len(rule) == 1 and None not in rule else None)
         later = [x for x in days_by_order[order] if x > d]
         until = min(later) if later else None
         succeeded, problems, raw_refs = [], set(), []
@@ -114,19 +119,43 @@ def sla_summary(data, start, end, now):
             else:
                 succeeded.append(moment)
             raw_refs.append(ref)
-        if problems:
-            out['held'].append(dict(day=str(d), reason=','.join(sorted(problems)), sources=refs+raw_refs))
+        event = dict(day=str(d), sources=refs, deadline=deadline)
+        if deadline is None:
+            event['status'] = 'no_rule_open' if not succeeded else 'no_rule_delivered'
+            event['problems'] = sorted(problems)
+        elif problems:
+            event.update(status='held', reason=','.join(sorted(problems)), sources=refs+raw_refs)
         elif not succeeded:
-            if now <= deadline:
-                out['pending'] += 1
-            else:
-                out['held'].append(dict(day=str(d), reason='no_successful_delivery_record', sources=refs))
+            event['status'] = 'pending' if now <= deadline else 'overdue'
         elif max(succeeded) <= deadline:
-            out['on_time'] += 1
+            event['status'] = 'on_time'
         else:
+            event.update(status='late', delivered=max(succeeded), sources=refs+raw_refs)
+        out.append(event)
+    return out, None
+
+
+def sla_summary(data, start, end, now):
+    """Events are GHN + Booking E day inside [start, end] (ISO dates)."""
+    out = dict(on_time=0, late=0, pending=0, held=[], late_events=[], no_rule=0)
+    events, stamp = classify_events(data, start, end, now)
+    if stamp:
+        return {**out, 'on_time_rate': None, 'complete': False, 'batch_stamp': stamp}
+    for e in events:
+        status = e['status']
+        if status.startswith('no_rule'):
+            out['no_rule'] += 1
+            out['held'].append(dict(day=e['day'], reason='no_sla_rule', sources=e['sources']))
+        elif status == 'held':
+            out['held'].append(dict(day=e['day'], reason=e['reason'], sources=e['sources']))
+        elif status == 'overdue':
+            out['held'].append(dict(day=e['day'], reason='no_successful_delivery_record', sources=e['sources']))
+        elif status == 'late':
             out['late'] += 1
-            out['late_events'].append(dict(day=str(d), delivered=max(succeeded).isoformat(timespec='minutes'),
-                deadline=deadline.isoformat(timespec='minutes'), sources=refs+raw_refs))
+            out['late_events'].append(dict(day=e['day'], delivered=e['delivered'].isoformat(timespec='minutes'),
+                deadline=e['deadline'].isoformat(timespec='minutes'), sources=e['sources']))
+        else:
+            out[status] += 1
     measured = out['on_time']+out['late']
     out['on_time_rate'] = (out['on_time']/measured) if measured else None
     out['complete'] = not out['held']

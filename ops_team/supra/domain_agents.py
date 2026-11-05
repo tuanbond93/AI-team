@@ -102,6 +102,62 @@ def workforce(report, scope, limit=12):
     return '\n'.join(lines)
 
 
+# ---------------- Vận hành ----------------
+def operations(data, scope, now, period, cutoff, limit_days=10):
+    """Volume per Booking E day and backlog (dispatched, no successful DELIVER yet).
+
+    Events are GHN + E day (owner grain). Products use quantity_summary (DO rows, additive
+    by day). Kg is shown for the whole range only, with weight_summary (same as the 13h
+    report): one GHN on several E days must not count its L twice in a per-day split.
+    Backlog statuses come from sla.classify_events, so SLA and backlog count the same events.
+    """
+    from collections import Counter, defaultdict
+    from .booking_quantity import quantity_summary
+    from .booking_weight import weight_summary
+    from .missing_data import _rows_text
+    from .sla import classify_events
+    events, stamp = classify_events(data, scope['start'], scope['end'], now)
+    rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and scope['start'] <= str(d) <= scope['end'])]
+    lines = []
+    if stamp:
+        lines.append(f'Vận hành {span(scope)}: tồn đọng N/A vì cột giờ kết thúc chuyến trên Raw là dấu thời gian hàng loạt; '
+                     'cần owner chỉ cột giờ giao thật (như /sla).')
+        return '\n'.join(lines)
+    by_day = Counter(e['day'] for e in events)
+    status = Counter(e['status'] for e in events)
+    open_events = status['pending']+status['overdue']+status['no_rule_open']
+    quantity = quantity_summary(data, rows)
+    weight = weight_summary(data, rows, period, cutoff)
+    products = quantity.get('product_units')
+    kg = weight.get('weight_kg')
+    lines.append(f'Vận hành {span(scope)}: {len(events)} đợt xuất, tồn đọng {open_events} đợt '
+                 f'({status["overdue"]} quá hạn, {status["pending"]} chưa tới hạn'
+                 +(f', {status["no_rule_open"]} ở tỉnh chưa có hạn SLA' if status['no_rule_open'] else '')+').')
+    lines.append('Sản phẩm: '+(f'{_vi_money(products)}' if products is not None else 'N/A (cột J thiếu/lỗi/lặp, xem "còn thiếu gì")')+
+                 '; kg cả khoảng: '+(f'{_vi_money(kg)} kg' if kg is not None else 'N/A (kg cột L chưa đủ cho mọi GHN)')+'.')
+    if by_day:
+        lines.append('Theo ngày xuất:')
+        days = sorted(by_day)
+        for d in days[-limit_days:]:
+            day_rows = rows[rows.dispatch_date.map(lambda x: str(x) == d)]
+            q = quantity_summary(data, day_rows).get('product_units')
+            lines.append(f'• {d[8:10]}/{d[5:7]}: {by_day[d]} đợt, '+(f'{_vi_money(q)} sản phẩm' if q is not None else 'sản phẩm N/A'))
+        if len(days) > limit_days:
+            lines.append(f'… và {len(days)-limit_days} ngày trước đó.')
+    overdue = [e for e in events if e['status'] == 'overdue']
+    if overdue:
+        groups = defaultdict(list)
+        for e in overdue:
+            groups[e['day']].extend(e['sources'])
+        lines.append('Quá hạn chưa có giao thành công trên Raw:')
+        lines += [f'• xuất {d[8:10]}/{d[5:7]}: {_rows_text(refs)}' for d, refs in sorted(groups.items())[:limit_days]]
+        lines.append('Việc cần làm: kiểm tra giao hàng các đợt trên; nếu đã giao thì Raw còn thiếu dòng DELIVER thành công.')
+    if status['held']:
+        lines.append(f'{status["held"]} đợt chưa xác định được đã giao hay chưa (cờ thành công hoặc giờ giao trên Raw lỗi).')
+    lines.append('Tồn đọng = đợt đã xuất chưa có DELIVER thành công trên Raw; hạn theo D+1/D+2 đã chốt (OWNER J5).')
+    return '\n'.join(lines)
+
+
 # ---------------- KPI ----------------
 def load_factor(evidence, scope, capacities):
     """(ratio or None, trucks counted, plates without a capacity). Owner capacity first, else one Booking T value."""

@@ -191,3 +191,81 @@ def test_import_ncc_by_telegram_document(tmp_path):
         assert 'Chỉ owner' in r.document(Incoming(GROUP_ID, 456, 2, None, 'import', 'ncc'), doc, Api())
     finally:
         state.close()
+
+
+def _ops_data():
+    from tests.test_booking_vehicles import book, parsed
+    from ops_team.supra.booking_vehicles import RAW_HEADERS
+    def b(order, when, province='Phú Thọ'):
+        row = book(order, date=when, do='DO_'+order)
+        row[9] = province
+        return row
+    def delivered(order, load, moment):
+        r = dict(load_date=load, trip_code=1, order_code=order, weight='1000', type='DELIVER', truck_plate_number='99B12345',
+                 is_succeeded='TRUE', time_ket_thuc_chuyen=moment, client_type='B2C', to_province='Phú Thọ', to_district='District 0')
+        return [r.get(k, '') for k in RAW_HEADERS]
+    books = [b('SYN_ON_TIME', '10/10/2026'), b('SYN_OVERDUE', '10/10/2026'), b('SYN_PENDING', '28/10/2026'),
+             b('SYN_NO_RULE', '12/10/2026', 'Province Synthetic'), b('SYN_LATE', '12/10/2026')]
+    raws = [delivered('SYN_ON_TIME', '2026-10-10', '2026-10-11 09:00:00'), delivered('SYN_LATE', '2026-10-12', '2026-10-15 09:00:00')]
+    return parsed(books, raws)
+
+
+def test_operations_volume_and_backlog_full_equals_halves():
+    from collections import Counter
+    from datetime import datetime
+    from tests.test_booking_vehicles import CUTOFF
+    from ops_team.supra.sla import classify_events, TZ
+    data = _ops_data()
+    now = datetime(2026, 10, 29, 10, 0, tzinfo=TZ)
+    full = {'start': '2026-10-10', 'end': '2026-10-28'}
+    halves = [{'start': '2026-10-10', 'end': '2026-10-19'}, {'start': '2026-10-20', 'end': '2026-10-28'}]
+    status = lambda sc: Counter(e['status'] for e in classify_events(data, sc['start'], sc['end'], now)[0])
+    whole = status(full)
+    assert whole == Counter(on_time=1, late=1, overdue=1, pending=1, no_rule_open=1)
+    assert sum((status(h) for h in halves), Counter()) == whole  # additive by E day
+    # Independent count of events: distinct (GHN, E day) in range from the raw Booking rows.
+    events = {(r['order_id'], str(r['dispatch_date'])) for r in data.rows.to_dict('records') if '2026-10-10' <= str(r['dispatch_date']) <= '2026-10-28'}
+    text = agents.operations(data, full, now, '2026-10', CUTOFF)
+    assert text.startswith(f'Vận hành 10/10–28/10: {len(events)} đợt xuất, tồn đọng 3 đợt (1 quá hạn, 1 chưa tới hạn, 1 ở tỉnh chưa có hạn SLA).')
+    assert 'Sản phẩm: 50' in text and 'kg cả khoảng: 12,5 kg' in text and '• 10/10: 2 đợt, 20 sản phẩm' in text
+    assert 'Quá hạn chưa có giao thành công trên Raw:' in text and 'xuất 10/10' in text
+    assert 'SYN_' not in text  # rows only, never order codes
+    parts = [agents.operations(data, h, now, '2026-10', CUTOFF) for h in halves]
+    assert parts[0].startswith('Vận hành 10/10–19/10: 4 đợt xuất, tồn đọng 2 đợt') and parts[1].startswith('Vận hành 20/10–28/10: 1 đợt xuất, tồn đọng 1 đợt')
+
+
+def test_operations_missing_quantity_is_na_not_zero():
+    from datetime import datetime
+    from tests.test_booking_vehicles import CUTOFF, book, parsed
+    from ops_team.supra.sla import TZ
+    blank = book('SYN_BLANK', date='10/10/2026', do='DO_X')
+    blank[7] = ''   # cột J trống
+    blank[8] = ''   # cột L trống
+    data = parsed([blank, book('SYN_OK', date='10/10/2026', do='DO_Y')], [])
+    text = agents.operations(data, {'start': '2026-10-10', 'end': '2026-10-10'}, datetime(2026, 10, 29, tzinfo=TZ), '2026-10', CUTOFF)
+    assert 'Sản phẩm: N/A' in text and 'kg cả khoảng: N/A' in text and 'sản phẩm N/A' in text
+    assert 'Sản phẩm: 0' not in text and 'Sản phẩm: 10' not in text  # a partial sum is not shown as the total
+
+
+def test_operations_is_owner_only_and_routed():
+    from ops_team.intent import route
+    from datetime import date
+    today = date(2026, 11, 5)
+    assert route('tồn đọng tuần này', today) == ('vanhanh', '2026-11-02 2026-11-05')
+    assert route('sản lượng hôm qua', today)[0] == 'vanhanh' and route('khối lượng hôm qua bao nhiêu', today)[0] == 'vanhanh'
+    assert route('đơn chưa giao quá hạn', today)[0] == 'vanhanh' and route('SLA hôm qua', today)[0] == 'sla'
+
+
+def test_vanhanh_command_owner_only(tmp_path, monkeypatch):
+    from ops_team.telegram_assistant import AssistantResponder
+    from ops_team.telegram_bridge import Incoming
+    from ops_team.telegram_state import GROUP_ID
+    state = BusinessState(tmp_path/'vault')
+    try:
+        r = AssistantResponder(state, {'owner_id': 123, 'models': {}})
+        monkeypatch.setattr(r, '_domain', lambda command, text: f'{command} {text}')
+        assert r.answer(Incoming(GROUP_ID, 123, 1, None, 'vanhanh', '2026-10-10 2026-10-12')) == 'vanhanh 2026-10-10 2026-10-12'
+        assert 'Chỉ owner' in r.answer(Incoming(GROUP_ID, 456, 2, None, 'vanhanh', ''))
+        assert 'owner' in r.answer(Incoming(GROUP_ID, 456, 3, None, 'ask', 'tồn đọng tuần này'))
+    finally:
+        state.close()
