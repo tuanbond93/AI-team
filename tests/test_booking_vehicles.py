@@ -2364,3 +2364,23 @@ def test_plain_messages_route_to_code_reports_without_model(tmp_path,monkeypatch
         assert 'chưa' in a.answer(Incoming(GROUP_ID,123,6,None,'ask','anh hỏi chút'))
         assert len(a.answer(Incoming(GROUP_ID,123,7,None,'ask','ok cảm ơn em')))<40
     finally:state.close()
+
+
+def test_domain_agents_run_on_paired_source_without_model(tmp_path,monkeypatch):
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    try:
+        _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+        a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+        monkeypatch.setattr(a,'_get_agent',lambda **kw:pytest.fail('domain agents cannot call model'))
+        span='2026-10-10 2026-10-20'
+        audit=a.answer(Incoming(GROUP_ID,123,1,None,'kiemtoan',span))
+        assert audit.startswith('Kiểm toán 10/10–20/10: đạt ') and 'nhóm đang giữ' in audit
+        kpi=a.answer(Incoming(GROUP_ID,123,2,None,'kpi',span))
+        assert 'Chi phí mỗi kg: N/A' in kpi and 'Tỷ lệ tải xe: N/A' in kpi and '/muctieu' in kpi
+        assert 'Chưa có bảng kê NCC' in a.answer(Incoming(GROUP_ID,123,3,None,'ketoan',span))
+        assert 'lương giao' in a.answer(Incoming(GROUP_ID,123,4,None,'nhansu',span)).casefold()
+        overview=a.answer(Incoming(GROUP_ID,123,5,None,'tongquan',span))
+        assert overview.count('\n• ')==7 and 'chưa tính được' not in overview and 'CẦN ANH' not in overview
+        assert 'chưa làm được' in a.answer(Incoming(GROUP_ID,123,6,None,'ask','kiểm toán từ 1/9/2026 đến 5/9/2026'))
+    finally:state.close()

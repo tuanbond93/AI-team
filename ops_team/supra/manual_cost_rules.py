@@ -273,6 +273,7 @@ def gxt_daily_cost(groups, daily_rate, wage_tiers):
     count = 0
     vehicle_supra = Decimal(0)
     wage_supra = Decimal(0)
+    by_group = []  # per vehicle/day detail for the workforce/accounting/audit views; sums equal the totals
     with localcontext() as ctx:
         ctx.prec = 100
         for group in groups:
@@ -299,10 +300,14 @@ def gxt_daily_cost(groups, daily_rate, wage_tiers):
             except (ValueError, TypeError):
                 held.append({'reason': 'unverified_route_key_or_weight', 'sources': group['sources']})
                 continue
-            vehicle_supra += rate * supra / (supra + other)
-            wage_supra += sum((wage_amount(str(w), wage_tiers) for w in weights), Decimal(0))
+            share = rate * supra / (supra + other)
+            wage = sum((wage_amount(str(w), wage_tiers) for w in weights), Decimal(0))
+            vehicle_supra += share
+            wage_supra += wage
             count += 1
+            by_group.append({'day': group['day'], 'vehicle': group['vehicle'], 'orders': len(orders), 'supra_kg': str(supra),
+                             'other_kg': str(other), 'vehicle_day_vnd': str(rate), 'vehicle_supra_vnd': str(share), 'wage_vnd': str(wage)})
     return {'eligible_vehicle_days': count, 'vehicle_pool_vnd': str(rate*count) if count else None,
             'vehicle_supra_vnd': str(vehicle_supra) if count else None,
             'wage_supra_vnd': str(wage_supra) if count else None,
-            'held': held, 'complete': not held, 'total_cost_vnd': None}
+            'held': held, 'complete': not held, 'total_cost_vnd': None, 'by_group': by_group}

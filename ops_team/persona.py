@@ -111,6 +111,7 @@ CHAT = {
     'unclear': ['{Me} chưa rõ {addr} muốn xem phần nào. {Me} xem được chi phí/lãi lỗ, dữ liệu còn thiếu, SLA, tình hình xe, ví dụ "chi phí tuần này" hay "SLA hôm qua".',
                 'Câu này {me} chưa bắt được ý. {Addr} cần chi phí, xe, SLA hay dữ liệu thiếu? Nói kèm ngày cũng được, kiểu "xe ngày 15/10".'],
     'refuse': ['Phần số liệu này {me} chỉ gửi cho owner. {Addr} cần thì nhờ owner hỏi giúp.'],
+    'muctieu': ['Mục tiêu KPI và tải trọng xe chỉ lưu khi owner gửi lệnh, để khỏi lưu nhầm từ câu nói thường. {Addr} gửi ví dụ /muctieu sla 95 hoặc /taitrong 29C12345 1.25t.'],
     'giugia': ['Giữ nguyên giá là thay đổi chính sách nên {me} không làm từ tin nhắn thường. {Addr} chắc rồi thì gửi đúng lệnh /giugia.'],
     'recall_none': ['{Me} không thấy ghi chép nào khớp chuyện đó nên không đoán. {Addr} nhắc lại giúp {me} là việc gì nhé.',
                     '{Me} không có ghi chú nào về việc đó. {Me} chỉ nhớ những gì {addr} bảo nhớ và các lần xem số liệu, nên không muốn đoán bừa.'],

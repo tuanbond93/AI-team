@@ -12,7 +12,7 @@ from datetime import date, timedelta
 
 
 # Common chat shorthand -> plain words (applied per token after removing accents).
-SLANG = {'ko': 'khong', 'k': 'khong', 'kh': 'khong', 'hok': 'khong', 'hong': 'khong', 'khg': 'khong', 'kg': 'khong',
+SLANG = {'ko': 'khong', 'k': 'khong', 'kh': 'khong', 'hok': 'khong', 'hong': 'khong', 'khg': 'khong',
          'dc': 'duoc', 'dk': 'duoc', 'j': 'gi', 'ji': 'gi', 'z': 'vay', 'v': 'vay', 'r': 'roi', 'vs': 'voi',
          'bn': 'bao nhieu', 'bnhieu': 'bao nhieu', 'bnh': 'bao nhieu', 'ntn': 'nhu the nao', 'cp': 'chi phi',
          'hqua': 'hom qua', 'hnay': 'hom nay', 'hum': 'hom', 'wa': 'qua', 'tks': 'cam on', 'thks': 'cam on',
@@ -23,23 +23,22 @@ SLANG = {'ko': 'khong', 'k': 'khong', 'kh': 'khong', 'hok': 'khong', 'hong': 'kh
 def _plain(text):
     text = unicodedata.normalize('NFD', str(text).casefold())
     text = ''.join(c for c in text if unicodedata.category(c) != 'Mn').replace('đ', 'd')
-    # kg after a number is a unit, not the "khong" shorthand.
     tokens = re.findall(r'->|[a-z0-9&]+(?:[/\-.>][a-z0-9]+)*|[^\sa-z0-9]', text)
-    out = []
-    for i, tok in enumerate(tokens):
-        if tok == 'kg' and i and tokens[i-1][:1].isdigit():
-            out.append(tok)
-        else:
-            out.append(SLANG.get(tok, tok))
-    return ' '.join(out)
+    return ' '.join(SLANG.get(tok, tok) for tok in tokens)
 
 
 # (intent, patterns on de-accented lowercase text); first match wins.
 INTENTS = [
     ('thieu', [r'\bthieu\b', r'bo sung', r'loi du lieu', r'kiem tra (du lieu|data)', r'check data', r'can nhap']),
+    ('muctieu', [r'\b(dat|doi|sua|set) (lai )?(muc tieu|chi tieu|kpi)\b', r'\b(dat|khai bao) tai trong\b']),
+    ('kpi', [r'\bkpi\b', r'muc tieu', r'chi tieu', r'ty le tai', r'ti le tai', r'tai xe (bao nhieu|the nao)', r'chi phi (moi|tren|/) ?(kg|don)']),
     ('sla', [r'\bsla\b', r'dung han', r'tre han', r'giao tre', r'giao muon', r'dung gio']),
     ('duyet', [r'\bduyet\b', r'cho duyet', r'cong (phan )?kg']),
     ('giugia', [r'giu (nguyen )?gia']),
+    ('tongquan', [r'tong quan', r'tinh hinh chung', r'toan canh', r'moi mang', r'tat ca cac mang']),
+    ('kiemtoan', [r'kiem toan', r'\baudit\b', r'(kiem|soat) (tra )?(lai )?(so|so lieu|con so)\b', r'so (co )?(khop|dung) khong']),
+    ('ketoan', [r'ke toan', r'hoa don', r'bang ke', r'doi soat', r'\bvat\b', r'thuc chi', r'\bncc\b.*(tien|hoa don|bang ke|thanh toan)']),
+    ('nhansu', [r'nhan su', r'(?<!khoi )(?<!san )\bluong\b', r'tien cong', r'cong giao', r'tai xe']),
     ('chiphi', [r'chi phi', r'\bton (bao nhieu|het)', r'lai (hay|hoac|hay la) lo', r'lai lo', r'\b(lai|lo) (bao nhieu|the nao|khong)\b', r'doanh thu', r'\bp ?& ?l\b', r'loi nhuan', r'\bcuoc\b', r'boc xep', r'bao nhieu tien']),
     ('xe', [r'\bxe\b', r'\bchuyen xe\b', r'bao nhieu chuyen', r'bien so', r'ty trong']),
     ('run', [r'bao cao', r'tong hop', r'\breport\b', r'tinh hinh']),
@@ -114,9 +113,9 @@ def route(text, today):
     analysis = any(re.search(p, t) for p in ANALYSIS)
     for intent, patterns in INTENTS:
         if any(re.search(p, t) for p in patterns):
-            if analysis and intent not in ('thieu', 'details', 'help', 'thanks'):
+            if analysis and intent not in ('thieu', 'details', 'help', 'thanks', 'muctieu'):
                 return None
-            args = parse_dates(text, today) if intent in ('chiphi', 'xe', 'sla', 'thieu') else ''
+            args = parse_dates(text, today) if intent in ('chiphi', 'xe', 'sla', 'thieu', 'ketoan', 'nhansu', 'kpi', 'kiemtoan', 'tongquan') else ''
             if intent == 'duyet':
                 code = re.search(r'\bp[0-9a-f]{6}\b', t)
                 args = code[0].upper() if code else ''

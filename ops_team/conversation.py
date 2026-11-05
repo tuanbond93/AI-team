@@ -23,7 +23,9 @@ from .conv_memory import ConversationMemory, is_business_rule, scope_of
 from .intent import _plain
 
 LABELS = {'chiphi': 'chi phí', 'thieu': 'danh sách dữ liệu thiếu', 'sla': 'SLA', 'xe': 'tình hình xe', 'run': 'báo cáo',
-          'details': 'chi tiết', 'duyet': 'danh sách chờ duyệt'}
+          'details': 'chi tiết', 'duyet': 'danh sách chờ duyệt', 'ketoan': 'đối soát kế toán', 'nhansu': 'lương giao',
+          'kpi': 'KPI', 'kiemtoan': 'kiểm toán', 'tongquan': 'tổng quan'}
+DATED = ('chiphi', 'thieu', 'sla', 'xe', 'ketoan', 'nhansu', 'kpi', 'kiemtoan', 'tongquan')
 WORK = set(LABELS)
 
 P = {
@@ -222,6 +224,8 @@ class Conversation:
             return say('refuse')
         if command == 'giugia':
             return say('giugia')
+        if command == 'muctieu':
+            return say('muctieu')
         from .telegram_bridge import Incoming
         reply = self.r._answer(Incoming(request.chat_id, request.user_id, request.message_id, request.topic_id, command, args))
         hint = not style.brief and not wm.get('hinted')
@@ -231,7 +235,7 @@ class Conversation:
         if opener != 'error':
             wm['last_work'] = (command, args)
             head = text.split('\n', 1)[0].rstrip(':')[:200]
-            if command in ('chiphi', 'thieu', 'sla', 'xe', 'run'):
+            if command in DATED or command == 'run':
                 self.memory.add(scope, 'episodic', head, 'code:'+command)
         if prefix:
             text = prefix+persona.lower_first(text.removeprefix('Dạ, '))

@@ -197,7 +197,15 @@ def test_browser_csv_file_guard_37_columns_count_and_no_pii_persistence(tmp_path
         state.close()
 
 
-def test_booking_plan_can_progress_without_goals_contacts_and_labels_derived_assumptions(tmp_path):
+def test_booking_plan_can_progress_without_goals_contacts_and_labels_derived_assumptions(tmp_path, monkeypatch):
+    # "Current month" must be the fixture's month, not the machine clock (failed once the clock passed October).
+    import ops_team.telegram_assistant as assistant_module
+
+    class October(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 29, 10, 0, tzinfo=tz)
+    monkeypatch.setattr(assistant_module, "datetime", October)
     state = BusinessState(tmp_path)
     try:
         pins(state)

@@ -191,3 +191,7 @@ Người không phải owner nhận lời từ chối lịch sự. Trong nhóm, 
 ## Trò chuyện tự nhiên và trí nhớ (bản mới)
 
 Tin nhắn thường đi qua `ops_team/conversation.py` theo tính cách trong `SOUL.md`. Bot hiểu câu nối tiếp ("còn hôm qua thì sao"), câu sửa ("không, ý anh là tuần trước"), câu phản bác, câu phàn nàn và câu tán gẫu; xưng hô theo người dùng; không lặp một kiểu mở đầu. Trí nhớ riêng từng người: xem bằng `/nho` hoặc "em nhớ gì về anh", xóa bằng `/quen <số>` hoặc `/quen all`. Kiến trúc, đánh giá trước/sau và rollback (`AI_TEAM_CONVERSATION=legacy`) ở `docs/CONVERSATION.md`.
+
+## Agent theo mảng
+
+`/ketoan`, `/nhansu`, `/kpi`, `/kiemtoan`, `/tongquan` (và `/muctieu`, `/taitrong`, `/import ncc`) chạy bằng code trên nguồn thật; xem `docs/DOMAIN_AGENTS.md`.
