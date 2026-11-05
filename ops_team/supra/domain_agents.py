@@ -18,6 +18,17 @@ def pct(value, places=1):
     return _vi_number(Decimal(str(value)), places)+'%' if value is not None else 'N/A'
 
 
+def aliases(evidence):
+    """{plate: 'V1'…}, the same temporary vehicle codes /xe shows; replies never print plates."""
+    out = {v['plate']: v['alias'] for v in (evidence or {}).get('inventory', []) if v.get('alias')}
+    out.update({g['plate']: g['vehicle_alias'] for g in (evidence or {}).get('groups', []) if g.get('vehicle_alias')})
+    return out
+
+
+def car(plate, names):
+    return names.get(plate, 'xe chưa có mã')
+
+
 def span(scope):
     a, b = scope['start'], scope['end']
     fmt = lambda s: s[8:10]+'/'+s[5:7]
@@ -25,7 +36,7 @@ def span(scope):
 
 
 # ---------------- Kế toán ----------------
-def accounting(report, scope, statement=None, reconciliation=None):
+def accounting(report, scope, statement=None, reconciliation=None, evidence=None):
     from .manual_cost_overlay import projected_totals
     from .ncc_invoice import VAT_RATE
     lines = []
@@ -40,6 +51,7 @@ def accounting(report, scope, statement=None, reconciliation=None):
         lines.append('Chưa có bảng kê NCC cho tháng này nên chưa đối soát thực chi. Kế toán gửi file (Excel/CSV) vào nhóm kèm chú thích /import ncc là em đối soát ngay.')
         return '\n'.join(lines)
     r = reconciliation
+    names = aliases(evidence)
     after = r['amount_vnd']+r['vat_vnd'] if r['vat_vnd'] is not None else None
     lines.append(f'Bảng kê NCC ({r["lines"]} dòng trong khoảng này): {vnd(r["amount_vnd"])} trước VAT; VAT trên bảng kê '
                  f'{vnd(r["vat_vnd"])} (8% đúng ra là {vnd(r["expected_vat_vnd"])}); sau VAT {vnd(after)}.')
@@ -51,16 +63,17 @@ def accounting(report, scope, statement=None, reconciliation=None):
     if r['duplicate_rows']:
         issues.append('trùng biển số + ngày: '+'; '.join(f'dòng {a} và {b}' for a, b in r['duplicate_rows'][:5]))
     if r['billed_without_activity']:
-        issues.append('tính tiền ngày không thấy xe chạy trong Raw: '+', '.join(f'{p} {d[8:10]}/{d[5:7]}' for p, d in r['billed_without_activity'][:8]))
+        issues.append('tính tiền ngày không thấy xe chạy trong Raw ở bảng kê dòng '+', '.join(map(str, r['billed_without_activity_rows'][:10])))
     if r['activity_not_billed']:
-        issues.append('xe có chạy nhưng chưa có trên bảng kê: '+', '.join(f'{p} {d[8:10]}/{d[5:7]}' for p, d in r['activity_not_billed'][:8]))
+        issues.append('xe có chạy nhưng chưa có trên bảng kê: '+', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in r['activity_not_billed'][:8]))
     if r['unknown_plates']:
-        issues.append('biển số không có trong Booking/Raw: '+', '.join(r['unknown_plates'][:8]))
+        issues.append('biển số không có trong Booking/Raw ở bảng kê dòng '+', '.join(map(str, r['unknown_plate_rows'][:10])))
     if r['held_rows']:
         issues.append('dòng thiếu biển/ngày/tiền chưa đọc được: '+', '.join(map(str, r['held_rows'][:10])))
     for item in r['gxt_compare']:
         if item['diff_vnd']:
-            issues.append(f'xe {item["plate"]}: bảng kê {vnd(item["billed_vnd"])} cho {item["days"]} ngày, theo giá ngày đã duyệt là {vnd(item["expected_vnd"])} (lệch {vnd(item["diff_vnd"])})')
+            issues.append(f'xe {car(item["plate"], names)} (bảng kê dòng {", ".join(map(str, item["rows"][:6]))}): {vnd(item["billed_vnd"])} cho {item["days"]} ngày, '
+                          f'theo giá ngày đã duyệt là {vnd(item["expected_vnd"])} (lệch {vnd(item["diff_vnd"])})')
     if issues:
         lines.append('Cần kế toán kiểm lại:\n'+'\n'.join('• '+i for i in issues))
     else:
@@ -70,10 +83,11 @@ def accounting(report, scope, statement=None, reconciliation=None):
 
 
 # ---------------- Nhân sự ----------------
-def workforce(report, scope, limit=12):
+def workforce(report, scope, limit=12, evidence=None):
     if not report or not report.get('available'):
         return 'Chưa tính được lương giao: bảng chi phí kỳ này chưa sẵn sàng (thiếu chính sách hoặc nguồn chưa khớp).'
     gxt = report['gxt']
+    names = aliases(evidence)
     groups = sorted(gxt.get('by_group', []), key=lambda g: (g['day'], g['vehicle']))
     lines = []
     if groups:
@@ -87,7 +101,7 @@ def workforce(report, scope, limit=12):
                      'Tính theo bậc kg của từng đơn; đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương.')
         top = sorted(groups, key=lambda g: -Decimal(g['wage_vnd']))[:limit]
         lines.append('Theo xe/ngày (cao nhất trước):')
-        lines += [f'• {g["vehicle"]} {g["day"][8:10]}/{g["day"][5:7]}: {g["orders"]} đơn, {_vi_money(g["supra_kg"])} kg, lương {vnd(g["wage_vnd"])}' for g in top]
+        lines += [f'• {car(g["vehicle"], names)} {g["day"][8:10]}/{g["day"][5:7]}: {g["orders"]} đơn, {_vi_money(g["supra_kg"])} kg, lương {vnd(g["wage_vnd"])}' for g in top]
         if len(groups) > limit:
             lines.append(f'… còn {len(groups)-limit} lượt xe/ngày khác.')
     else:
@@ -194,7 +208,8 @@ def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
     rows.append(('chiphi_don', Decimal(total)/orders if total is not None and orders else None,
                  'tổng chi phí chưa chốt: '+blockers[0] if total is None else ('không có đơn' if not orders else '')))
     load, counted, missing = load_factor(evidence, scope, capacities)
-    rows.append(('tai', load, ('chưa có tải trọng xe: '+', '.join(missing[:6])) if load is None else ''))
+    names = aliases(evidence)
+    rows.append(('tai', load, ('chưa có tải trọng xe '+', '.join(car(p, names) for p in missing[:6])+'; xem mã xe bằng /xe') if load is None else ''))
     lines = [f'KPI {span(scope)}:']
     passed = failed = 0
     for key, value, why in rows:
@@ -226,6 +241,7 @@ def audit(report, evidence, sla, scope, today=None):
     """Independent re-checks of the code's own results. Returns (passed, total, text)."""
     from .manual_cost_overlay import projected_totals
     checks = []
+    names = aliases(evidence)
     def check(name, ok, detail=''):
         checks.append((name, ok, detail))
     raw_last = evidence.get('raw_last_day')
@@ -247,11 +263,11 @@ def audit(report, evidence, sla, scope, today=None):
                 wage = sum((Decimal(g['wage_vnd']) for g in by), Decimal(0))
                 check('Lương giao = tổng từng xe/ngày', wage == Decimal(gxt['wage_supra_vnd']), f'{vnd(wage)} so với {vnd(gxt["wage_supra_vnd"])}')
                 over = [g for g in by if Decimal(g['vehicle_supra_vnd']) > Decimal(g['vehicle_day_vnd'])]
-                check('Không xe/ngày nào bị chia quá 100% tiền xe', not over, ', '.join(f'{g["vehicle"]} {g["day"]}' for g in over[:5]))
+                check('Không xe/ngày nào bị chia quá 100% tiền xe', not over, ', '.join(f'{car(g["vehicle"], names)} {g["day"]}' for g in over[:5]))
             kg_by = {(g['vehicle'], g['day']): Decimal(g['supra_kg']) for g in by}
             raw_kg = {(g['plate'], g['day']): Decimal(g['supra_kg']) for g in groups}
             diff = [k for k, v in kg_by.items() if k in raw_kg and raw_kg[k] != v]
-            check('Kg Supra trong bảng chi phí khớp kg Raw từng xe/ngày', not diff, ', '.join(f'{p} {d}' for p, d in diff[:5]))
+            check('Kg Supra trong bảng chi phí khớp kg Raw từng xe/ngày', not diff, ', '.join(f'{car(p, names)} {d}' for p, d in diff[:5]))
         total, _, blockers = projected_totals(report)
         check('Tổng dự kiến chỉ công bố khi mọi phần đủ nguồn', total is None or not blockers)
         held = len(gxt.get('held', []))+len(report['ftl'].get('held', []))+len(report['points'].get('held', []))

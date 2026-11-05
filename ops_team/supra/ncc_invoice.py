@@ -180,6 +180,10 @@ def reconcile(statement, report, evidence, start, end):
     known_plates = {p for p, _ in active} | {v['plate'] for v in evidence.get('inventory', [])}
     out['billed_without_activity'] = sorted(k for k in billed if k not in active and k[0] in {p for p, _ in active})
     out['unknown_plates'] = sorted({p for p, _ in billed} - known_plates)
+    # Statement row numbers for display: replies show rows, not plates (owner rule).
+    rows_of = lambda keys: sorted(l['row'] for l in lines if (l['plate'], str(l['day'])) in keys)
+    out['billed_without_activity_rows'] = rows_of(set(out['billed_without_activity']))
+    out['unknown_plate_rows'] = sorted(l['row'] for l in lines if l['plate'] in set(out['unknown_plates']))
     billed_plates = {p for p, _ in billed}
     out['activity_not_billed'] = sorted(k for k in active if k[0] in billed_plates and k not in billed)
     # Money check only where code has a vehicle/day rate: GXT trucks (rate × days on the statement plate).
@@ -196,5 +200,6 @@ def reconcile(statement, report, evidence, start, end):
                 counted.add(key)
                 by_plate[l['plate']][1] += rate
                 by_plate[l['plate']][2] += 1
-    out['gxt_compare'] = [{'plate': p, 'days': n, 'billed_vnd': b, 'expected_vnd': e, 'diff_vnd': b-e} for p, (b, e, n) in sorted(by_plate.items())]
+    out['gxt_compare'] = [{'plate': p, 'days': n, 'billed_vnd': b, 'expected_vnd': e, 'diff_vnd': b-e,
+                           'rows': sorted(l['row'] for l in lines if l['plate'] == p)} for p, (b, e, n) in sorted(by_plate.items())]
     return out

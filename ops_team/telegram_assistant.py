@@ -555,11 +555,11 @@ class AssistantResponder:
             if not loaded:
                 return agents.accounting(report, scope)
             statement = {"lines": [l for m in loaded for l in m["lines"]], "held": [h for m in loaded for h in m.get("held", [])]}
-            return agents.accounting(report, scope, statement, reconcile(statement, report, evidence, scope["start"], scope["end"]))
+            return agents.accounting(report, scope, statement, reconcile(statement, report, evidence, scope["start"], scope["end"]), evidence)
         if command == "ketoan":
             return accounting()
         if command == "nhansu":
-            return agents.workforce(report, scope)
+            return agents.workforce(report, scope, evidence=evidence)
         if command == "vanhanh":
             return agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"])
         if command == "kpi":
@@ -573,7 +573,7 @@ class AssistantResponder:
         for label, make in (("Chi phí", lambda: render_cost_report(report).removeprefix("Kết luận: ")),
                             ("SLA", lambda: render_sla(sla(), scope["start"], scope["end"]).split(": ", 1)[-1]),
                             ("Vận hành", lambda: agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"]).split(": ", 1)[-1]),
-                            ("Lương giao", lambda: agents.workforce(report, scope)), ("KPI", kpi),
+                            ("Lương giao", lambda: agents.workforce(report, scope, evidence=evidence)), ("KPI", kpi),
                             ("Kiểm toán", lambda: agents.audit(report, evidence, sla(), scope)[2]),
                             ("Dữ liệu thiếu", lambda: missing_checklist(report)[1] if report.get("available") else "chưa lập được danh sách"),
                             ("Kế toán", accounting)):

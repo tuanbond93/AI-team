@@ -28,10 +28,10 @@ def gxt_report(**extra):
 
 
 EVIDENCE = {'raw_last_day': '2026-10-14', 'groups': [
-    {'day': '2026-10-10', 'plate': '29C11111', 'supra_kg': '80', 'other_kg': '20', 'issues': []},
-    {'day': '2026-10-11', 'plate': '29C22222', 'supra_kg': '10', 'other_kg': '0', 'issues': []},
-    {'day': '2026-10-12', 'plate': '29C11111', 'supra_kg': '5', 'other_kg': '0', 'issues': []}],
-    'inventory': [{'plate': '29C22222', 'booking_declared_capacity_kg': ['1250']}]}
+    {'day': '2026-10-10', 'plate': '29C11111', 'supra_kg': '80', 'other_kg': '20', 'issues': [], 'vehicle_alias': 'V1'},
+    {'day': '2026-10-11', 'plate': '29C22222', 'supra_kg': '10', 'other_kg': '0', 'issues': [], 'vehicle_alias': 'V2'},
+    {'day': '2026-10-12', 'plate': '29C11111', 'supra_kg': '5', 'other_kg': '0', 'issues': [], 'vehicle_alias': 'V1'}],
+    'inventory': [{'plate': '29C22222', 'alias': 'V2', 'booking_declared_capacity_kg': ['1250']}]}
 
 
 def test_gxt_breakdown_sums_to_totals():
@@ -44,8 +44,8 @@ def test_gxt_breakdown_sums_to_totals():
 
 
 def test_workforce_lists_wage_per_truck_day_and_never_per_person():
-    text = agents.workforce(gxt_report(), SCOPE)
-    assert 'Lương giao GXT 10/10–12/10' in text and '3 đơn' in text and '29C11111 10/10: 2 đơn' in text
+    text = agents.workforce(gxt_report(), SCOPE, evidence=EVIDENCE)
+    assert 'Lương giao GXT 10/10–12/10' in text and '3 đơn' in text and 'V1 10/10: 2 đơn' in text and '29C' not in text
     assert 'BC: 3 điểm' in text and 'từng người' in text
     held = gxt_report()
     held['gxt']['held'] = [{'reason': 'x', 'sources': ['r9']}]
@@ -82,7 +82,11 @@ def test_kpi_uses_owner_targets_and_keeps_na(tmp_path):
         assert 'SLA đúng hạn: 92,0% — đạt' in text
         assert 'Chi phí mỗi kg: N/A' in text and 'Chi phí mỗi đơn: N/A' in text  # total not complete -> never a partial KPI
         # load = (100 + 10 + 5) kg over 3 truck-days × 1250 kg capacity
-        assert 'Tỷ lệ tải xe: 3,1% — CHƯA ĐẠT' in text and 'chưa phải cân thực tế' in text
+        assert 'Tỷ lệ tải xe: 3,1% — CHƯA ĐẠT' in text and 'chưa phải cân thực tế' in text and '29C' not in text
+        no_cap = agents.kpi({}, SCOPE, None, gxt_report(), None, 0, EVIDENCE, {})
+        assert 'Tỷ lệ tải xe: 0,8%' in no_cap and '29C' not in no_cap  # V2 has a Booking T capacity; V1 is listed as missing below
+        none = agents.kpi({}, SCOPE, None, gxt_report(), None, 0, {**EVIDENCE, 'inventory': []}, {})
+        assert 'chưa có tải trọng xe V1, V2' in none and '29C' not in none
     finally:
         state.close()
 
@@ -129,9 +133,10 @@ def test_ncc_statement_parse_store_and_reconcile(tmp_path):
     assert r['vat_mismatch_rows'] == [5] and r['duplicate_rows'] == [(5, 6)]
     assert r['unknown_plates'] == ['29C99999'] and r['activity_not_billed'] == [('29C11111', '2026-10-12')]
     assert {x['plate']: x['diff_vnd'] for x in r['gxt_compare']} == {'29C11111': Decimal(0), '29C22222': Decimal('1000000')}
-    text = agents.accounting(gxt_report(), SCOPE, loaded, r)
-    assert 'VAT không đúng 8% ở dòng 5' in text and 'trùng biển số + ngày' in text and '29C99999' in text
-    assert 'lệch 1.000.000đ' in text and 'dòng thiếu biển/ngày/tiền chưa đọc được: 8' in text
+    text = agents.accounting(gxt_report(), SCOPE, loaded, r, EVIDENCE)
+    assert 'VAT không đúng 8% ở dòng 5' in text and 'trùng biển số + ngày' in text and 'không có trong Booking/Raw ở bảng kê dòng 7' in text
+    assert 'xe V2 (bảng kê dòng 5, 6)' in text and 'lệch 1.000.000đ' in text and 'V1 12/10' in text
+    assert 'dòng thiếu biển/ngày/tiền chưa đọc được: 8' in text and '29C' not in text  # rows and V-codes, never plates
 
 
 def test_ncc_layout_must_be_recognisable():

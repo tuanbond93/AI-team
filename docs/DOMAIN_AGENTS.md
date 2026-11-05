@@ -56,3 +56,7 @@ Các vai trò dùng AI cũ (`/accounting`, `/workforce`, `/cost`, `/fleet`…) v
 - Tin nhóm không in số tiền mới (OWNER J9 đề xuất A); owner xem số bằng `/chiphi`.
 - Ngữ cảnh AI có `cost_report` copy nguyên các khoản từ bảng đó. Chỉ gửi khi owner tự hỏi; lượt chạy theo lịch thì không. AI chỉ giải thích, không tính lại.
 - Kiểm: cả kỳ = hai nửa kỳ cho từng khoản cộng được; khoản N/A không thành 0; lý do giống hệt `/chiphi`.
+
+## Không in biển xe (05/11/2026)
+
+Tin trả lời của các agent dùng mã xe tạm V1, V2… giống `/xe`, và số dòng Sheet / số dòng bảng kê; không in biển xe, mã GHN hay cửa hàng. Ngoại lệ duy nhất: `/taitrong` nhắc lại biển số chính owner vừa gõ và liệt kê tải trọng owner đã khai báo (cấu hình của owner, chỉ owner gọi được).
