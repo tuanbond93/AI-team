@@ -141,13 +141,15 @@ def people_lines(report, scope, roster, timesheet, evidence, limit=12):
     if roster is None:
         out.append('Theo từng người: N/A — cần danh sách tài xế–xe theo ngày (owner/điều phối gửi file, chú thích /import taixe).')
     else:
-        wages, shared, unassigned = per_person_wage(report, roster, scope)
+        wages, shared, unassigned, left = per_person_wage(report, roster, scope)
         if wages:
             out.append('Lương giao theo người (từ lương xe/ngày ở trên):')
             out += [f'• {person}: {vnd(w)}' for person, w in sorted(wages.items(), key=lambda kv: -kv[1])[:limit]]
         if shared:
-            out.append(f'{len(shared)} xe/ngày có từ 2 người trở lên nên chưa chia (N/A, chờ owner chốt J10): '
-                       +', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in shared[:6]))
+            out.append(f'{len(shared)} xe/ngày có từ 2 người trở lên mà đơn chưa gán ID người (J10): '
+                       +', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in shared[:6])+'. Thêm cột mã đơn vào danh sách để tính đúng người.')
+        if left:
+            out.append(f'Lương chưa gán được người: {vnd(left)} (N/A theo người, vẫn nằm trong tổng lương giao).')
         if unassigned:
             out.append(f'{len(unassigned)} xe/ngày chưa có người trong danh sách: '+', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in unassigned[:6]))
     if timesheet is None:

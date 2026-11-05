@@ -463,15 +463,17 @@ def test_per_person_wage_conserves_vehicle_day_wages_and_full_equals_halves():
     roster = parse_roster(('Ngày,Biển số xe,Nhân viên\n10/10/2026,29C-111.11,NV A\n11/10/2026,29C-222.22,NV B\n'
                            '11/10/2026,29C-222.22,NV C\n12/10/2026,,NV D\n').encode(), 'r.csv')
     assert roster['held'] == [{'row': 5, 'missing': ['plate']}]
-    wages, shared, unassigned = per_person_wage(report, roster, SCOPE)
+    wages, shared, unassigned, left = per_person_wage(report, roster, SCOPE)
     by = {(g['vehicle'], g['day']): Decimal(g['wage_vnd']) for g in report['gxt']['by_group']}
     assert wages == {'NV A': by[('29C11111', '2026-10-10')]} and shared == [('29C22222', '2026-10-11')] and unassigned == []
-    assert sum(wages.values())+sum(by[k] for k in shared+unassigned) == Decimal(report['gxt']['wage_supra_vnd'])  # nothing lost or doubled
+    assert left == by[('29C22222', '2026-10-11')]
+    assert sum(wages.values())+left == Decimal(report['gxt']['wage_supra_vnd'])  # nothing lost or doubled
     halves = [per_person_wage(report, roster, {'start': '2026-10-10', 'end': '2026-10-10'})[0],
               per_person_wage(report, roster, {'start': '2026-10-11', 'end': '2026-10-12'})[0]]
     assert sum((sum(h.values(), Decimal(0)) for h in halves), Decimal(0)) == sum(wages.values())
     text = agents.workforce(report, SCOPE, evidence=EVIDENCE, roster=roster)
-    assert '• NV A:' in text and '1 xe/ngày có từ 2 người trở lên nên chưa chia (N/A, chờ owner chốt J10): V2 11/10' in text
+    assert '• NV A:' in text and '1 xe/ngày có từ 2 người trở lên mà đơn chưa gán ID người (J10): V2 11/10' in text
+    assert 'Lương chưa gán được người:' in text
     assert 'OT, năng suất, tỷ lệ lỗi: N/A' in text and '29C' not in text
     assert 'Theo từng người: N/A' in agents.workforce(report, SCOPE, evidence=EVIDENCE)
 
@@ -580,3 +582,18 @@ def test_ai_roles_answer_with_code_agents_when_no_model(tmp_path, monkeypatch):
             assert 'Chỉ owner' in r.answer(Incoming(GROUP_ID, 456, 2, None, role, ''))
     finally:
         state.close()
+
+
+
+def test_wage_follows_the_person_id_assigned_to_each_order():
+    """Owner J10: two people on one vehicle/day; each order's wage goes to whoever is assigned that order."""
+    from ops_team.supra.workforce_data import parse_roster, per_person_wage
+    report = gxt_report()  # 29C11111 on 10/10 carries orders A (20 kg) and B (60 kg)
+    order_wage = {k: Decimal(v['wage_vnd']) for g in report['gxt']['by_group'] for k, v in g['order_costs'].items()}
+    assert order_wage == {'A': Decimal(5000), 'B': Decimal(9000), 'C': Decimal(5000)}
+    roster = parse_roster(('Ngày,Biển số xe,Nhân viên,Mã đơn\n10/10/2026,29C-111.11,NV A,A\n10/10/2026,29C-111.11,NV B,B\n'
+                           '11/10/2026,29C-222.22,NV C,\n').encode(), 'r.csv')
+    wages, shared, unassigned, left = per_person_wage(report, roster, SCOPE)
+    assert wages == {'NV A': Decimal(5000), 'NV B': Decimal(9000), 'NV C': Decimal(5000)} and left == 0 and not shared and not unassigned
+    vehicle = sum(Decimal(v['vehicle_vnd']) for g in report['gxt']['by_group'] for v in g['order_costs'].values())
+    assert vehicle == Decimal(report['gxt']['vehicle_supra_vnd'])  # per-order vehicle shares add up to the Supra share

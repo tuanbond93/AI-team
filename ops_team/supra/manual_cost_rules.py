@@ -301,12 +301,16 @@ def gxt_daily_cost(groups, daily_rate, wage_tiers):
                 held.append({'reason': 'unverified_route_key_or_weight', 'sources': group['sources']})
                 continue
             share = rate * supra / (supra + other)
-            wage = sum((wage_amount(str(w), wage_tiers) for w in weights), Decimal(0))
+            order_wages = {k: wage_amount(str(_number(v)), wage_tiers) for k, v in orders.items()}
+            wage = sum(order_wages.values(), Decimal(0))
             vehicle_supra += share
             wage_supra += wage
             count += 1
             by_group.append({'day': group['day'], 'vehicle': group['vehicle'], 'orders': len(orders), 'supra_kg': str(supra),
-                             'other_kg': str(other), 'vehicle_day_vnd': str(rate), 'vehicle_supra_vnd': str(share), 'wage_vnd': str(wage)})
+                             'other_kg': str(other), 'vehicle_day_vnd': str(rate), 'vehicle_supra_vnd': str(share), 'wage_vnd': str(wage),
+                             # per order (internal, never printed): its kg share of the vehicle and its own tier wage
+                             'order_costs': {k: {'vehicle_vnd': str(rate*_number(v)/(supra+other)), 'wage_vnd': str(order_wages[k])}
+                                             for k, v in orders.items()}})
     return {'eligible_vehicle_days': count, 'vehicle_pool_vnd': str(rate*count) if count else None,
             'vehicle_supra_vnd': str(vehicle_supra) if count else None,
             'wage_supra_vnd': str(wage_supra) if count else None,

@@ -14,6 +14,7 @@ from collections import defaultdict
 from decimal import Decimal, localcontext
 import hashlib
 
+from .booking_quantity import business_key
 from .booking_vehicles import plate as parse_plate
 from .ncc_invoice import _day, money, table_rows
 
@@ -22,6 +23,7 @@ ROSTER = {
     'plate': ['bien so', 'bien so xe', 'bien xe', 'so xe', 'bks', 'xe'],
     'person': ['nhan vien', 'ten nhan vien', 'tai xe', 'ho ten', 'ma nhan vien', 'ma nv', 'nguoi giao'],
     'role': ['vai tro', 'chuc vu', 'vi tri'],
+    'order': ['ma don', 'ma ghn', 'ma don ghn', 'ghn', 'don hang'],  # owner J10: wage goes to the person whose ID is on the order
 }
 TIMESHEET = {
     'day': ['ngay', 'ngay lam', 'ngay cong'],
@@ -41,7 +43,7 @@ def parse_roster(data, name):
     lines, held = [], []
     for offset, get, cols in table_rows(data, name, ROSTER, ('day', 'plate', 'person'), ident='person'):
         line = {'row': offset, 'day': _day(get('day')), 'plate': parse_plate(get('plate')), 'person': person_key(get('person')),
-                'role': person_key(get('role'))}
+                'role': person_key(get('role')), 'order': business_key(get('order')) if 'order' in cols else ''}
         missing = [k for k in ('day', 'plate', 'person') if not line[k]]
         (held.append({'row': offset, 'missing': missing}) if missing else lines.append(line))
     if not lines:
@@ -65,23 +67,36 @@ def parse_timesheet(data, name):
 
 
 def per_person_wage(report, roster, scope):
-    """{person: wage} from the /chiphi GXT wage per vehicle/day; vehicle/days with 0 or 2+ people are listed, not split."""
-    people = defaultdict(set)
+    """(wages, shared, unassigned, left_vnd) from the /chiphi GXT wage of each order.
+
+    Owner J10: an order assigned to a person ID (roster "mã đơn") pays that person. Other
+    orders of a vehicle/day go to its one listed person; with two or more people and no
+    order assignment, or nobody listed, they stay unpaid here (N/A) and are counted in left_vnd.
+    shared / unassigned list those vehicle/days. wages + left_vnd = the GXT wage total.
+    """
+    by_order, by_vehicle = defaultdict(set), defaultdict(set)
     for l in roster['lines']:
         if scope['start'] <= str(l['day']) <= scope['end']:
-            people[(l['plate'], str(l['day']))].add(l['person'])
-    wages, shared, unassigned = defaultdict(lambda: Decimal(0)), [], []
+            if l.get('order'):
+                by_order[l['order']].add(l['person'])
+            else:
+                by_vehicle[(l['plate'], str(l['day']))].add(l['person'])
+    wages, shared, unassigned, left = defaultdict(lambda: Decimal(0)), [], [], Decimal(0)
     with localcontext() as ctx:
         ctx.prec = 60
         for g in (report or {}).get('gxt', {}).get('by_group', []):
-            names = people.get((g['vehicle'], g['day']), set())
-            if len(names) == 1:
-                wages[next(iter(names))] += Decimal(g['wage_vnd'])
-            elif names:
-                shared.append((g['vehicle'], g['day']))
-            else:
-                unassigned.append((g['vehicle'], g['day']))
-    return dict(wages), shared, unassigned
+            names = by_vehicle.get((g['vehicle'], g['day']), set())
+            open_wage = Decimal(0)
+            for order, cost in g.get('order_costs', {}).items():
+                assigned = by_order.get(business_key(order), set()) or (names if len(names) == 1 else set())
+                if len(assigned) == 1:
+                    wages[next(iter(assigned))] += Decimal(cost['wage_vnd'])
+                else:
+                    open_wage += Decimal(cost['wage_vnd'])
+            if open_wage:
+                left += open_wage
+                (shared if names else unassigned).append((g['vehicle'], g['day']))
+    return dict(wages), shared, unassigned, left
 
 
 def timesheet_metrics(sheet, scope):
