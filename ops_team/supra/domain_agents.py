@@ -242,8 +242,30 @@ def kpi_goal(row):
     return f'mục tiêu {"≥" if row["sense"] == "min" else "≤"} {goal}'
 
 
-def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
+def previous_scope(scope):
+    """The same-length window just before ``scope`` (OWNER J7 proposal A)."""
+    from datetime import date, timedelta
+    start, end = date.fromisoformat(scope['start']), date.fromisoformat(scope['end'])
+    prev_end = start-timedelta(days=1)
+    return {'start': str(prev_end-(end-start)), 'end': str(prev_end)}
+
+
+def kpi_delta(row, before):
+    """'tăng 2,0 điểm %' / 'giảm 150đ/kg' versus the previous window, or None when either side is N/A."""
+    if row['value'] is None or before is None or before['value'] is None:
+        return None
+    diff = row['value']-before['value']
+    if not diff:
+        return 'không đổi'
+    word = 'tăng' if diff > 0 else 'giảm'
+    amount = _vi_number(abs(diff), 1)+' điểm %' if row['unit'] == '%' else vnd(abs(diff))+row['unit'][1:]
+    return f'{word} {amount}'
+
+
+def kpi(targets, scope, sla, report, weight, orders, evidence, capacities, previous=None):
+    """previous: {'scope', 'rows'} for the window before, or {'scope', 'reason'} when it cannot be computed."""
     rows, meta = kpi_rows(targets, scope, sla, report, weight, orders, evidence, capacities)
+    before = {r['key']: r for r in (previous or {}).get('rows', [])}
     load, counted, missing = meta['load'], meta['counted'], meta['missing']
     lines = [f'KPI {span(scope)}:']
     passed = sum(r['ok'] is True for r in rows)
@@ -254,7 +276,16 @@ def kpi(targets, scope, sla, report, weight, orders, evidence, capacities):
             verdict = (' — đạt' if r['ok'] else ' — CHƯA ĐẠT')+f' ({kpi_goal(r)})'
         elif r['value'] is not None:
             verdict = ' — chưa đặt mục tiêu'
-        lines.append(f'• {r["name"]}: {kpi_value(r)}{verdict}'+(f' ({r["why"]})' if r['why'] else ''))
+        delta = kpi_delta(r, before.get(r['key'])) if before else None
+        trend = f'; so với kỳ trước {delta}' if delta else ''
+        lines.append(f'• {r["name"]}: {kpi_value(r)}{verdict}{trend}'+(f' ({r["why"]})' if r['why'] else ''))
+    misses = [r for r in rows if r['ok'] is False]
+    if misses:
+        lines.insert(1, 'Cảnh báo: '+'; '.join(f'{r["name"]} {kpi_value(r)}, {kpi_goal(r)}' for r in misses)+'.')
+    if previous:
+        ps = previous['scope']
+        lines.append(f'Kỳ trước để so sánh: {span(ps)} (cùng số ngày, đề xuất J7)'+
+                     (f'; chưa so được vì {previous["reason"]}.' if previous.get('reason') else '. Chỉ số N/A ở một trong hai kỳ thì không so.'))
     if load is not None and missing:
         lines.append(f'Tỷ lệ tải tính trên {counted} lượt xe/ngày có tải trọng; {len(missing)} xe chưa có tải trọng nên chưa tính.')
     if load is not None:

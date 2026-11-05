@@ -334,3 +334,34 @@ def test_tongquan_is_owner_only(tmp_path, monkeypatch):
         assert 'Chỉ owner' in r.answer(Incoming(GROUP_ID, 456, 2, None, 'tongquan', ''))
     finally:
         state.close()
+
+
+def test_kpi_trend_and_alert():
+    assert agents.previous_scope({'start': '2026-10-16', 'end': '2026-10-20'}) == {'start': '2026-10-11', 'end': '2026-10-15'}
+    assert agents.previous_scope({'start': '2026-10-10', 'end': '2026-10-10'}) == {'start': '2026-10-09', 'end': '2026-10-09'}
+    targets = {'sla': {'value': Decimal(95)}}
+    prev_rows = agents.kpi_rows(targets, SCOPE, {'on_time_rate': 0.9}, gxt_report(), None, 0, EVIDENCE, {})[0]
+    text = agents.kpi(targets, SCOPE, {'on_time_rate': 0.8}, gxt_report(), None, 0, EVIDENCE, {},
+                      previous={'scope': {'start': '2026-10-07', 'end': '2026-10-09'}, 'rows': prev_rows})
+    lines = text.split('\n')
+    assert lines[1] == 'Cảnh báo: SLA đúng hạn 80,0%, mục tiêu ≥ 95%.'
+    assert '• SLA đúng hạn: 80,0% — CHƯA ĐẠT (mục tiêu ≥ 95%); so với kỳ trước giảm 10,0 điểm %' in text
+    assert 'so với kỳ trước' not in next(l for l in lines if l.startswith('• Chi phí mỗi kg'))  # N/A on both sides: no trend
+    assert 'Kỳ trước để so sánh: 07/10–09/10 (cùng số ngày, đề xuất J7)' in text
+    na_prev = agents.kpi(targets, SCOPE, {'on_time_rate': 0.8}, gxt_report(), None, 0, EVIDENCE, {},
+                         previous={'scope': {'start': '2026-09-28', 'end': '2026-09-30'}, 'reason': 'kỳ trước nằm ngoài tháng/kỳ dữ liệu đang chọn'})
+    assert 'so với kỳ trước' not in na_prev and 'chưa so được vì kỳ trước nằm ngoài tháng' in na_prev
+    ok = agents.kpi(targets, SCOPE, {'on_time_rate': 0.97}, gxt_report(), None, 0, EVIDENCE, {})
+    assert 'Cảnh báo' not in ok and '— đạt' in ok
+
+
+def test_sla_rate_whole_equals_combined_halves_counts():
+    from datetime import datetime
+    from ops_team.supra.sla import sla_summary, TZ
+    data = _ops_data()
+    now = datetime(2026, 10, 29, 10, 0, tzinfo=TZ)
+    whole = sla_summary(data, '2026-10-10', '2026-10-28', now)
+    halves = [sla_summary(data, '2026-10-10', '2026-10-19', now), sla_summary(data, '2026-10-20', '2026-10-28', now)]
+    on_time, late = sum(h['on_time'] for h in halves), sum(h['late'] for h in halves)
+    assert (whole['on_time'], whole['late']) == (on_time, late) == (1, 1)
+    assert whole['on_time_rate'] == on_time/(on_time+late) == 0.5

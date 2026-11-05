@@ -532,7 +532,7 @@ class AssistantResponder:
         if not scope["start"] or not scope["end"]:
             raise ValueError("chưa xác định khoảng ngày; thêm ngày, ví dụ \"tuần này\" hoặc 2026-10-01 2026-10-22.")
         report = manual_cost_report(self._policy_state(period), data, evidence, source, facts, self.owner, scope["start"]+" "+scope["end"])
-        return dict(data=data, evidence=evidence, report=report, scope=scope, period=period, cutoff=cutoff)
+        return dict(data=data, evidence=evidence, report=report, scope=scope, period=period, cutoff=cutoff, source=source, facts=facts)
 
     def _domain(self, command, text):
         from .supra import domain_agents as agents
@@ -543,11 +543,23 @@ class AssistantResponder:
         scope, report, evidence, data = x["scope"], x["report"], x["evidence"], x["data"]
         def sla():
             return sla_summary(data, scope["start"], scope["end"], datetime.now(TZ))
-        def kpi():
-            rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and scope["start"] <= str(d) <= scope["end"])]
-            weight = weight_summary(data, rows, x["period"], x["cutoff"])
+        def kpi_args(sc, rep):
+            rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and sc["start"] <= str(d) <= sc["end"])]
             store = KpiStore(self.state)
-            return agents.kpi(store.targets(), scope, sla(), report, weight, len(set(rows.order_id)-{""}), evidence, store.capacities())
+            return (store.targets(), sc, sla_summary(data, sc["start"], sc["end"], datetime.now(TZ)), rep,
+                    weight_summary(data, rows, x["period"], x["cutoff"]), len(set(rows.order_id)-{""}), evidence, store.capacities())
+        def kpi():
+            from .supra.manual_cost_report import manual_cost_report
+            from .supra.vehicle_report import vehicle_scope
+            prev = agents.previous_scope(scope)
+            try:
+                vehicle_scope(evidence, prev["start"]+" "+prev["end"])  # same period and cutoff as the current window
+                prev_report = manual_cost_report(self._policy_state(x["period"]), data, evidence, x["source"], x["facts"], self.owner,
+                                                 prev["start"]+" "+prev["end"])
+                previous = {"scope": prev, "rows": agents.kpi_rows(*kpi_args(prev, prev_report))[0]}
+            except ValueError:
+                previous = {"scope": prev, "reason": "kỳ trước nằm ngoài tháng/kỳ dữ liệu đang chọn"}
+            return agents.kpi(*kpi_args(scope, report), previous=previous)
         def accounting():
             from .supra.ncc_invoice import load_statement, reconcile
             months = sorted({scope["start"][:7], scope["end"][:7]})

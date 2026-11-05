@@ -2378,6 +2378,9 @@ def test_domain_agents_run_on_paired_source_without_model(tmp_path,monkeypatch):
         assert audit.startswith('Kiểm toán 10/10–20/10: đạt ') and 'nhóm đang giữ' in audit
         kpi=a.answer(Incoming(GROUP_ID,123,2,None,'kpi',span))
         assert 'Chi phí mỗi kg: N/A' in kpi and 'Tỷ lệ tải xe: N/A' in kpi and '/muctieu' in kpi
+        assert 'Kỳ trước để so sánh: 29/09–09/10' in kpi and 'chưa so được vì kỳ trước nằm ngoài tháng' in kpi
+        later=a.answer(Incoming(GROUP_ID,123,7,None,'kpi','2026-10-16 2026-10-20'))
+        assert 'Kỳ trước để so sánh: 11/10–15/10 (cùng số ngày, đề xuất J7). Chỉ số N/A' in later
         assert 'Chưa có bảng kê NCC' in a.answer(Incoming(GROUP_ID,123,3,None,'ketoan',span))
         assert 'lương giao' in a.answer(Incoming(GROUP_ID,123,4,None,'nhansu',span)).casefold()
         overview=a.answer(Incoming(GROUP_ID,123,5,None,'tongquan',span))
