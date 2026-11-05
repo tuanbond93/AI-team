@@ -32,6 +32,7 @@ INTENTS = [
     ('thieu', [r'\bthieu\b', r'bo sung', r'loi du lieu', r'kiem tra (du lieu|data)', r'check data', r'can nhap']),
     ('muctieu', [r'\b(dat|doi|sua|set) (lai )?(muc tieu|chi tieu|kpi)\b', r'\b(dat|khai bao) tai trong\b']),
     ('kpi', [r'\bkpi\b', r'muc tieu', r'chi tieu', r'ty le tai', r'ti le tai', r'tai xe (bao nhieu|the nao)', r'chi phi (moi|tren|/) ?(kg|don)']),
+    ('doixe', [r'doi xe', r'xe rong', r'km rong', r'gio cho', r'nhat trinh', r'chi phi (moi |/ ?|tren )?chuyen', r'du bao (xe|nhu cau)', r'bao nhieu km']),
     ('vanhanh', [r'van hanh', r'san luong', r'ton dong', r'\bbacklog\b', r'chua giao', r'qua han', r'khoi luong', r'(bao nhieu|so) (don|dot) (xuat|da xuat|giao)']),
     ('sla', [r'\bsla\b', r'dung han', r'tre han', r'giao tre', r'giao muon', r'dung gio']),
     ('duyet', [r'\bduyet\b', r'cho duyet', r'cong (phan )?kg']),
@@ -116,7 +117,7 @@ def route(text, today):
         if any(re.search(p, t) for p in patterns):
             if analysis and intent not in ('thieu', 'details', 'help', 'thanks', 'muctieu'):
                 return None
-            args = parse_dates(text, today) if intent in ('chiphi', 'xe', 'sla', 'thieu', 'ketoan', 'nhansu', 'kpi', 'kiemtoan', 'tongquan', 'vanhanh') else ''
+            args = parse_dates(text, today) if intent in ('chiphi', 'xe', 'sla', 'thieu', 'ketoan', 'nhansu', 'kpi', 'kiemtoan', 'tongquan', 'vanhanh', 'doixe') else ''
             if intent == 'duyet':
                 code = re.search(r'\bp[0-9a-f]{6}\b', t)
                 args = code[0].upper() if code else ''

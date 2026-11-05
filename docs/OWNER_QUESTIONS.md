@@ -140,6 +140,14 @@ J9. ⚠ Báo cáo 13h gửi vào nhóm: có in số tiền chi phí/lãi lỗ d�
    A. Không; nhóm chỉ thấy tình trạng (đã đủ nguồn hay chưa, vì sao). Owner xem số bằng `/chiphi` **(đề xuất, đang áp dụng)**
    B. Có, in đúng câu tổng dự kiến của `/chiphi` trong tin nhóm
 
+J10. ⚠ Lương giao theo người: một xe/ngày có hai người trở lên trong danh sách tài xế–xe thì chia lương giao của xe/ngày đó thế nào?
+   A. Giữ N/A cho xe/ngày đó, báo owner phân chia **(đề xuất, đang áp dụng)**
+   B. Chia đều cho số người
+   C. Theo vai trò (lái/phụ) với tỷ lệ: …
+J11. ℹ OT, năng suất, tỷ lệ lỗi từ file chấm công: dùng công thức có sẵn trong app (OT = giờ OT ÷ tổng giờ; năng suất = sản lượng xử lý ÷ tổng giờ; lỗi = số lỗi ÷ sản lượng xử lý)?
+   A. Đồng ý **(đề xuất; đang hiển thị kèm ghi chú chờ xác nhận)**
+   B. Khác: …
+
 ## Ghi nhận câu trả lời
 
 | Câu | Trả lời | Ngày | Đã đưa vào code/policy |

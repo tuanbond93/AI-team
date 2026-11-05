@@ -12,8 +12,9 @@ Hiện có 9 mảng; 4 mảng có từ trước, 5 mảng làm thêm đợt này
 | Dữ liệu thiếu | `/thieu` | "còn thiếu gì không" | (đã có) | |
 | **Vận hành** | `/vanhanh` | "tồn đọng tuần này", "sản lượng hôm qua" | Số đợt (GHN + ngày E) và sản phẩm theo ngày xuất; kg cho cả khoảng (cùng hàm báo cáo 13h). Tồn đọng = đã xuất chưa có DELIVER thành công trên Raw, chia quá hạn / chưa tới hạn theo D+1/D+2 đã chốt; dùng chung phân loại đợt với `/sla`. Quá hạn liệt kê số dòng Sheet. | Owner xác nhận định nghĩa tồn đọng (J5) |
 | **Kế toán** | `/ketoan` | "đối soát kế toán tháng 10" | Dự kiến trước VAT, VAT 8%, sau VAT; doanh thu và lãi gộp dự kiến (chỉ khi mọi phần đủ nguồn, cùng bảng `/chiphi`). Nhật trình km: tổng km, ngày có km mà Raw không thấy xe chạy, xe chạy mà chưa có trong nhật trình. Đối soát bảng kê NCC: VAT đúng 8%, tổng sau VAT, trùng biển+ngày, ngày tính tiền không thấy xe chạy, xe chạy chưa có trên bảng kê, biển lạ. Tiền xe GXT so với giá ngày đã duyệt, tính một lần mỗi xe/ngày. | Bảng kê NCC thật (kế toán gửi cuối tháng); nhật trình km cho FTL/NCC |
-| **Nhân sự** | `/nhansu` | "lương giao tuần này" | Lương giao GXT theo xe/ngày: số đơn, kg, tiền theo bậc kg từng đơn. Đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương. Điểm giao BC tách riêng. | Danh sách nhân viên/tài xế theo xe để tính theo từng người |
+| **Nhân sự** | `/nhansu` | "lương giao tuần này" | Lương giao GXT theo xe/ngày: số đơn, kg, tiền theo bậc kg từng đơn. Đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương. Điểm giao BC tách riêng. | Theo người: cần danh sách tài xế–xe (`/import taixe`); xe/ngày có 2+ người giữ N/A chờ J10. OT, năng suất, lỗi: cần chấm công (`/import chamcong`), công thức có sẵn chờ J11 |
 | **KPI** | `/kpi` | "KPI tháng 10", "tỷ lệ tải xe" | SLA %, chi phí/kg, chi phí/đơn, tỷ lệ tải. Chấm đạt/chưa đạt theo mục tiêu owner đặt; dòng "Cảnh báo" khi không đạt (J6). Xu hướng so với khoảng ngay trước cùng số ngày (J7); kỳ trước sang tháng khác hoặc chỉ số N/A ở một bên thì không so. Chi phí/kg và chi phí/đơn chỉ có khi tổng chi phí đã chốt, không dùng tổng tạm. | Mục tiêu (`/muctieu`), tải trọng xe S (`/taitrong`); OT và tỷ lệ xe rỗng chờ dữ liệu (xem Nhân sự, Đội xe) |
+| **Đội xe** | `/doixe` | "đội xe tuần này", "giờ chờ xe" | Lượt xe/ngày và số xe trên Raw, tỷ lệ tải (như `/kpi`), tổng km, km rỗng, giờ chờ theo nhật trình; tỷ lệ km rỗng theo đề xuất J4 | Nhật trình km (NCC); chi phí/chuyến chờ J2; dự báo chờ J3 |
 | **Kiểm toán** | `/kiemtoan` | "kiểm toán lại số", "số có khớp không" | Tính lại độc lập: tổng tiền xe/lương = tổng từng xe/ngày; phần Supra không vượt tiền xe; kg bảng chi phí khớp kg Raw; Raw cập nhật đủ; tổng chỉ công bố khi đủ nguồn; còn nhóm giữ riêng; dấu thời gian hàng loạt (SLA). | Chưa thay đối soát chứng từ |
 | **Điều phối** | `/tongquan` | "tổng quan tuần này" | Báo cáo ngày: kết luận (số việc, tình trạng tổng chi phí, tồn đọng); việc ưu tiên xếp theo: dữ liệu chặn tổng chi phí (tách việc owner quyết với việc CS / điều phối GXT bổ sung), đơn quá hạn, KPI chưa đạt, kiểm toán chưa đạt; mục cần bổ sung (bảng kê NCC, nhật trình km, mục tiêu KPI, tải trọng xe) kèm người gửi; số chính mỗi mảng. Một mảng lỗi không chặn cả báo cáo. | Người phụ trách là đề xuất, chờ owner chốt (J8). Báo cáo lịch 13h chưa đổi theo mẫu này (cần owner duyệt) |
 
@@ -70,3 +71,11 @@ NCC gửi file `.xlsx`/`.csv` vào nhóm, chú thích `/import km`. Mẫu: `docs
 - Cột vắng hoặc có ô trống: tổng của cột đó là N/A.
 - Tiền theo km vẫn N/A tới khi có biểu giá km (câu 17).
 - Lưu mã hóa DPAPI theo tháng (`km/`), tách khỏi bảng kê (`ncc/`).
+
+## Danh sách tài xế–xe và chấm công (05/11/2026)
+
+Mẫu: `docs/templates/tai_xe_xe_mau.csv` (ngày, biển số, nhân viên, vai trò) và `docs/templates/cham_cong_mau.csv` (ngày, nhân viên, giờ thường, giờ OT, sản lượng xử lý, số lỗi). Gửi kèm chú thích `/import taixe` hoặc `/import chamcong`; chỉ owner gửi được; lưu DPAPI theo tháng.
+
+- Lương theo người = lương giao GXT của xe/ngày người đó đi, lấy từ bảng `/chiphi`. Tổng lương theo người + phần chưa chia = đúng tổng lương xe/ngày.
+- Xe/ngày có 2 người trở lên: giữ N/A (J10). Xe/ngày không có người trong danh sách: liệt kê bằng mã xe V.
+- Tên nhân viên in đúng như trong file owner gửi (chỉ owner xem).

@@ -131,7 +131,7 @@ def _decode(text):
     statement = json.loads(text)
     for line in statement['lines']:
         line['day'] = date.fromisoformat(line['day'])
-        for k in ('amount_vnd', 'vat_vnd', 'total_vnd', 'trips', 'km', 'empty_km', 'wait_hours'):
+        for k in ('amount_vnd', 'vat_vnd', 'total_vnd', 'trips', 'km', 'empty_km', 'wait_hours', 'regular_hours', 'ot_hours', 'processed', 'defects'):
             if k in line:
                 line[k] = Decimal(line[k]) if line[k] is not None else None
     return statement

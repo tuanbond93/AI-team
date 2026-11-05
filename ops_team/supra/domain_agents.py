@@ -101,7 +101,7 @@ def km_text(km, evidence):
 
 
 # ---------------- Nhân sự ----------------
-def workforce(report, scope, limit=12, evidence=None):
+def workforce(report, scope, limit=12, evidence=None, roster=None, timesheet=None):
     if not report or not report.get('available'):
         return 'Chưa tính được lương giao: bảng chi phí kỳ này chưa sẵn sàng (thiếu chính sách hoặc nguồn chưa khớp).'
     gxt = report['gxt']
@@ -130,8 +130,38 @@ def workforce(report, scope, limit=12, evidence=None):
     count = sum((points.get('counts') or {}).values())
     if count:
         lines.append(f'Điểm giao BC: {count} điểm, phí {vnd(points.get("eligible_vnd"))} (trả BC theo điểm, không phải lương GXT).')
-    lines.append('Chưa có tên nhân viên/tài xế theo xe nên chưa tính được theo từng người.')
+    lines += people_lines(report, scope, roster, timesheet, evidence)
     return '\n'.join(lines)
+
+
+def people_lines(report, scope, roster, timesheet, evidence, limit=12):
+    from .workforce_data import per_person_wage, timesheet_metrics
+    names = aliases(evidence)
+    out = []
+    if roster is None:
+        out.append('Theo từng người: N/A — cần danh sách tài xế–xe theo ngày (owner/điều phối gửi file, chú thích /import taixe).')
+    else:
+        wages, shared, unassigned = per_person_wage(report, roster, scope)
+        if wages:
+            out.append('Lương giao theo người (từ lương xe/ngày ở trên):')
+            out += [f'• {person}: {vnd(w)}' for person, w in sorted(wages.items(), key=lambda kv: -kv[1])[:limit]]
+        if shared:
+            out.append(f'{len(shared)} xe/ngày có từ 2 người trở lên nên chưa chia (N/A, chờ owner chốt J10): '
+                       +', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in shared[:6]))
+        if unassigned:
+            out.append(f'{len(unassigned)} xe/ngày chưa có người trong danh sách: '+', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in unassigned[:6]))
+    if timesheet is None:
+        out.append('OT, năng suất, tỷ lệ lỗi: N/A — chưa có chấm công (owner gửi file, chú thích /import chamcong).')
+    else:
+        m = timesheet_metrics(timesheet, scope)
+        def show(value, unit):
+            return (pct(value) if unit == '%' else _vi_number(value, 2)+unit) if value is not None else 'N/A'
+        out.append(f'Chấm công {m["lines"]} dòng, {m["people"]} người: OT {show(m["ot_rate_pct"], "%")}, '
+                   f'năng suất {show(m["productivity"], " sản lượng/giờ")}, tỷ lệ lỗi {show(m["defect_rate_pct"], "%")} '
+                   '(công thức có sẵn trong app, chờ owner xác nhận J11).')
+        if m['held_rows']:
+            out.append('Dòng chấm công thiếu/lỗi chưa đọc: '+', '.join(map(str, m['held_rows'][:10])))
+    return out
 
 
 # ---------------- Vận hành ----------------
@@ -197,6 +227,27 @@ def operations(data, scope, now, period, cutoff, limit_days=10):
     if status['held']:
         lines.append(f'{status["held"]} đợt chưa xác định được đã giao hay chưa (cờ thành công hoặc giờ giao trên Raw lỗi).')
     lines.append('Tồn đọng = đợt đã xuất chưa có DELIVER thành công trên Raw; hạn theo D+1/D+2 đã chốt (OWNER J5).')
+    return '\n'.join(lines)
+
+
+# ---------------- Đội xe ----------------
+def fleet(scope, evidence, capacities, km=None):
+    """Truck-days, load factor, km / empty km / waiting hours from the NCC trip log. Cost per trip and demand stay N/A (J2, J3)."""
+    groups = [g for g in evidence.get('groups', []) if scope['start'] <= g['day'] <= scope['end']]
+    trucks = len({g['plate'] for g in groups})
+    load, counted, missing = load_factor(evidence, scope, capacities)
+    lines = [f'Đội xe {span(scope)}: {len(groups)} lượt xe/ngày trên Raw, {trucks} xe; tỷ lệ tải '
+             +(f'{pct(load)} trên {counted} lượt có tải trọng' if load is not None else 'N/A (chưa có tải trọng xe; owner khai báo bằng /taitrong)')+'.']
+    if km is None:
+        lines.append('Km, km rỗng, giờ chờ: N/A — chưa có nhật trình km (NCC gửi file, chú thích /import km).')
+    else:
+        lines.append(f'Theo nhật trình: tổng km {_vi_money(km["km"]) if km["km"] is not None else "N/A"}; km rỗng '
+                     +(f'{_vi_money(km["empty_km"])} km' if km['empty_km'] is not None else 'N/A (cột km rỗng thiếu/trống)')
+                     +'; giờ chờ '+(f'{_vi_number(km["wait_hours"], 1)} giờ' if km['wait_hours'] is not None else 'N/A (cột giờ chờ thiếu/trống)')+'.')
+        if km['empty_rate_pct'] is not None:
+            lines.append(f'Tỷ lệ km rỗng {pct(km["empty_rate_pct"])} (km rỗng ÷ tổng km theo đề xuất J4, chờ owner chốt định nghĩa xe rỗng).')
+    lines.append('Chi phí/chuyến: N/A — cần owner chốt "chuyến" là xe/ngày, mã chuyến Raw hay lượt theo nhật trình (J2).')
+    lines.append('Dự báo nhu cầu xe: chưa tự dự báo (J3); kịch bản ca xe owner đã duyệt xem bằng /xe.')
     return '\n'.join(lines)
 
 
@@ -454,7 +505,7 @@ def first_line(text):
     import re
     first = (text or 'N/A').strip().split('\n', 1)[0]
     first = re.sub(r'^CẦN ANH BỔ SUNG(?: — [^:]+)?: (\d+ nhóm dữ liệu)\..*$', r'còn \1 cần bổ sung.', first)
-    first = re.sub(r'^(KPI|Kiểm toán|Vận hành|Lương giao GXT|Chi phí dự kiến) [^:]+: ', '', first)
+    first = re.sub(r'^(KPI|Kiểm toán|Vận hành|Lương giao GXT|Chi phí dự kiến|Đội xe) [^:]+: ', '', first)
     return first[:1].lower()+first[1:] if first[1:2].islower() else first
 
 

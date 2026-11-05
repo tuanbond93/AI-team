@@ -447,3 +447,94 @@ def test_import_km_by_telegram_document_owner_only(tmp_path):
         assert 'nhật trình km' in reply and '1 dòng hợp lệ' in reply and load_statement(state, '2026-10', 'km')
     finally:
         state.close()
+
+
+def test_per_person_wage_conserves_vehicle_day_wages_and_full_equals_halves():
+    from ops_team.supra.workforce_data import parse_roster, per_person_wage
+    report = gxt_report()
+    roster = parse_roster(('Ngày,Biển số xe,Nhân viên\n10/10/2026,29C-111.11,NV A\n11/10/2026,29C-222.22,NV B\n'
+                           '11/10/2026,29C-222.22,NV C\n12/10/2026,,NV D\n').encode(), 'r.csv')
+    assert roster['held'] == [{'row': 5, 'missing': ['plate']}]
+    wages, shared, unassigned = per_person_wage(report, roster, SCOPE)
+    by = {(g['vehicle'], g['day']): Decimal(g['wage_vnd']) for g in report['gxt']['by_group']}
+    assert wages == {'NV A': by[('29C11111', '2026-10-10')]} and shared == [('29C22222', '2026-10-11')] and unassigned == []
+    assert sum(wages.values())+sum(by[k] for k in shared+unassigned) == Decimal(report['gxt']['wage_supra_vnd'])  # nothing lost or doubled
+    halves = [per_person_wage(report, roster, {'start': '2026-10-10', 'end': '2026-10-10'})[0],
+              per_person_wage(report, roster, {'start': '2026-10-11', 'end': '2026-10-12'})[0]]
+    assert sum((sum(h.values(), Decimal(0)) for h in halves), Decimal(0)) == sum(wages.values())
+    text = agents.workforce(report, SCOPE, evidence=EVIDENCE, roster=roster)
+    assert '• NV A:' in text and '1 xe/ngày có từ 2 người trở lên nên chưa chia (N/A, chờ owner chốt J10): V2 11/10' in text
+    assert 'OT, năng suất, tỷ lệ lỗi: N/A' in text and '29C' not in text
+    assert 'Theo từng người: N/A' in agents.workforce(report, SCOPE, evidence=EVIDENCE)
+
+
+def test_timesheet_metrics_use_existing_formulas_and_keep_na():
+    from ops_team.supra.workforce_data import parse_timesheet, timesheet_metrics
+    sheet = parse_timesheet(('Ngày,Nhân viên,Giờ thường,Giờ OT,Sản lượng xử lý,Số lỗi\n10/10/2026,NV A,8,2,100,1\n'
+                             '11/10/2026,NV B,8,0,60,2\n12/10/2026,NV A,-1,0,10,0\n').encode(), 't.csv')
+    assert sheet['held'] == [{'row': 4, 'missing': ['regular_hours']}]
+    m = timesheet_metrics(sheet, SCOPE)
+    assert m['ot_rate_pct'] == Decimal(2)/Decimal(18)*100 and m['productivity'] == Decimal(160)/Decimal(18)
+    assert m['defect_rate_pct'] == Decimal(3)/Decimal(160)*100 and m['people'] == 2
+    halves = [timesheet_metrics(sheet, {'start': '2026-10-10', 'end': '2026-10-10'}), timesheet_metrics(sheet, {'start': '2026-10-11', 'end': '2026-10-12'})]
+    assert sum(h['ot_hours'] for h in halves) == m['ot_hours'] and sum(h['regular_hours'] for h in halves) == m['regular_hours']
+    bare = timesheet_metrics(parse_timesheet(b'Ngay,Nhan vien,Gio thuong\n10/10/2026,NV A,8\n', 't.csv'), SCOPE)
+    assert bare['regular_hours'] == Decimal(8) and bare['ot_rate_pct'] is None and bare['defect_rate_pct'] is None  # absent column = N/A
+    text = agents.workforce(gxt_report(), SCOPE, evidence=EVIDENCE, timesheet=sheet)
+    assert 'OT 11,1%' in text and 'tỷ lệ lỗi 1,9%' in text and 'J11' in text and 'Dòng chấm công thiếu/lỗi chưa đọc: 4' in text
+
+
+def test_fleet_view_and_routing():
+    from datetime import date
+    from ops_team.intent import route
+    from ops_team.supra.km_log import parse_log, summary
+    log = parse_log(km_csv(['10/10/2026,29C-111.11,100,10,1', '11/10/2026,29C-222.22,50,5,0.5']), 'km.csv')
+    text = agents.fleet(SCOPE, EVIDENCE, {'29C11111': Decimal(1250)}, summary(log, SCOPE, EVIDENCE))
+    assert text.startswith('Đội xe 10/10–12/10: 3 lượt xe/ngày trên Raw, 2 xe; tỷ lệ tải 3,1% trên 3 lượt có tải trọng.')
+    assert 'tổng km 150; km rỗng 15 km; giờ chờ 1,5 giờ' in text and 'Tỷ lệ km rỗng 10,0%' in text and 'J4' in text
+    assert 'Chi phí/chuyến: N/A' in text and 'J2' in text and '29C' not in text
+    bare = agents.fleet(SCOPE, {**EVIDENCE, 'inventory': []}, {}, None)
+    assert 'tỷ lệ tải N/A' in bare and 'Km, km rỗng, giờ chờ: N/A' in bare
+    today = date(2026, 11, 5)
+    assert route('đội xe tuần này', today)[0] == 'doixe' and route('giờ chờ xe hôm qua', today)[0] == 'doixe'
+    assert route('xe ngày 15/10', today)[0] == 'xe' and route('tỷ lệ tải xe tháng 10', today)[0] == 'kpi'
+
+
+def test_workforce_templates_and_imports_owner_only(tmp_path):
+    from pathlib import Path
+    from ops_team.supra.workforce_data import parse_roster, parse_timesheet
+    from ops_team.telegram_assistant import AssistantResponder
+    from ops_team.telegram_bridge import Incoming
+    from ops_team.telegram_state import GROUP_ID
+    root = Path(__file__).resolve().parents[1]/'docs'/'templates'
+    assert len(parse_roster((root/'tai_xe_xe_mau.csv').read_bytes(), 'x.csv')['lines']) == 1
+    assert parse_timesheet((root/'cham_cong_mau.csv').read_bytes(), 'x.csv')['lines'][0]['ot_hours'] == Decimal('1.5')
+    data = (root/'tai_xe_xe_mau.csv').read_bytes()
+
+    class Api:
+        def call(self, method, **kw):
+            return {'file_path': 'x'}
+
+        def download(self, path):
+            return data
+    state = BusinessState(tmp_path/'vault')
+    try:
+        r = AssistantResponder(state, {'owner_id': 123, 'models': {}})
+        doc = {'file_name': 'tai_xe.csv', 'file_size': len(data), 'file_id': 'f'}
+        assert 'Chỉ owner' in r.document(Incoming(GROUP_ID, 456, 1, None, 'import', 'taixe'), doc, Api())
+        assert 'danh sách tài xế–xe' in r.document(Incoming(GROUP_ID, 123, 2, None, 'import', 'taixe'), doc, Api())
+        assert load_statement(state, '2026-11', 'taixe')['lines'][0]['person'] == 'NV MẪU 01'
+    finally:
+        state.close()
+
+
+def test_timesheet_round_trips_through_the_vault(tmp_path):
+    from ops_team.supra.workforce_data import parse_timesheet, timesheet_metrics
+    sheet = parse_timesheet(b'Ngay,Nhan vien,Gio thuong,Gio OT\n10/10/2026,NV A,8,2\n', 't.csv')
+    state = BusinessState(tmp_path/'v')
+    try:
+        save_statement(state, sheet, 'chamcong')
+        loaded = load_statement(state, '2026-10', 'chamcong')
+        assert timesheet_metrics(loaded, SCOPE)['ot_rate_pct'] == Decimal(20)
+    finally:
+        state.close()

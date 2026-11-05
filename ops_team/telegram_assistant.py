@@ -52,7 +52,8 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /tongquan — báo cáo ngày: việc ưu tiên, người phụ trách, dữ liệu cần bổ sung, số chính từng mảng; /ketoan — chi phí trước/sau VAT 8% và đối soát bảng kê NCC (gửi file kèm /import ncc)
 /nhansu — lương giao GXT theo xe/ngày; /kpi — chấm SLA, chi phí/kg, chi phí/đơn, tỷ lệ tải theo mục tiêu
 /vanhanh — sản lượng theo ngày xuất và tồn đọng (quá hạn/chưa tới hạn)
-/import km — gửi nhật trình km của NCC (Excel/CSV)
+/import km — gửi nhật trình km của NCC (Excel/CSV); /import taixe — danh sách tài xế–xe; /import chamcong — chấm công
+/doixe — đội xe: lượt xe/ngày, tỷ lệ tải, km, km rỗng, giờ chờ
 /kiemtoan — kiểm tra lại các phép cộng, kg, điều kiện công bố tổng; /muctieu, /taitrong — owner đặt mục tiêu, tải trọng xe
 Nhắn tự nhiên cũng được: "chi phí tuần này", "còn thiếu gì không", "nhớ giúp anh là…"
 /reset — xóa hội thoại RAM của bạn trong chủ đề
@@ -214,7 +215,7 @@ class AssistantResponder:
             ai = "AI đã cấu hình; chỉ gọi khi bạn hỏi hoặc lịch đã duyệt" if self.settings.get("models") else "CHƯA CÓ AI/MODEL — onboarding và báo cáo số liệu bằng code vẫn dùng được"
             return f"Nhóm cố định: {GROUP_ID}. Owner ID: {self.owner}.\n{ai}\nLịch: {'ĐANG BẬT' if self.state.control('schedule_enabled', False) else 'TẠM DỪNG'}.\nNguồn được đọc mới mỗi lần báo cáo. Máy ngủ/tắt hoặc mất mạng thì worker không hoạt động."
         owner_commands = {"set", "forget", "onboard", "confirm", "plan", "enable", "pause", "stop", "run", "import", "details", "chiphi", "costs", "thieu", "missing", "sla", "duyet", "giugia",
-                          "ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "muctieu", "taitrong", "vanhanh"}
+                          "ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "muctieu", "taitrong", "vanhanh", "doixe"}
         if command in owner_commands and not owner:
             if command == "details":
                 return "Chỉ chủ sở hữu đã xác minh được xem chi tiết truy vết."
@@ -445,7 +446,7 @@ class AssistantResponder:
                     'source_pin':{k:raw[k] for k in ('spreadsheet_id','tab','gid')} if raw else None}
                 if len(self._code_details)>100:self._code_details.pop(next(iter(self._code_details)))
                 return result
-            if command in ("ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "vanhanh"):
+            if command in ("ketoan", "nhansu", "kpi", "kiemtoan", "tongquan", "vanhanh", "doixe"):
                 return self._domain(command, text)
             if command in ("muctieu", "taitrong"):
                 return self._kpi_setting(command, text, request)
@@ -495,6 +496,15 @@ class AssistantResponder:
                 return "Chỉ nhận .xlsx hoặc .csv tối đa 20 MB."
             info = api.call("getFile", file_id=document["file_id"])
             data = api.download(info["file_path"])
+            kind = request.text.strip().casefold()
+            if kind in ("taixe", "chamcong"):
+                from .supra.workforce_data import parse_roster, parse_timesheet
+                from .supra.ncc_invoice import save_statement
+                table = (parse_roster if kind == "taixe" else parse_timesheet)(data, name)
+                months = save_statement(self.state, table, kind)
+                label = "danh sách tài xế–xe" if kind == "taixe" else "bảng chấm công"
+                return (f"Đã nhận {label} (mã hóa DPAPI): {len(table['lines'])} dòng hợp lệ, {len(table['held'])} dòng thiếu/lỗi chưa đọc. "
+                        f"Tháng: {', '.join(m[5:]+'/'+m[:4] for m in months)}. Nhắn \"lương giao\" để xem theo người.")
             if request.text.strip().casefold() == "km":
                 from .supra.km_log import parse_log
                 from .supra.ncc_invoice import save_statement
@@ -568,6 +578,12 @@ class AssistantResponder:
             except ValueError:
                 previous = {"scope": prev, "reason": "kỳ trước nằm ngoài tháng/kỳ dữ liệu đang chọn"}
             return agents.kpi(*kpi_args(scope, report), previous=previous)
+        def accounting():
+            from .supra.ncc_invoice import reconcile
+            statement = monthly("ncc")
+            if not statement:
+                return agents.accounting(report, scope, evidence=evidence, km=km_summary())
+            return agents.accounting(report, scope, statement, reconcile(statement, report, evidence, scope["start"], scope["end"]), evidence, km_summary())
         def monthly(folder):
             from .supra.ncc_invoice import load_statement
             months = sorted({scope["start"][:7], scope["end"][:7]})
@@ -577,16 +593,12 @@ class AssistantResponder:
             from .supra.km_log import summary
             log = monthly("km")
             return summary(log, scope, evidence) if log else None
-        def accounting():
-            from .supra.ncc_invoice import reconcile
-            statement = monthly("ncc")
-            if not statement:
-                return agents.accounting(report, scope, evidence=evidence, km=km_summary())
-            return agents.accounting(report, scope, statement, reconcile(statement, report, evidence, scope["start"], scope["end"]), evidence, km_summary())
         if command == "ketoan":
             return accounting()
         if command == "nhansu":
-            return agents.workforce(report, scope, evidence=evidence)
+            return agents.workforce(report, scope, evidence=evidence, roster=monthly("taixe"), timesheet=monthly("chamcong"))
+        if command == "doixe":
+            return agents.fleet(scope, evidence, KpiStore(self.state).capacities(), km_summary())
         if command == "vanhanh":
             return agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"])
         if command == "kpi":
@@ -619,7 +631,8 @@ class AssistantResponder:
         for label, make in (("Chi phí", lambda: render_cost_report(report).removeprefix("Kết luận: ")),
                             ("SLA", lambda: render_sla(sla_result, scope["start"], scope["end"]).split(": ", 1)[-1]),
                             ("Vận hành", lambda: agents.operations(data, scope, now, x["period"], x["cutoff"])),
-                            ("Lương giao", lambda: agents.workforce(report, scope, evidence=evidence)), ("KPI", kpi),
+                            ("Lương giao", lambda: agents.workforce(report, scope, evidence=evidence)),
+                            ("Đội xe", lambda: agents.fleet(scope, evidence, KpiStore(self.state).capacities(), km_summary())), ("KPI", kpi),
                             ("Kiểm toán", lambda: agents.audit(report, evidence, sla_result, scope)[2]),
                             ("Kế toán", accounting)):
             text = safe(make)
