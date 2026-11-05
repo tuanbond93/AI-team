@@ -475,6 +475,7 @@ class AssistantResponder:
                     return self._source_code_report(request, prepared, "Cấu hình AI chưa sẵn sàng; Chief AI/Auditor chưa chạy cho yêu cầu này (0 HTTP).")
                 raise
             agent._records.pop(key, None)
+            agent.owner_turn = owner  # cost numbers reach the model only on the owner's own question
             return agent.answer(request)
         except (ValueError, ProviderError) as exc:
             return "Chưa hoàn tất: "+str(exc)
@@ -825,6 +826,7 @@ class AssistantResponder:
             lines.append("Mục tiêu owner cung cấp: "+facts.get("goals", "chưa có")+". Đầu mối: "+facts.get("contacts", "chưa có"))
             if self.settings.get("models") and any(m.value is not None for m in metrics.values()):
                 agent = self._get_agent()
+                agent.owner_turn = False  # scheduled output goes to the group (OWNER J9)
                 extra = agent.answer(Incoming(GROUP_ID, self.owner, 0, None, "team", "Phân tích báo cáo kỳ theo nguồn đã chọn, nêu thiếu dữ liệu, rủi ro và hành động cần quản lý duyệt."))
                 lines.append(extra)
             else:
@@ -864,6 +866,9 @@ class AssistantResponder:
             context["business_facts"] = {k: facts[k] for k in ("customer", "goals", "kpi_formulas") if k in facts}
         label = context["label"] if context else "no-source"
         if context and context.get('vehicle'):label+='; pair '+json.dumps(context['cache_identity'])
+        if context and context.get('cost_report'):
+            cost=context['cost_report']
+            label += '; cost '+' '.join(cost['scope'])+' '+str(cost.get('policy_sha256'))+' '+str(cost.get('rules_sha256'))+' '+str(cost.get('reason'))
         if context and context.get('handling_quality',{}).get('available'):
             label += '; handling-catalog '+context['handling_quality']['catalog_sha256']
             if context['handling_quality'].get('grain')=='GHN_BOOKING_E_DAY':
@@ -928,7 +933,30 @@ class AssistantResponder:
     def _booking_context(self,data,period,warehouses,cutoff,source):
         from .supra.booking import booking_context
         facts,_,_=self._effective_facts()
-        return booking_context(data,period,warehouses,cutoff,source,handling=self._rule_handling(data,source,facts,period,cutoff))
+        context=booking_context(data,period,warehouses,cutoff,source,handling=self._rule_handling(data,source,facts,period,cutoff))
+        cost=self._period_cost(data,source,facts,period,cutoff)
+        if cost:
+            from .supra.cost_summary import cost_context,cost_lines
+            report,scope=cost
+            context['cost_report']=cost_context(report,scope)
+            context['_cost_lines']=cost_lines(report,scope)
+        return context
+
+    def _period_cost(self,data,source,facts,period,cutoff):
+        """(/chiphi report, scope) for day 1 → cutoff of the period; None when the source is not a paired Booking + Raw."""
+        from .supra.booking import BookingData
+        if not isinstance(data,BookingData) or not getattr(data,'vehicle_pair',None):
+            return None
+        from .supra.cost_summary import period_scope
+        from .supra.manual_cost_report import manual_cost_report
+        scope=period_scope(period,cutoff)
+        try:
+            evidence=self._vehicle_evidence(data,period,cutoff)
+            report=(manual_cost_report(self._policy_state(period),data,evidence,source,facts,self.owner,scope)
+                    if evidence.get('available') else {'available':False,'reason':'POLICY_OR_SOURCE_MISMATCH'})
+        except Exception:
+            report={'available':False,'reason':'POLICY_OR_SOURCE_MISMATCH'}  # never break the daily report
+        return report,scope
 
     def _booking_report(self, data, source, facts, period, warehouses, cutoff):
         self._report_details = None
@@ -960,6 +988,7 @@ class AssistantResponder:
         from .supra.vehicle_report import booking_intake
         from .chief.agent import NO_AI_NOTE
         result = booking_review(context, warnings)
+        result["cost_lines"] = context.get("_cost_lines")
         record = TelegramAgent.chief_record(result, context)
         self._last_report_record = record
         self._report_details = TelegramAgent.detail_text(record)
@@ -1015,6 +1044,7 @@ class AssistantResponder:
             try:
                 agent = self._get_agent()
                 agent.last_presentation = None
+                agent.owner_turn = False  # scheduled output goes to the group (OWNER J9)
                 text = agent.answer(Incoming(GROUP_ID, self.owner, 0, None, "chief", "Thẩm định P&L theo số code, chỉ rõ phần chưa được và ba quyết định cần chốt."))
                 if agent.last_presentation:
                     self._last_report_record = agent.last_presentation

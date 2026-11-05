@@ -34,4 +34,4 @@ Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** ngh�
 
 | # | Mảng | Trạng thái | Commit |
 |---|---|---|---|
-| 1 | Chi phí: báo cáo lịch + ngữ cảnh model | đang làm | |
+| 1 | Chi phí: báo cáo lịch + ngữ cảnh model dùng bảng `/chiphi` | xong (dữ liệu giả); chi phí theo tuyến chờ J1 | xem git log |

@@ -47,3 +47,11 @@ Kế toán gửi file `.xlsx` hoặc `.csv` vào nhóm, chú thích `/import ncc
 - `manual_cost_rules.gxt_daily_cost` có thêm chi tiết `by_group` theo xe/ngày. Tổng không đổi; tổng từng xe/ngày bằng tổng chung, có test.
 
 Các vai trò dùng AI cũ (`/accounting`, `/workforce`, `/cost`, `/fleet`…) vẫn giữ nguyên và chỉ chạy khi có cấu hình model. Riêng `/kpi` nay là agent KPI bằng code ở trên; vai trò KPI của AI vẫn gọi được qua đội AI (`/team`).
+
+## Báo cáo 13h và AI dùng chung bảng chi phí (05/11/2026)
+
+- Báo cáo lịch thay dòng cố định "Tổng chi phí và lãi lỗ: N/A…" bằng tình trạng lấy từ đúng bảng `/chiphi` cho kỳ từ ngày 1 tới ngày chốt: đã đủ nguồn, hoặc N/A với cùng lý do `/chiphi` nêu.
+- Chính sách chi phí đã duyệt không phủ đủ kỳ: N/A kèm lý do; không tự thu hẹp phạm vi.
+- Tin nhóm không in số tiền mới (OWNER J9 đề xuất A); owner xem số bằng `/chiphi`.
+- Ngữ cảnh AI có `cost_report` copy nguyên các khoản từ bảng đó. Chỉ gửi khi owner tự hỏi; lượt chạy theo lịch thì không. AI chỉ giải thích, không tính lại.
+- Kiểm: cả kỳ = hai nửa kỳ cho từng khoản cộng được; khoản N/A không thành 0; lý do giống hệt `/chiphi`.

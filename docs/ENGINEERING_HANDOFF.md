@@ -51,7 +51,7 @@ Lớp rule áp dụng `/chiphi` và `/xe`. Từ 27/10/2026 (Claude), **bốc x�
 - Kỳ báo cáo (đầu tháng → cutoff) vượt `window` của rule: bốc xếp N/A với lý do `OWNER_RULE_WINDOW_NOT_COVERING_SCOPE`. Muốn có số cho cả kỳ, owner cần duyệt rule có window phủ kỳ.
 - Approved plan, lịch, source identity không đổi. Nhãn cache model thêm SHA rule để không dùng context cũ.
 
-Các khoản khác của `/chiphi` (điểm, FTL, GXT, overlay doanh thu) **chưa** đưa vào báo cáo lịch/model context; vẫn là hạng mục riêng.
+Từ 05/11/2026: báo cáo lịch và model context dùng **cùng bảng chi phí `/chiphi`** cho kỳ từ ngày 1 tới ngày chốt (`supra/cost_summary.py`, không tính lại). Chính sách chi phí không phủ đủ kỳ thì N/A kèm lý do. Tin nhóm chỉ nêu tình trạng tổng (đủ nguồn hay N/A vì sao), không in số tiền mới (OWNER J9); model chỉ thấy số chi phí ở câu hỏi của chính owner.
 
 Current manual subtotal là phần đủ nguồn, không là tổng chi phí hoặc GP cuối. Không công bố số tiền mới dựa trên repo không có dữ liệu thật. Việc thay layer có thể làm invalid bindings; phải kiểm hash source, catalog, base/forecast/overlay và owner/group theo schema.
 

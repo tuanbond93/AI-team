@@ -2384,3 +2384,84 @@ def test_domain_agents_run_on_paired_source_without_model(tmp_path,monkeypatch):
         assert overview.count('\n• ')==7 and 'chưa tính được' not in overview and 'CẦN ANH' not in overview
         assert 'chưa làm được' in a.answer(Incoming(GROUP_ID,123,6,None,'ask','kiểm toán từ 1/9/2026 đến 5/9/2026'))
     finally:state.close()
+
+
+
+def _cost_fixture(tmp_path,monkeypatch):
+    from ops_team.telegram_cost_overlay import ingest_overlay
+    state,facts,data,source,v,cfg=forecast_fixture(tmp_path)
+    _,config=stage_synthetic_cost_overlay(tmp_path,state,cfg);path,desc=stage_overlay(tmp_path,config);ingest_overlay(path,desc,state,123)
+    a=responder(state);monkeypatch.setattr(a,'_scoped',lambda:(data,source,facts,'2026-10',[PIN['tab']],CUTOFF,0))
+    return state,facts,data,source,a
+
+
+def test_daily_report_cost_is_na_when_policy_window_does_not_cover_period(tmp_path,monkeypatch):
+    """Reproduce: the 13h report printed a fixed 'Tổng chi phí và lãi lỗ: N/A; chưa đủ doanh thu…' unrelated to /chiphi."""
+    state,facts,data,source,a=_cost_fixture(tmp_path,monkeypatch)
+    try:
+        text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
+        assert 'chưa đủ doanh thu và chi phí các chặng' not in text
+        assert 'Chi phí 01/10/2026–31/10/2026 (cùng bảng /chiphi): N/A vì chính sách chi phí đã duyệt không phủ đủ' in text
+        cost=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)['cost_report']
+        assert cost=={'available':False,'scope':['2026-10-01','2026-10-31'],'reason':'OUTSIDE_POLICY_WINDOW'}
+    finally:state.close()
+
+
+def test_daily_report_and_model_context_use_the_chiphi_cost_table(tmp_path,monkeypatch):
+    from ops_team.supra import cost_summary
+    from ops_team.supra.manual_cost_overlay import projected_totals
+    from ops_team.supra.manual_cost_report import manual_cost_report,_projected_line
+    state,facts,data,source,a=_cost_fixture(tmp_path,monkeypatch)
+    try:
+        monkeypatch.setattr(cost_summary,'period_scope',lambda period,cutoff:'2026-10-10 2026-10-20')
+        evidence=a._vehicle_evidence(data,'2026-10',CUTOFF)
+        cost=manual_cost_report(a._policy_state('2026-10'),data,evidence,source,facts,123,'2026-10-10 2026-10-20')
+        total,gp,blockers=projected_totals(cost)
+        text=a._booking_report(data,source,facts,'2026-10',[PIN['tab']],CUTOFF)
+        line=next(l for l in text.split('\n') if l.startswith('Chi phí 10/10/2026–20/10/2026 (cùng bảng /chiphi): '))
+        assert total is None and '; '.join(blockers[:3]) in line and '/chiphi' in line  # same reasons as /chiphi
+        assert not re.search(r'\d[\d.,]*\s*đ\b',line)  # group message: no new money figure (OWNER J9 default)
+        assert cost_summary.cost_lines(cost,'2026-10-10 2026-10-20',show_amounts=True)[0].endswith(
+            _projected_line(cost,cost_summary.money))  # owner option prints exactly the /chiphi sentence
+        context=a._booking_context(data,'2026-10',[PIN['tab']],CUTOFF,source)
+        cr=context['cost_report']
+        assert cr['gxt_wage_vnd']==cost['gxt']['wage_supra_vnd'] and cr['ftl_vnd']==cost['ftl']['eligible_vnd']
+        assert cr['points_vnd']==cost['points']['eligible_vnd'] and cr['projected_total_vnd'] is None and cr['blockers']==blockers
+        # The model sees the cost table only on the owner's own question.
+        from ops_team.providers import ModelConfig
+        from ops_team.schema import AGENT_NAMES
+        from ops_team.telegram_agent import TelegramAgent
+        seen=[]
+        def transport(config,payload,**kw):
+            seen.append(payload);raise RuntimeError('stop after capture')
+        agent=TelegramAgent({n:ModelConfig('Groq','m','gsk_'+'x'*30) for n in AGENT_NAMES},context,transport=transport)
+        for owner_turn in (False,True):
+            agent.owner_turn=owner_turn
+            try:agent._call(agent._configs['Coordinator'],{'metrics':context['metrics'],'question':'q'})
+            except RuntimeError:pass
+        assert 'cost_report' not in seen[0] and seen[1]['cost_report']==cr
+    finally:state.close()
+
+
+def test_cost_table_full_window_equals_two_halves(tmp_path,monkeypatch):
+    from decimal import Decimal
+    from ops_team.supra.manual_cost_report import manual_cost_report
+    state,facts,data,source,a=_cost_fixture(tmp_path,monkeypatch)
+    try:
+        evidence=a._vehicle_evidence(data,'2026-10',CUTOFF)
+        run=lambda span:manual_cost_report(a._policy_state('2026-10'),data,evidence,source,facts,123,span)
+        whole,first,second=run('2026-10-10 2026-10-20'),run('2026-10-10 2026-10-15'),run('2026-10-16 2026-10-20')
+        picks={'points':lambda r:r['points']['eligible_vnd'],'ftl':lambda r:r['ftl']['eligible_vnd'],
+               'gxt_vehicle':lambda r:r['gxt']['vehicle_supra_vnd'],'gxt_wage':lambda r:r['gxt']['wage_supra_vnd'],
+               'warehouse':lambda r:r['warehouse']['shared_pool_vnd']}
+        checked=0
+        for name,pick in picks.items():
+            parts=[pick(first),pick(second)]
+            if pick(whole) is None:
+                assert all(p is None for p in parts),name  # N/A in the whole is not a hidden 0 in the halves
+                continue
+            assert Decimal(pick(whole))==sum((Decimal(p) for p in parts if p is not None),Decimal(0)),name
+            checked+=1
+        assert checked>=1
+        assert whole['warehouse']['days']==first['warehouse']['days']+second['warehouse']['days']
+    finally:state.close()

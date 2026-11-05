@@ -97,6 +97,9 @@ class TelegramAgent:
         if self.cancel.is_set() or (self.should_stop and self.should_stop()):
             raise ProviderError("Đã dừng worker Telegram.")
         if self._context.get('vehicle'):payload={**payload,'source_provenance':self._context['source_provenance']}
+        if self._context.get("cost_report") and getattr(self, "owner_turn", False):
+            # Same numbers as /chiphi; the model explains, never recalculates. Owner-only, like /chiphi.
+            payload = {**payload, "cost_report": self._context["cost_report"]}
         if self._context.get("booking"):
             quality={k:v for k,v in self._context.get('quantity_quality',{}).items()
                      if k in ('available','complete','reason','rule')}

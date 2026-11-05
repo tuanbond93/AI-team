@@ -49,7 +49,9 @@ def booking_intake(r):
             lines.append(str(h['raw_weight_filled_events'])+' đợt trống cột L được lấy kg từ Raw cùng GHN, từ ngày xuất tới trước lần xuất kế tiếp (gram/1.000) theo quy tắc owner.')
         for b in r['handling_rate_buckets']:
             if b['eligible_ghn']:lines.append('• '+b['rate_vnd_per_kg']+'đ/kg: '+display(b['eligible_kg'],'kg')+' kg → '+display(b['eligible_vnd'],'VND theo điều khoản')+' VND theo điều khoản.')
-    lines+=['Tổng doanh thu B2B: N/A. Tổng chi phí và lãi lỗ: N/A; chưa đủ doanh thu và chi phí các chặng. Bốc xếp riêng chưa là tiền nghiệm thu/thanh toán.','CẦN ĐỐI CHIẾU:']
+    # Cost comes from the same table as /chiphi when a cost policy is loaded (cost_summary); else the legacy line.
+    lines+=(r['cost_lines'] if r.get('cost_lines') else
+            ['Tổng doanh thu B2B: N/A. Tổng chi phí và lãi lỗ: N/A; chưa đủ doanh thu và chi phí các chặng. Bốc xếp riêng chưa là tiền nghiệm thu/thanh toán.'])+['CẦN ĐỐI CHIẾU:']
     if w.get('available'):
         flags=[str(w[k])+' '+s for k,s in [('missing_ghn','GHN thiếu kg cột L'),('invalid_ghn','GHN kg cột L lỗi'),('conflicting_ghn','GHN có nhiều tổng kg khác nhau'),('partial_scope_ghn','GHN có dòng ngoài kỳ/giờ chốt')] if w.get(k)]
         if flags:lines.append('• Kg: '+', '.join(flags)+'. Không chọn dòng cuối hoặc chia kg theo DO.')

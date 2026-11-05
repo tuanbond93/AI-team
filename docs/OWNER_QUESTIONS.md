@@ -136,6 +136,10 @@ J8. ℹ Người phụ trách trong báo cáo ngày (để nêu "ai cần làm g
    A. Thiếu kg/biển trên Booking: CS. Raw thiếu/lỗi: điều phối GXT. Bảng kê NCC: kế toán. Nhật trình km: NCC. Quy tắc/giá/ngoại lệ: owner **(đề xuất)**
    B. Khác: ghi tên vai trò
 
+J9. ⚠ Báo cáo 13h gửi vào nhóm: có in số tiền chi phí/lãi lỗ dự kiến (giống `/chiphi`) không?
+   A. Không; nhóm chỉ thấy tình trạng (đã đủ nguồn hay chưa, vì sao). Owner xem số bằng `/chiphi` **(đề xuất, đang áp dụng)**
+   B. Có, in đúng câu tổng dự kiến của `/chiphi` trong tin nhóm
+
 ## Ghi nhận câu trả lời
 
 | Câu | Trả lời | Ngày | Đã đưa vào code/policy |
