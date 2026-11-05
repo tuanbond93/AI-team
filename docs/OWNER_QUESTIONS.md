@@ -104,6 +104,38 @@ Ký hiệu: ⛔ chặn tự động 100%; ⚠ làm số còn N/A thường xuyê
 28. ℹ Chạy 24/7 trên Cloudflare Workers Paid: đồng ý để em làm **thiết kế + cấu hình mẫu + test local** (chưa deploy, chưa chuyển secrets/dữ liệu)? A. Đồng ý **(đề xuất)** B. Chưa
 29. ℹ Kg cũng hiển thị bỏ số 0 thập phân như tiền (vd. `27,5 kg` thay vì `27,500 kg`)? A. Có **(đề xuất)** B. Giữ 3 số
 
+## J. Đội AI theo mảng (05/11/2026)
+
+Chưa trả lời thì code giữ phương án **(đề xuất)**: N/A hoặc chỉ hiển thị, không tự áp quy tắc mới.
+
+J1. ⚠ Chi phí/đơn vị theo tuyến và cửa hàng: mỗi khoản chia xuống tuyến (tỉnh/huyện) và cửa hàng theo gì?
+   A. Khoản nào đã có khóa riêng thì theo khóa đó: phí điểm theo cửa hàng/ngày; FTL theo đơn; xe GXT theo kg của đơn trên chính xe/ngày; bốc xếp DC theo đợt GHN + ngày E. Khoản pool (xe trung chuyển, nhân sự kho) chưa chia, để N/A theo tuyến **(đề xuất)**
+   B. Như A, và chia khoản pool theo kg của tuyến trong kỳ
+   C. Khác: …
+J2. ⚠ "Chi phí/chuyến" của đội xe tính trên đơn vị nào? (mã chuyến Raw, xe/ngày và lượt thực tế là ba khái niệm khác nhau)
+   A. Xe/ngày: tiền xe GXT ÷ số xe/ngày đủ nguồn **(đề xuất, vì giá thuê xe đang theo ngày)**
+   B. Mã chuyến Raw
+   C. Lượt thực tế theo nhật trình NCC (chờ file)
+J3. ℹ Dự báo nhu cầu xe: dùng cách nào?
+   A. Giữ kịch bản ca xe owner duyệt như hiện nay; chưa tự dự báo **(đề xuất)**
+   B. Trung bình kg/ngày theo thứ trong tuần của 4 tuần gần nhất ÷ tải trọng đã khai báo
+   C. Khác: …
+J4. ⚠ "Tỷ lệ xe rỗng": định nghĩa nào?
+   A. Km rỗng ÷ tổng km theo nhật trình (đúng công thức có sẵn trong schema kho cũ) **(đề xuất)**
+   B. Số lượt chạy rỗng ÷ tổng lượt
+J5. ℹ Tồn đọng = đợt GHN + ngày E đã xuất nhưng chưa có DELIVER thành công trên Raw. Chia thành "chưa tới hạn" và "quá hạn" theo hạn D+1/D+2 đã chốt cho SLA. Đúng chưa?
+   A. Đúng **(đề xuất; đang dùng để tính)**
+   B. Khác: …
+J6. ℹ Cảnh báo KPI: báo khi nào?
+   A. Khi chỉ số không đạt mục tiêu owner đặt; không thêm ngưỡng riêng **(đề xuất)**
+   B. Cả khi còn đạt nhưng xấu đi quá … điểm % so với kỳ trước
+J7. ℹ Xu hướng KPI so với kỳ nào?
+   A. Khoảng ngay trước, cùng số ngày (vd. 10–20/10 so với 30/09–09/10) **(đề xuất)**
+   B. Cùng ngày tháng trước
+J8. ℹ Người phụ trách trong báo cáo ngày (để nêu "ai cần làm gì"):
+   A. Thiếu kg/biển trên Booking: CS. Raw thiếu/lỗi: điều phối GXT. Bảng kê NCC: kế toán. Nhật trình km: NCC. Quy tắc/giá/ngoại lệ: owner **(đề xuất)**
+   B. Khác: ghi tên vai trò
+
 ## Ghi nhận câu trả lời
 
 | Câu | Trả lời | Ngày | Đã đưa vào code/policy |
