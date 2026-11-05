@@ -119,10 +119,11 @@ def delivery_points(records, rates):
         groups[(row['day'], row['store'])].append(row)
     counts = defaultdict(int)
     accepted_sources = []
+    by_store = []  # per store/day amount, for cost by route (owner J1)
     with localcontext() as ctx:
         ctx.prec = 100
         amount = Decimal(0)
-        for rows in groups.values():
+        for (day, store), rows in groups.items():
             categories = {r['category'] for r in rows}
             if any(not r['valid'] for r in rows) or len(categories) != 1 or next(iter(categories)) not in numeric:
                 held.append({'reason': 'ambiguous_route_or_rate', 'sources': sorted({r['source'] for r in rows})})
@@ -131,8 +132,9 @@ def delivery_points(records, rates):
             counts[category] += 1
             amount += numeric[category]
             accepted_sources.extend(r['source'] for r in rows)
+            by_store.append({'day': day, 'store': store, 'vnd': str(numeric[category])})
     return {'eligible_vnd': str(amount) if counts else None, 'counts': dict(counts), 'held': held, 'accepted_sources': accepted_sources,
-            'complete': not held, 'total_cost_vnd': None}
+            'complete': not held, 'total_cost_vnd': None, 'by_store': by_store}
 
 
 def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, vehicle_classes=None, tariffs=None, per_class=False):
@@ -187,6 +189,7 @@ def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, veh
     amount_total=Decimal(0)
     breakdown=defaultdict(lambda:{'groups':0,'trips':0,'amount_vnd':Decimal(0)})
     accepted_sources = []
+    by_group = []  # per vehicle/day amount and its orders, for cost by route (owner J1)
     for key, rows in groups.items():
         reasons = set()
         weights = []
@@ -249,12 +252,13 @@ def ftl_base_trips(records, capacity_kg, trip_rate, *, ceil_confirmed=False, veh
                 amount_total += group_rate*group_trips
                 entry=breakdown[str(group_cap)];entry['groups']+=1;entry['trips']+=group_trips;entry['amount_vnd']+=group_rate*group_trips
             accepted_sources.extend(r['source'] for r in rows)
+            by_group.append({'day': key[0], 'vehicle': key[1], 'orders': sorted({r['order'] for r in rows}), 'vnd': str(group_rate*group_trips)})
     with localcontext() as ctx:
         ctx.prec = 100
         amount = str(amount_total) if accepted else None
     return {'eligible_vnd': amount, 'eligible_groups': accepted, 'eligible_trips': trips, 'held': held, 'accepted_sources': accepted_sources,
             'tariff_breakdown':{k:{**v,'amount_vnd':str(v['amount_vnd'])} for k,v in breakdown.items()},
-            'complete': not held, 'total_cost_vnd': None}
+            'complete': not held, 'total_cost_vnd': None, 'by_group': by_group}
 
 
 def gxt_daily_cost(groups, daily_rate, wage_tiers):

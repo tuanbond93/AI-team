@@ -597,3 +597,53 @@ def test_wage_follows_the_person_id_assigned_to_each_order():
     assert wages == {'NV A': Decimal(5000), 'NV B': Decimal(9000), 'NV C': Decimal(5000)} and left == 0 and not shared and not unassigned
     vehicle = sum(Decimal(v['vehicle_vnd']) for g in report['gxt']['by_group'] for v in g['order_costs'].values())
     assert vehicle == Decimal(report['gxt']['vehicle_supra_vnd'])  # per-order vehicle shares add up to the Supra share
+
+
+def test_route_costs_conserve_each_component():
+    from tests.test_booking_vehicles import book, parsed
+    from ops_team.supra.route_cost import route_costs
+    data = parsed([book('SYN_A', mode=0, do='DA'), book('SYN_B', mode=0, do='DB'), book('SYN_C', mode=1, do='DC')], [])
+    report = gxt_report()
+    for g in report['gxt']['by_group']:
+        g['order_costs'] = {'SYN_'+k: v for k, v in g['order_costs'].items()}
+    report['points']['by_store'] = [{'day': '2026-10-10', 'store': 'STORE_SYN', 'vnd': '150000'}]  # store seen in two districts
+    report['ftl'] = {'held': [], 'eligible_vnd': '700000', 'by_group': [{'day': '2026-10-10', 'vehicle': '99A12345', 'orders': ['SYN_A', 'SYN_B'], 'vnd': '700000'}]}
+    result = route_costs(report, data, SCOPE)
+    routes = result['routes']
+    assert set(routes) == {('province synthetic', 'district 0'), ('province synthetic', 'district 1')}
+    a_b, c = routes[('province synthetic', 'district 0')], routes[('province synthetic', 'district 1')]
+    assert a_b['ftl'] == Decimal(700000) and c['ftl'] == 0 and a_b['events'] == 2 and c['events'] == 1
+    for part, total in (('gxt_vehicle', report['gxt']['vehicle_supra_vnd']), ('gxt_wage', report['gxt']['wage_supra_vnd']),
+                        ('points', '150000'), ('ftl', '700000')):
+        assigned = sum(v[part] for v in routes.values())
+        assert assigned+result['missing'][part] == Decimal(total), part  # nothing lost or doubled
+    assert result['missing']['points'] == Decimal(150000)  # one store, two routes: not attributed
+    assert result['missing']['ftl'] == 0 and result['pools'] == {}  # gxt_report has no pools
+    text = agents.routes_view(result, SCOPE)
+    assert text.startswith('Chi phí theo tuyến 10/10–12/10: đã chia ') and 'chưa xác định được tuyến 150.000đ' in text
+    assert 'Province Synthetic / District 0:' in text and 'SYN_' not in text and 'STORE_SYN' not in text and '99A' not in text and '(J1)' in text
+
+
+def test_route_costs_full_equals_halves_on_fixture(tmp_path, monkeypatch):
+    from tests.test_booking_vehicles import _cost_fixture
+    from ops_team.supra.manual_cost_report import manual_cost_report
+    from ops_team.supra.route_cost import route_costs
+    from ops_team.telegram_bridge import Incoming
+    from ops_team.telegram_state import GROUP_ID
+    from tests.test_booking_vehicles import CUTOFF
+    state, facts, data, source, a = _cost_fixture(tmp_path, monkeypatch)
+    try:
+        evidence = a._vehicle_evidence(data, '2026-10', CUTOFF)
+        def run(start, end):
+            scope = {'start': start, 'end': end}
+            return route_costs(manual_cost_report(a._policy_state('2026-10'), data, evidence, source, facts, 123, start+' '+end), data, scope)
+        whole, first, second = run('2026-10-10', '2026-10-20'), run('2026-10-10', '2026-10-15'), run('2026-10-16', '2026-10-20')
+        for geo in set(whole['routes']) | set(first['routes']) | set(second['routes']):
+            for part in ('gxt_vehicle', 'gxt_wage', 'points', 'ftl'):
+                halves = sum(r['routes'].get(geo, {}).get(part, Decimal(0)) for r in (first, second))
+                assert whole['routes'].get(geo, {}).get(part, Decimal(0)) == halves, (geo, part)
+        reply = a.answer(Incoming(GROUP_ID, 123, 1, None, 'tuyen', '2026-10-10 2026-10-20'))
+        assert reply.startswith('Chi phí theo tuyến 10/10–20/10:') and 'F01' not in reply and 'STORE_SYN' not in reply and '99A' not in reply
+        assert 'Chỉ owner' in a.answer(Incoming(GROUP_ID, 456, 2, None, 'tuyen', ''))
+    finally:
+        state.close()

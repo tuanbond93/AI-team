@@ -56,3 +56,14 @@ Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** ngh�
 | Kiểm toán | Chứng từ thật | dữ liệu | Kế toán, NCC |
 | Điều phối | Người phụ trách chính thức; dùng mẫu này cho báo cáo 13h | quyết định | Owner: J8; duyệt đổi mẫu báo cáo lịch |
 | Vai trò AI | Chất lượng câu chữ với model thật | chưa cấu hình model | Owner cấu hình model khi muốn |
+
+## Sau câu trả lời J1–J11 (05/11/2026)
+
+- **Chi phí:** `/tuyen` theo tỉnh/huyện (J1).
+- **Đội xe:** chi phí/chuyến = tiền xe ÷ xe/ngày (J2); tỷ lệ tải là chỉ số xe (J4).
+- **KPI:** cảnh báo cả khi xấu đi so với kỳ trước (J6, J7).
+- **Nhân sự:** lương theo ID người được gán đơn (J10).
+- **Còn chờ:**
+  - file tồn kho và hàng sắp về để dự báo xe (J3);
+  - owner review công thức chấm công (J11);
+  - dữ liệu thật: bảng kê NCC, nhật trình km, danh sách tài xế có mã đơn, chấm công, biểu giá km.

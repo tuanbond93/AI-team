@@ -118,7 +118,8 @@ def _blank_plate_points(data, rules, start, end, orders):
         ctx.prec = 100
         amount = sum((rate for rate, _ in points.values()), Decimal(0))
     return {'points': len(points), 'eligible_vnd': str(amount) if points else None, 'held_sources': held,
-            'sources': [ref for _, refs in points.values() for ref in refs]}
+            'sources': [ref for _, refs in points.values() for ref in refs],
+            'by_store': [{'day': d, 'store': s, 'vnd': str(rate)} for (d, s), (rate, _) in points.items()]}
 
 
 def _split_multi_vehicle_ftl(ftl_rows, pair):

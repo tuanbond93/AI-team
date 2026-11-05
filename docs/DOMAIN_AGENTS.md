@@ -10,11 +10,12 @@ Hiện có 9 mảng; 4 mảng có từ trước, 5 mảng làm thêm đợt này
 | SLA | `/sla` | "SLA hôm qua" | (đã có) | |
 | Đội xe | `/xe` | "xe ngày 15/10" | (đã có) | |
 | Dữ liệu thiếu | `/thieu` | "còn thiếu gì không" | (đã có) | |
+| **Chi phí theo tuyến** | `/tuyen` | "chi phí theo tuyến tuần này", "tuyến nào tốn nhất" | Theo tỉnh/huyện, mỗi khoản theo giá của chính xe/nhà xe đã tính trong `/chiphi` (J1): xe GXT và lương giao theo đơn, phí điểm theo cửa hàng/ngày, FTL theo xe/ngày một tuyến; chi phí/đợt của phần đã chia. Xe FTL chở nhiều tuyến, đơn/cửa hàng thuộc nhiều tuyến: "chưa xác định tuyến". Khoản dùng chung (bốc xếp DC, nhân sự kho GXT, xe trung chuyển, NCC vùng xa): "chưa chia theo tuyến". Đã chia + chưa xác định = đúng tổng từng khoản. | Không in cửa hàng |
 | **Vận hành** | `/vanhanh` | "tồn đọng tuần này", "sản lượng hôm qua" | Số đợt (GHN + ngày E) và sản phẩm theo ngày xuất; kg cho cả khoảng (cùng hàm báo cáo 13h). Tồn đọng = đã xuất chưa có DELIVER thành công trên Raw, chia quá hạn / chưa tới hạn theo D+1/D+2 đã chốt; dùng chung phân loại đợt với `/sla`. Quá hạn liệt kê số dòng Sheet. | Owner xác nhận định nghĩa tồn đọng (J5) |
 | **Kế toán** | `/ketoan` | "đối soát kế toán tháng 10" | Dự kiến trước VAT, VAT 8%, sau VAT; doanh thu và lãi gộp dự kiến (chỉ khi mọi phần đủ nguồn, cùng bảng `/chiphi`). Nhật trình km: tổng km, ngày có km mà Raw không thấy xe chạy, xe chạy mà chưa có trong nhật trình. Đối soát bảng kê NCC: VAT đúng 8%, tổng sau VAT, trùng biển+ngày, ngày tính tiền không thấy xe chạy, xe chạy chưa có trên bảng kê, biển lạ. Tiền xe GXT so với giá ngày đã duyệt, tính một lần mỗi xe/ngày. | Bảng kê NCC thật (kế toán gửi cuối tháng); nhật trình km cho FTL/NCC |
-| **Nhân sự** | `/nhansu` | "lương giao tuần này" | Lương giao GXT theo xe/ngày: số đơn, kg, tiền theo bậc kg từng đơn. Đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương. Điểm giao BC tách riêng. | Theo người: cần danh sách tài xế–xe (`/import taixe`); xe/ngày có 2+ người giữ N/A chờ J10. OT, năng suất, lỗi: cần chấm công (`/import chamcong`), công thức có sẵn chờ J11 |
+| **Nhân sự** | `/nhansu` | "lương giao tuần này" | Lương giao GXT theo xe/ngày: số đơn, kg, tiền theo bậc kg từng đơn. Đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương. Điểm giao BC tách riêng. | Theo người: cần danh sách tài xế–xe (`/import taixe`); lương theo ID người được gán đơn (cột mã đơn, J10). OT, năng suất, lỗi: cần chấm công (`/import chamcong`), công thức có sẵn chờ J11 |
 | **KPI** | `/kpi` | "KPI tháng 10", "tỷ lệ tải xe" | SLA %, chi phí/kg, chi phí/đơn, tỷ lệ tải. Chấm đạt/chưa đạt theo mục tiêu owner đặt; dòng "Cảnh báo" khi không đạt (J6). Xu hướng so với khoảng ngay trước cùng số ngày (J7); kỳ trước sang tháng khác hoặc chỉ số N/A ở một bên thì không so. Chi phí/kg và chi phí/đơn chỉ có khi tổng chi phí đã chốt, không dùng tổng tạm. | Mục tiêu (`/muctieu`), tải trọng xe S (`/taitrong`); OT và tỷ lệ xe rỗng chờ dữ liệu (xem Nhân sự, Đội xe) |
-| **Đội xe** | `/doixe` | "đội xe tuần này", "giờ chờ xe" | Lượt xe/ngày và số xe trên Raw, tỷ lệ tải (như `/kpi`), tổng km, km rỗng, giờ chờ theo nhật trình; tỷ lệ km rỗng theo đề xuất J4 | Nhật trình km (NCC); chi phí/chuyến chờ J2; dự báo chờ J3 |
+| **Đội xe** | `/doixe` | "đội xe tuần này", "giờ chờ xe" | Lượt xe/ngày và số xe trên Raw, tỷ lệ tải = hàng ÷ tải trọng (J4, như `/kpi`), tổng km, km rỗng, giờ chờ theo nhật trình; chi phí/chuyến theo xe/ngày | Nhật trình km (NCC); chi phí/chuyến = tiền xe ÷ xe/ngày (J2); dự báo chờ file tồn kho và hàng sắp về (J3) |
 | **Kiểm toán** | `/kiemtoan` | "kiểm toán lại số", "số có khớp không" | Tính lại độc lập: tổng tiền xe/lương = tổng từng xe/ngày; phần Supra không vượt tiền xe; kg bảng chi phí khớp kg Raw; Raw cập nhật đủ; tổng chỉ công bố khi đủ nguồn; còn nhóm giữ riêng; dấu thời gian hàng loạt (SLA). | Đối soát chứng từ (bảng kê NCC: VAT, trùng, ngày không chạy, tiền xe GXT; nhật trình: ngày có km mà không chạy) chỉ khi đã nhận file; chưa có thì N/A, không tính là trượt |
 | **Điều phối** | `/tongquan` | "tổng quan tuần này" | Báo cáo ngày: kết luận (số việc, tình trạng tổng chi phí, tồn đọng); việc ưu tiên xếp theo: dữ liệu chặn tổng chi phí (tách việc owner quyết với việc CS / điều phối GXT bổ sung), đơn quá hạn, KPI chưa đạt, kiểm toán chưa đạt; mục cần bổ sung (bảng kê NCC, nhật trình km, mục tiêu KPI, tải trọng xe) kèm người gửi; số chính mỗi mảng. Một mảng lỗi không chặn cả báo cáo. | Người phụ trách là đề xuất, chờ owner chốt (J8). Báo cáo lịch 13h chưa đổi theo mẫu này (cần owner duyệt) |
 
@@ -96,3 +97,33 @@ Mẫu: `docs/templates/tai_xe_xe_mau.csv` (ngày, biển số, nhân viên, vai 
 - Lương theo người = lương giao GXT của xe/ngày người đó đi, lấy từ bảng `/chiphi`. Tổng lương theo người + phần chưa chia = đúng tổng lương xe/ngày.
 - Xe/ngày có 2 người trở lên: giữ N/A (J10). Xe/ngày không có người trong danh sách: liệt kê bằng mã xe V.
 - Tên nhân viên in đúng như trong file owner gửi (chỉ owner xem).
+
+## Phân công người phụ trách (J8, owner duyệt 05/11/2026)
+
+Báo cáo ngày (`/tongquan`) gán mỗi việc cho một vai trò như sau:
+
+| Loại việc | Ví dụ | Phụ trách | Cách code nhận ra |
+|---|---|---|---|
+| Quyết/duyệt quy tắc, giá, mô hình giao | "Cần: giá FTL cho loại tải này", "xác nhận mô hình giao" | owner | Dòng `/thieu` có giá, xác nhận, quy tắc, chính sách, duyệt, mô hình |
+| Bổ sung dữ liệu Booking | "Cần: CS bổ sung cột L", biển AG, kg | CS (Booking) | Dòng `/thieu` nhắc cột L, biển AG, Booking, CS, kg |
+| Sửa/bổ sung Raw | "Cần: biển S thực chở", "sửa dòng Raw", ngày load, chuyến | điều phối GXT (Raw) | Dòng `/thieu` nhắc Raw, biển S, chuyến, ngày load |
+| Dòng thiếu không thuộc nhóm nào ở trên | | CS / điều phối GXT | Mặc định |
+| Đơn quá hạn chưa có giao thành công | `/vanhanh` quá hạn | điều phối GXT | Trạng thái quá hạn theo D+1/D+2 |
+| KPI chưa đạt hoặc xấu đi | `/kpi` cảnh báo | owner | Không đạt mục tiêu hoặc xấu đi so với kỳ trước |
+| Kiểm toán chưa đạt | `/kiemtoan` | owner | Phép kiểm trả "chưa đạt" |
+| Bảng kê NCC tháng | | kế toán | Chưa có file `/import ncc` của tháng |
+| Nhật trình km | | NCC | Còn tuyến NCC chưa có giá hoặc phí km N/A |
+| Mục tiêu KPI, tải trọng xe | | owner (`/muctieu`, `/taitrong`) | Chưa đặt mục tiêu / xe chưa có tải trọng |
+
+Muốn đổi vai trò nào thì sửa bảng `ROLE` trong `ops_team/supra/domain_agents.py` (một dòng) hoặc nhắn em.
+
+## Công thức cần owner review (J11)
+
+Dùng khi có file chấm công (`/import chamcong`). Công thức lấy từ app (schema nhân sự kho cũ, `metrics.py`):
+
+- OT = tổng giờ OT ÷ (giờ thường + giờ OT) × 100%.
+- Năng suất = tổng sản lượng xử lý ÷ (giờ thường + giờ OT), đơn vị sản lượng/giờ.
+- Tỷ lệ lỗi = tổng số lỗi ÷ tổng sản lượng xử lý × 100%.
+- Cột vắng hoặc ô trống trong khoảng xem: chỉ số đó N/A. Giờ hoặc số âm: dòng bị giữ riêng.
+
+Tin trả lời ghi "chờ owner review J11" tới khi anh/chị xác nhận.

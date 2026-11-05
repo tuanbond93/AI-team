@@ -24,8 +24,8 @@ from .intent import _plain
 
 LABELS = {'chiphi': 'chi phí', 'thieu': 'danh sách dữ liệu thiếu', 'sla': 'SLA', 'xe': 'tình hình xe', 'run': 'báo cáo',
           'details': 'chi tiết', 'duyet': 'danh sách chờ duyệt', 'ketoan': 'đối soát kế toán', 'nhansu': 'lương giao',
-          'kpi': 'KPI', 'kiemtoan': 'kiểm toán', 'tongquan': 'tổng quan', 'vanhanh': 'sản lượng và tồn đọng', 'doixe': 'đội xe'}
-DATED = ('chiphi', 'thieu', 'sla', 'xe', 'ketoan', 'nhansu', 'kpi', 'kiemtoan', 'tongquan', 'vanhanh', 'doixe')
+          'kpi': 'KPI', 'kiemtoan': 'kiểm toán', 'tongquan': 'tổng quan', 'vanhanh': 'sản lượng và tồn đọng', 'doixe': 'đội xe', 'tuyen': 'chi phí theo tuyến'}
+DATED = ('chiphi', 'thieu', 'sla', 'xe', 'ketoan', 'nhansu', 'kpi', 'kiemtoan', 'tongquan', 'vanhanh', 'doixe', 'tuyen')
 WORK = set(LABELS)
 
 P = {

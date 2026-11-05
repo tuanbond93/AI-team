@@ -232,6 +232,29 @@ def operations(data, scope, now, period, cutoff, limit_days=10):
     return '\n'.join(lines)
 
 
+# ---------------- Chi phí theo tuyến ----------------
+def routes_view(result, scope, limit=15):
+    """/tuyen: cost by province/district at each vehicle's own price (owner J1)."""
+    names = {'gxt_vehicle': 'xe GXT', 'gxt_wage': 'lương giao', 'points': 'điểm', 'ftl': 'FTL'}
+    rows = sorted(result['routes'].items(), key=lambda kv: -kv[1]['total'])
+    assigned = sum((v['total'] for _, v in rows), Decimal(0))
+    missing = sum(result['missing'].values(), Decimal(0))
+    lines = [f'Chi phí theo tuyến {span(scope)}: đã chia {vnd(assigned)} cho {len(rows)} tuyến; chưa xác định được tuyến {vnd(missing)}.']
+    for (province, district), v in rows[:limit]:
+        parts = ', '.join(f'{names[k]} {vnd(v[k])}' for k in names if v[k])
+        unit = f', {vnd(v["total"]/v["events"])}/đợt' if v['events'] else ''
+        lines.append(f'• {province.title()} / {district.title()}: {vnd(v["total"])} — {v["events"]} đợt{unit} ({parts})')
+    if len(rows) > limit:
+        lines.append(f'… và {len(rows)-limit} tuyến khác.')
+    if missing:
+        lines.append('Chưa xác định được tuyến: '+', '.join(f'{names[k]} {vnd(v)}' for k, v in result['missing'].items() if v)
+                     +' (đơn/cửa hàng thuộc nhiều tuyến, xe FTL chở nhiều tuyến hoặc thiếu dòng Booking).')
+    if result['pools']:
+        lines.append('Chưa chia theo tuyến (khoản dùng chung): '+', '.join(f'{k} {vnd(v)}' for k, v in result['pools'].items())+'.')
+    lines.append('Mỗi khoản theo đúng giá xe/nhà xe đã tính trong /chiphi (J1). Chi phí/đợt chỉ gồm phần đã chia, chưa là tổng theo tuyến.')
+    return '\n'.join(lines)
+
+
 # ---------------- Đội xe ----------------
 def fleet(scope, evidence, capacities, km=None, report=None):
     """Truck-days, load factor (owner J4: goods ÷ capacity), cost per vehicle-day (J2), km and waiting hours from the trip log."""
