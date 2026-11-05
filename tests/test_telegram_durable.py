@@ -92,7 +92,10 @@ def test_only_owner_changes_settings_and_onboarding_without_ai_is_truthful(state
     assert not state.facts()
     assistant.answer(request("confirm", mid=21))
     assert state.facts()["customer"]["message_id"] == 20
-    assert "CHƯA CÓ AI" in assistant.answer(request("cost", "What next?"))
+    # No model: the Cost role answers through the /chiphi code path (here: no source yet), never a made-up number.
+    cost = assistant.answer(request("cost", "What next?"))
+    assert "CHƯA CÓ AI" not in cost and "nguồn" in cost
+    assert "Chỉ owner" in assistant.answer(request("cost", "What next?", user=77))
     assert "chứa bí mật" in assistant.answer(request("set", "contacts "+TOKEN))
 
 

@@ -367,8 +367,11 @@ def kpi(targets, scope, sla, report, weight, orders, evidence, capacities, previ
 
 
 # ---------------- Kiểm toán ----------------
-def audit_checks(report, evidence, sla, scope):
-    """[(name, ok, detail)]: independent re-checks of the code's own results."""
+def audit_checks(report, evidence, sla, scope, reconciliation=None, km=None):
+    """[(name, ok, detail)]: independent re-checks of the code's own results, then document checks.
+
+    ok=None means N/A (the document has not been sent yet): shown, not counted as passed or failed.
+    """
     from .manual_cost_overlay import projected_totals
     checks = []
     names = aliases(evidence)
@@ -406,22 +409,42 @@ def audit_checks(report, evidence, sla, scope):
         check('Bảng chi phí tính được cho khoảng này', False, (report or {}).get('reason', 'chưa có'))
     if sla:
         check('Giờ kết thúc chuyến trong Raw không bị đóng dấu hàng loạt', not sla.get('batch_stamp'), 'có dấu thời gian hàng loạt, SLA có thể sai' if sla.get('batch_stamp') else '')
+    r = reconciliation
+    if r is None:
+        check('Đối soát bảng kê NCC', None, 'chưa có bảng kê tháng này (kế toán gửi, /import ncc)')
+    else:
+        check('Bảng kê NCC: VAT đúng 8% và tổng sau VAT khớp', not r['vat_mismatch_rows'] and not r['total_mismatch_rows'],
+              'dòng '+', '.join(map(str, (r['vat_mismatch_rows']+r['total_mismatch_rows'])[:8])))
+        check('Bảng kê NCC: không trùng biển số + ngày', not r['duplicate_rows'], '; '.join(f'dòng {a} và {b}' for a, b in r['duplicate_rows'][:4]))
+        check('Bảng kê NCC: chỉ tính tiền ngày xe có chạy trên Raw', not r['billed_without_activity'],
+              'bảng kê dòng '+', '.join(map(str, r['billed_without_activity_rows'][:8])))
+        check('Bảng kê NCC: tiền xe GXT khớp giá ngày đã duyệt', not any(x['diff_vnd'] for x in r['gxt_compare']),
+              ', '.join(f'{car(x["plate"], names)} lệch {vnd(x["diff_vnd"])}' for x in r['gxt_compare'] if x['diff_vnd'])[:200])
+    if km is None:
+        check('Đối chiếu nhật trình km', None, 'chưa có nhật trình tháng này (NCC gửi, /import km)')
+    else:
+        check('Nhật trình km: ngày có km đều thấy xe chạy trên Raw', not km['logged_without_raw_rows'],
+              'nhật trình dòng '+', '.join(map(str, km['logged_without_raw_rows'][:8])))
     return checks
 
 
-def audit(report, evidence, sla, scope, today=None):
-    """Returns (passed, total, text)."""
-    checks = audit_checks(report, evidence, sla, scope)
-    passed = sum(ok for _, ok, _ in checks)
-    lines = [f'Kiểm toán {span(scope)}: đạt {passed}/{len(checks)} phép kiểm.']
-    fails = [(n, d) for n, ok, d in checks if not ok]
+def audit(report, evidence, sla, scope, today=None, reconciliation=None, km=None):
+    """Returns (passed, counted, text); N/A document checks are listed but not counted."""
+    checks = audit_checks(report, evidence, sla, scope, reconciliation, km)
+    counted = [c for c in checks if c[1] is not None]
+    passed = sum(ok for _, ok, _ in counted)
+    lines = [f'Kiểm toán {span(scope)}: đạt {passed}/{len(counted)} phép kiểm.']
+    fails = [(n, d) for n, ok, d in checks if ok is False]
     if fails:
         lines.append('Chưa đạt:')
         lines += [f'• {n}'+(f': {d}' if d else '') for n, d in fails]
     else:
-        lines.append('Mọi phép cộng lại, đối chiếu kg và điều kiện công bố tổng đều khớp.')
-    lines.append('Đây là kiểm tra lại bằng code trên cùng nguồn; chưa thay đối soát chứng từ.')
-    return passed, len(checks), '\n'.join(lines)
+        lines.append('Mọi phép kiểm đã chạy đều khớp.')
+    missing = [(n, d) for n, ok, d in checks if ok is None]
+    if missing:
+        lines.append('Chưa kiểm được (N/A): '+'; '.join(f'{n} — {d}' for n, d in missing)+'.')
+    lines.append('Phần tính lại dùng cùng nguồn Booking/Raw; phần chứng từ chỉ có khi đã nhận bảng kê/nhật trình.')
+    return passed, len(counted), '\n'.join(lines)
 
 
 # ---------------- Điều phối ----------------
@@ -469,7 +492,7 @@ def daily_brief(scope, report, missing, ops, kpi_result, checks, has_statement, 
     misses = [r for r in rows if r['ok'] is False]
     if misses:
         actions.append(('KPI chưa đạt: '+'; '.join(f'{r["name"]} {kpi_value(r)} ({kpi_goal(r)})' for r in misses), ROLE['kpi'], []))
-    fails = [(n, d) for n, ok, d in (checks or []) if not ok]
+    fails = [(n, d) for n, ok, d in (checks or []) if ok is False]
     if fails:
         actions.append((f'Kiểm toán chưa đạt {len(fails)} phép', ROLE['audit'], ['• '+n+(f': {d}' if d else '') for n, d in fails[:3]]))
     if not has_statement:

@@ -15,7 +15,7 @@ Hiện có 9 mảng; 4 mảng có từ trước, 5 mảng làm thêm đợt này
 | **Nhân sự** | `/nhansu` | "lương giao tuần này" | Lương giao GXT theo xe/ngày: số đơn, kg, tiền theo bậc kg từng đơn. Đơn đi 2 chuyến cùng xe/ngày tính 1 lần; giao thẳng không tính lương. Điểm giao BC tách riêng. | Theo người: cần danh sách tài xế–xe (`/import taixe`); xe/ngày có 2+ người giữ N/A chờ J10. OT, năng suất, lỗi: cần chấm công (`/import chamcong`), công thức có sẵn chờ J11 |
 | **KPI** | `/kpi` | "KPI tháng 10", "tỷ lệ tải xe" | SLA %, chi phí/kg, chi phí/đơn, tỷ lệ tải. Chấm đạt/chưa đạt theo mục tiêu owner đặt; dòng "Cảnh báo" khi không đạt (J6). Xu hướng so với khoảng ngay trước cùng số ngày (J7); kỳ trước sang tháng khác hoặc chỉ số N/A ở một bên thì không so. Chi phí/kg và chi phí/đơn chỉ có khi tổng chi phí đã chốt, không dùng tổng tạm. | Mục tiêu (`/muctieu`), tải trọng xe S (`/taitrong`); OT và tỷ lệ xe rỗng chờ dữ liệu (xem Nhân sự, Đội xe) |
 | **Đội xe** | `/doixe` | "đội xe tuần này", "giờ chờ xe" | Lượt xe/ngày và số xe trên Raw, tỷ lệ tải (như `/kpi`), tổng km, km rỗng, giờ chờ theo nhật trình; tỷ lệ km rỗng theo đề xuất J4 | Nhật trình km (NCC); chi phí/chuyến chờ J2; dự báo chờ J3 |
-| **Kiểm toán** | `/kiemtoan` | "kiểm toán lại số", "số có khớp không" | Tính lại độc lập: tổng tiền xe/lương = tổng từng xe/ngày; phần Supra không vượt tiền xe; kg bảng chi phí khớp kg Raw; Raw cập nhật đủ; tổng chỉ công bố khi đủ nguồn; còn nhóm giữ riêng; dấu thời gian hàng loạt (SLA). | Chưa thay đối soát chứng từ |
+| **Kiểm toán** | `/kiemtoan` | "kiểm toán lại số", "số có khớp không" | Tính lại độc lập: tổng tiền xe/lương = tổng từng xe/ngày; phần Supra không vượt tiền xe; kg bảng chi phí khớp kg Raw; Raw cập nhật đủ; tổng chỉ công bố khi đủ nguồn; còn nhóm giữ riêng; dấu thời gian hàng loạt (SLA). | Đối soát chứng từ (bảng kê NCC: VAT, trùng, ngày không chạy, tiền xe GXT; nhật trình: ngày có km mà không chạy) chỉ khi đã nhận file; chưa có thì N/A, không tính là trượt |
 | **Điều phối** | `/tongquan` | "tổng quan tuần này" | Báo cáo ngày: kết luận (số việc, tình trạng tổng chi phí, tồn đọng); việc ưu tiên xếp theo: dữ liệu chặn tổng chi phí (tách việc owner quyết với việc CS / điều phối GXT bổ sung), đơn quá hạn, KPI chưa đạt, kiểm toán chưa đạt; mục cần bổ sung (bảng kê NCC, nhật trình km, mục tiêu KPI, tải trọng xe) kèm người gửi; số chính mỗi mảng. Một mảng lỗi không chặn cả báo cáo. | Người phụ trách là đề xuất, chờ owner chốt (J8). Báo cáo lịch 13h chưa đổi theo mẫu này (cần owner duyệt) |
 
 ## Owner đặt mục tiêu và tải trọng
@@ -48,7 +48,24 @@ Kế toán gửi file `.xlsx` hoặc `.csv` vào nhóm, chú thích `/import ncc
 - `ops_team/kpi_targets.py`: mục tiêu và tải trọng.
 - `manual_cost_rules.gxt_daily_cost` có thêm chi tiết `by_group` theo xe/ngày. Tổng không đổi; tổng từng xe/ngày bằng tổng chung, có test.
 
-Các vai trò dùng AI cũ (`/accounting`, `/workforce`, `/cost`, `/fleet`…) vẫn giữ nguyên và chỉ chạy khi có cấu hình model. Riêng `/kpi` nay là agent KPI bằng code ở trên; vai trò KPI của AI vẫn gọi được qua đội AI (`/team`).
+## Vai trò AI và agent bằng code (05/11/2026)
+
+Nguyên tắc: code tính số, AI chỉ giải thích và đề xuất. Một con số chỉ có một nơi tính.
+
+| Vai trò AI (`agents.py`) | Lệnh vai trò | Agent bằng code trả lời khi chưa có model |
+|---|---|---|
+| Coordinator | `/coordinator` | `/tongquan` |
+| Accounting | `/accounting` | `/ketoan` |
+| Cost | `/cost`, `/supra` | `/chiphi` |
+| Operations | `/operations` | `/vanhanh` |
+| Workforce | `/workforce` | `/nhansu` |
+| Fleet | `/fleet` | `/doixe` |
+| KPI | (đội AI qua `/team`) | `/kpi` |
+| Auditor | `/auditor` | `/kiemtoan` |
+
+- Chưa có model: lệnh vai trò chạy đúng agent bằng code của mảng đó, chỉ owner xem được.
+- Có model: vai trò AI nhận `metrics` và `cost_report` lấy từ cùng hàm với các lệnh, kèm `number_policy` cấm tính số mới. Chỉ gửi ở câu hỏi của owner; lượt theo lịch thì không.
+- Vai trò AI trên file kho cũ (schema `costs/operations/workforce/fleet/kpi`) dùng nguồn khác (file kho), không trùng với số Supra.
 
 ## Báo cáo 13h và AI dùng chung bảng chi phí (05/11/2026)
 

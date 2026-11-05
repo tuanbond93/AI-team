@@ -19,6 +19,10 @@ from .telegram_state import REQUIRED, FIELDS, LABELS, GROUP_ID, contains_secret
 from .telegram_sources import import_file, load_source, read_export_folder
 
 TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+# AI roles (agents.py / telegram_agent.py) ↔ code agents. Code computes; the AI role only explains when a model is configured.
+ROLE_TO_CODE = {"coordinator": "tongquan", "accounting": "ketoan", "cost": "chiphi", "operations": "vanhanh",
+                "workforce": "nhansu", "fleet": "doixe", "auditor": "kiemtoan", "supra": "chiphi"}
+
 MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /onboard — điền lần lượt thông tin còn thiếu
 /set customer <phạm vi> — owner xác nhận thông tin (xem các trường ở /memory)
@@ -470,6 +474,12 @@ class AssistantResponder:
                 if command == "ask":
                     from .intent import UNCLEAR
                     return UNCLEAR
+                if command in ROLE_TO_CODE:
+                    # No model: the AI role's own area answers with code numbers (same functions as the commands).
+                    if not owner:
+                        return "Chỉ owner đã xác minh được xem số liệu."
+                    target = ROLE_TO_CODE[command]
+                    return self._answer(Incoming(request.chat_id, request.user_id, request.message_id, request.topic_id, target, ""))
                 return "CHƯA CÓ AI/MODEL. Tôi đang dùng quy trình onboarding và tính toán bằng code. Dùng /onboard, /memory, /source hoặc /plan; chủ máy có thể cấu hình model trong AI Team."
             try:
                 agent = self._get_agent(fleet=True) if command=='fleet' else self._get_agent()
@@ -604,7 +614,10 @@ class AssistantResponder:
         if command == "kpi":
             return kpi()
         if command == "kiemtoan":
-            return agents.audit(report, evidence, sla(), scope)[2]
+            from .supra.ncc_invoice import reconcile
+            statement = monthly("ncc")
+            rec = reconcile(statement, report, evidence, scope["start"], scope["end"]) if statement else None
+            return agents.audit(report, evidence, sla(), scope, reconciliation=rec, km=km_summary())[2]
         from .supra.manual_cost_report import render_cost_report
         from .supra.missing_data import missing_checklist
         from .supra.ncc_invoice import load_statement

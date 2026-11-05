@@ -99,7 +99,9 @@ class TelegramAgent:
         if self._context.get('vehicle'):payload={**payload,'source_provenance':self._context['source_provenance']}
         if self._context.get("cost_report") and getattr(self, "owner_turn", False):
             # Same numbers as /chiphi; the model explains, never recalculates. Owner-only, like /chiphi.
-            payload = {**payload, "cost_report": self._context["cost_report"]}
+            payload = {**payload, "cost_report": self._context["cost_report"],
+                       "number_policy": "Numbers come only from metrics and cost_report, exactly as given (code-computed, same as /chiphi). "
+                                        "Do not compute new totals, rates or allocations; None means N/A, never 0. Explain and propose only."}
         if self._context.get("booking"):
             quality={k:v for k,v in self._context.get('quantity_quality',{}).items()
                      if k in ('available','complete','reason','rule')}

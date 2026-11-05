@@ -538,3 +538,36 @@ def test_timesheet_round_trips_through_the_vault(tmp_path):
         assert timesheet_metrics(loaded, SCOPE)['ot_rate_pct'] == Decimal(20)
     finally:
         state.close()
+
+
+def test_audit_document_checks_count_only_when_documents_exist(tmp_path):
+    passed, counted, text = agents.audit(gxt_report(), EVIDENCE, None, SCOPE)
+    assert passed == counted and 'Chưa kiểm được (N/A): Đối soát bảng kê NCC' in text and 'Đối chiếu nhật trình km' in text
+    data = statement_xlsx([[1, '10/10/2026', '29C-111.11', 1, 1000000, 80000, 1080000, ''],
+                           [2, '11/10/2026', '29C-222.22', 1, 1000000, 90000, 1090000, ''],
+                           [3, '11/10/2026', '29C-222.22', 1, 1000000, 80000, 1080000, '']])
+    statement = parse_statement(data, 'b.xlsx')
+    rec = reconcile(statement, gxt_report(), EVIDENCE, SCOPE['start'], SCOPE['end'])
+    from ops_team.supra.km_log import parse_log, summary
+    km = summary(parse_log(km_csv(['10/10/2026,29C-111.11,100,10,1', '11/10/2026,29C-333.33,50,5,0']), 'k.csv'), SCOPE, EVIDENCE)
+    passed2, counted2, text2 = agents.audit(gxt_report(), EVIDENCE, None, SCOPE, reconciliation=rec, km=km)
+    assert counted2 == counted+5 and passed2 == passed+2  # VAT, duplicate, GXT money fail; activity + km pass
+    assert 'VAT đúng 8%' in text2 and 'dòng 5' in text2 and 'dòng 5 và 6' in text2 and 'V2 lệch 1.000.000đ' in text2
+    assert 'N/A' not in text2.split('Chưa đạt')[0] and '29C' not in text2
+
+
+def test_ai_roles_answer_with_code_agents_when_no_model(tmp_path, monkeypatch):
+    from ops_team.telegram_assistant import AssistantResponder, ROLE_TO_CODE
+    from ops_team.telegram_bridge import Incoming
+    from ops_team.telegram_state import GROUP_ID
+    state = BusinessState(tmp_path/'vault')
+    try:
+        r = AssistantResponder(state, {'owner_id': 123, 'models': {}})
+        monkeypatch.setattr(r, '_domain', lambda command, text: 'code:'+command)
+        for role, target in (('accounting', 'ketoan'), ('operations', 'vanhanh'), ('workforce', 'nhansu'), ('fleet', 'doixe'),
+                             ('auditor', 'kiemtoan'), ('coordinator', 'tongquan')):
+            assert ROLE_TO_CODE[role] == target
+            assert r.answer(Incoming(GROUP_ID, 123, 1, None, role, 'bất kỳ')) == 'code:'+target
+            assert 'Chỉ owner' in r.answer(Incoming(GROUP_ID, 456, 2, None, role, ''))
+    finally:
+        state.close()

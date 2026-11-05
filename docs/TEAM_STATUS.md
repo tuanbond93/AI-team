@@ -41,3 +41,4 @@ Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** ngh�
 | 4 | KPI: xu hướng so kỳ trước + cảnh báo lệch mục tiêu | xong (dữ liệu giả); OT, xe rỗng chờ dữ liệu; J6, J7 chờ xác nhận | xem git log |
 | 5 | Kế toán: lãi gộp khi đủ nguồn + nhật trình km (schema, mẫu, nhập, đối chiếu) | xong (dữ liệu giả); chờ bảng kê và nhật trình thật, biểu giá km | xem git log |
 | 6 | Đội xe (`/doixe`) + Nhân sự (theo người, chấm công): schema, mẫu, nhập, N/A rõ ràng | xong phần code (dữ liệu giả); chờ nhật trình, danh sách tài xế–xe, chấm công; J2, J3, J4, J10, J11 | xem git log |
+| 7 | Vai trò AI chung số với code; Kiểm toán đối soát chứng từ | xong (dữ liệu giả, model giả) | xem git log |

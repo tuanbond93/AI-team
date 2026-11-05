@@ -2446,6 +2446,7 @@ def test_daily_report_and_model_context_use_the_chiphi_cost_table(tmp_path,monke
             try:agent._call(agent._configs['Coordinator'],{'metrics':context['metrics'],'question':'q'})
             except RuntimeError:pass
         assert 'cost_report' not in seen[0] and seen[1]['cost_report']==cr
+        assert 'Do not compute new totals' in seen[1]['number_policy'] and 'number_policy' not in seen[0]
     finally:state.close()
 
 
