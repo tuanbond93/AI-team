@@ -344,10 +344,19 @@ def test_kpi_trend_and_alert():
     text = agents.kpi(targets, SCOPE, {'on_time_rate': 0.8}, gxt_report(), None, 0, EVIDENCE, {},
                       previous={'scope': {'start': '2026-10-07', 'end': '2026-10-09'}, 'rows': prev_rows})
     lines = text.split('\n')
-    assert lines[1] == 'Cảnh báo: SLA đúng hạn 80,0%, mục tiêu ≥ 95%.'
+    assert lines[1] == 'Cảnh báo: SLA đúng hạn 80,0%, mục tiêu ≥ 95%; SLA đúng hạn giảm 10,0 điểm % so với kỳ trước.'
     assert '• SLA đúng hạn: 80,0% — CHƯA ĐẠT (mục tiêu ≥ 95%); so với kỳ trước giảm 10,0 điểm %' in text
     assert 'so với kỳ trước' not in next(l for l in lines if l.startswith('• Chi phí mỗi kg'))  # N/A on both sides: no trend
-    assert 'Kỳ trước để so sánh: 07/10–09/10 (cùng số ngày, đề xuất J7)' in text
+    assert 'Kỳ trước để so sánh: 07/10–09/10 (cùng số ngày, J7)' in text
+    # J6: a KPI that still meets its target but got worse versus the previous window is also a warning.
+    worse = agents.kpi(targets, SCOPE, {'on_time_rate': 0.96}, gxt_report(), None, 0, EVIDENCE, {},
+                       previous={'scope': {'start': '2026-10-07', 'end': '2026-10-09'},
+                                 'rows': agents.kpi_rows(targets, SCOPE, {'on_time_rate': 0.99}, gxt_report(), None, 0, EVIDENCE, {})[0]})
+    assert worse.split('\n')[1] == 'Cảnh báo: SLA đúng hạn giảm 3,0 điểm % so với kỳ trước.' and '— đạt' in worse
+    better = agents.kpi(targets, SCOPE, {'on_time_rate': 0.99}, gxt_report(), None, 0, EVIDENCE, {},
+                        previous={'scope': {'start': '2026-10-07', 'end': '2026-10-09'},
+                                  'rows': agents.kpi_rows(targets, SCOPE, {'on_time_rate': 0.96}, gxt_report(), None, 0, EVIDENCE, {})[0]})
+    assert 'Cảnh báo' not in better and 'tăng 3,0 điểm %' in better
     na_prev = agents.kpi(targets, SCOPE, {'on_time_rate': 0.8}, gxt_report(), None, 0, EVIDENCE, {},
                          previous={'scope': {'start': '2026-09-28', 'end': '2026-09-30'}, 'reason': 'kỳ trước nằm ngoài tháng/kỳ dữ liệu đang chọn'})
     assert 'so với kỳ trước' not in na_prev and 'chưa so được vì kỳ trước nằm ngoài tháng' in na_prev
@@ -411,12 +420,11 @@ def test_km_log_checks_and_full_equals_halves(tmp_path):
     halves = [summary(log, {'start': '2026-10-10', 'end': '2026-10-11'}, EVIDENCE), summary(log, {'start': '2026-10-12', 'end': '2026-10-13'}, EVIDENCE)]
     assert whole['km'] == sum(h['km'] for h in halves) == Decimal(175)
     assert whole['empty_km'] == sum(h['empty_km'] for h in halves) == Decimal(20) and whole['wait_hours'] == Decimal('3.5')
-    assert whole['empty_rate_pct'] == Decimal(20)/Decimal(175)*100
     assert whole['logged_without_raw_rows'] == [7] and whole['raw_without_log'] == [('29C11111', '2026-10-12')]
     text = agents.km_text(whole, EVIDENCE)
     assert 'tổng 175 km' in text and 'nhật trình dòng 7' in text and 'V1 12/10' in text and '29C' not in text and 'biểu giá km' in text
     no_empty = summary(parse_log(km_csv(['10/10/2026,29C-111.11,100'], 'Ngày,Biển số xe,Km'), 'k.csv'), SCOPE, EVIDENCE)
-    assert no_empty['km'] == Decimal(100) and no_empty['empty_km'] is None and no_empty['empty_rate_pct'] is None  # absent column = N/A
+    assert no_empty['km'] == Decimal(100) and no_empty['empty_km'] is None  # absent column = N/A
     state = BusinessState(tmp_path/'v')
     try:
         save_statement(state, log, 'km')
@@ -489,12 +497,13 @@ def test_fleet_view_and_routing():
     from ops_team.intent import route
     from ops_team.supra.km_log import parse_log, summary
     log = parse_log(km_csv(['10/10/2026,29C-111.11,100,10,1', '11/10/2026,29C-222.22,50,5,0.5']), 'km.csv')
-    text = agents.fleet(SCOPE, EVIDENCE, {'29C11111': Decimal(1250)}, summary(log, SCOPE, EVIDENCE))
-    assert text.startswith('Đội xe 10/10–12/10: 3 lượt xe/ngày trên Raw, 2 xe; tỷ lệ tải 3,1% trên 3 lượt có tải trọng.')
-    assert 'tổng km 150; km rỗng 15 km; giờ chờ 1,5 giờ' in text and 'Tỷ lệ km rỗng 10,0%' in text and 'J4' in text
-    assert 'Chi phí/chuyến: N/A' in text and 'J2' in text and '29C' not in text
+    text = agents.fleet(SCOPE, EVIDENCE, {'29C11111': Decimal(1250)}, summary(log, SCOPE, EVIDENCE), gxt_report())
+    assert text.startswith('Đội xe 10/10–12/10: 3 lượt xe/ngày trên Raw, 2 xe; tỷ lệ tải (hàng ÷ tải trọng) 3,1% trên 3 lượt có tải trọng.')
+    assert 'tổng km 150; km rỗng 15 km; giờ chờ 1,5 giờ' in text and 'km rỗng 10' not in text and '29C' not in text
+    # J2: trip = vehicle/day. 2 GXT vehicle-days at 1.000.000đ; Supra share 800.000 + 1.000.000 (see gxt_report).
+    assert 'Chi phí/chuyến (xe/ngày, J2): xe GXT 1.000.000đ/xe-ngày tiền thuê cả xe, phần Supra 900.000đ/xe-ngày (2 xe/ngày); FTL N/A.' in text
     bare = agents.fleet(SCOPE, {**EVIDENCE, 'inventory': []}, {}, None)
-    assert 'tỷ lệ tải N/A' in bare and 'Km, km rỗng, giờ chờ: N/A' in bare
+    assert 'tỷ lệ tải (hàng ÷ tải trọng) N/A' in bare and 'Km, km rỗng, giờ chờ: N/A' in bare and 'Chi phí/chuyến (xe/ngày): N/A' in bare
     today = date(2026, 11, 5)
     assert route('đội xe tuần này', today)[0] == 'doixe' and route('giờ chờ xe hôm qua', today)[0] == 'doixe'
     assert route('xe ngày 15/10', today)[0] == 'xe' and route('tỷ lệ tải xe tháng 10', today)[0] == 'kpi'

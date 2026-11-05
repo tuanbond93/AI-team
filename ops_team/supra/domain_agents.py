@@ -158,7 +158,7 @@ def people_lines(report, scope, roster, timesheet, evidence, limit=12):
             return (pct(value) if unit == '%' else _vi_number(value, 2)+unit) if value is not None else 'N/A'
         out.append(f'Chấm công {m["lines"]} dòng, {m["people"]} người: OT {show(m["ot_rate_pct"], "%")}, '
                    f'năng suất {show(m["productivity"], " sản lượng/giờ")}, tỷ lệ lỗi {show(m["defect_rate_pct"], "%")} '
-                   '(công thức có sẵn trong app, chờ owner xác nhận J11).')
+                   '(công thức có sẵn trong app, chờ owner review J11).')
         if m['held_rows']:
             out.append('Dòng chấm công thiếu/lỗi chưa đọc: '+', '.join(map(str, m['held_rows'][:10])))
     return out
@@ -226,17 +226,17 @@ def operations(data, scope, now, period, cutoff, limit_days=10):
         lines.append('Việc cần làm: kiểm tra giao hàng các đợt trên; nếu đã giao thì Raw còn thiếu dòng DELIVER thành công.')
     if status['held']:
         lines.append(f'{status["held"]} đợt chưa xác định được đã giao hay chưa (cờ thành công hoặc giờ giao trên Raw lỗi).')
-    lines.append('Tồn đọng = đợt đã xuất chưa có DELIVER thành công trên Raw; hạn theo D+1/D+2 đã chốt (OWNER J5).')
+    lines.append('Tồn đọng = đợt đã xuất chưa có DELIVER thành công trên Raw; hạn theo D+1/D+2 đã chốt (J5).')
     return '\n'.join(lines)
 
 
 # ---------------- Đội xe ----------------
-def fleet(scope, evidence, capacities, km=None):
-    """Truck-days, load factor, km / empty km / waiting hours from the NCC trip log. Cost per trip and demand stay N/A (J2, J3)."""
+def fleet(scope, evidence, capacities, km=None, report=None):
+    """Truck-days, load factor (owner J4: goods ÷ capacity), cost per vehicle-day (J2), km and waiting hours from the trip log."""
     groups = [g for g in evidence.get('groups', []) if scope['start'] <= g['day'] <= scope['end']]
     trucks = len({g['plate'] for g in groups})
     load, counted, missing = load_factor(evidence, scope, capacities)
-    lines = [f'Đội xe {span(scope)}: {len(groups)} lượt xe/ngày trên Raw, {trucks} xe; tỷ lệ tải '
+    lines = [f'Đội xe {span(scope)}: {len(groups)} lượt xe/ngày trên Raw, {trucks} xe; tỷ lệ tải (hàng ÷ tải trọng) '
              +(f'{pct(load)} trên {counted} lượt có tải trọng' if load is not None else 'N/A (chưa có tải trọng xe; owner khai báo bằng /taitrong)')+'.']
     if km is None:
         lines.append('Km, km rỗng, giờ chờ: N/A — chưa có nhật trình km (NCC gửi file, chú thích /import km).')
@@ -244,11 +244,22 @@ def fleet(scope, evidence, capacities, km=None):
         lines.append(f'Theo nhật trình: tổng km {_vi_money(km["km"]) if km["km"] is not None else "N/A"}; km rỗng '
                      +(f'{_vi_money(km["empty_km"])} km' if km['empty_km'] is not None else 'N/A (cột km rỗng thiếu/trống)')
                      +'; giờ chờ '+(f'{_vi_number(km["wait_hours"], 1)} giờ' if km['wait_hours'] is not None else 'N/A (cột giờ chờ thiếu/trống)')+'.')
-        if km['empty_rate_pct'] is not None:
-            lines.append(f'Tỷ lệ km rỗng {pct(km["empty_rate_pct"])} (km rỗng ÷ tổng km theo đề xuất J4, chờ owner chốt định nghĩa xe rỗng).')
-    lines.append('Chi phí/chuyến: N/A — cần owner chốt "chuyến" là xe/ngày, mã chuyến Raw hay lượt theo nhật trình (J2).')
-    lines.append('Dự báo nhu cầu xe: chưa tự dự báo (J3); kịch bản ca xe owner đã duyệt xem bằng /xe.')
+    lines.append(trip_cost_text(report))
+    lines.append('Dự báo nhu cầu xe: chờ file tồn kho và hàng sắp về owner gửi (J3); kịch bản ca xe owner đã duyệt xem bằng /xe.')
     return '\n'.join(lines)
+
+
+def trip_cost_text(report):
+    """Owner J2: a trip is a vehicle/day. Cost per vehicle/day from the /chiphi table; N/A when that part is N/A."""
+    if not report or not report.get('available'):
+        return 'Chi phí/chuyến (xe/ngày): N/A — bảng chi phí chưa tính được cho khoảng này.'
+    g, f = report['gxt'], report['ftl']
+    days = g.get('eligible_vehicle_days') or 0
+    gxt = (f'xe GXT {vnd(Decimal(g["vehicle_pool_vnd"])/days)}/xe-ngày tiền thuê cả xe, phần Supra {vnd(Decimal(g["vehicle_supra_vnd"])/days)}/xe-ngày '
+           f'({days} xe/ngày)') if days and g.get('vehicle_pool_vnd') is not None else 'xe GXT N/A'
+    groups = f.get('eligible_groups') or 0
+    ftl = (f'FTL {vnd(Decimal(f["eligible_vnd"])/groups)}/xe-ngày ({groups} xe/ngày)' if groups and f.get('eligible_vnd') is not None else 'FTL N/A')
+    return f'Chi phí/chuyến (xe/ngày, J2): {gxt}; {ftl}. Nhóm đang giữ N/A không tính vào.'
 
 
 # ---------------- KPI ----------------
@@ -331,6 +342,13 @@ def kpi_delta(row, before):
     return f'{word} {amount}'
 
 
+def worsened(row, before):
+    """Owner J6: warn when a KPI moves the wrong way versus the previous window (any amount)."""
+    if row['value'] is None or before['value'] is None:
+        return False
+    return row['value'] < before['value'] if row['sense'] == 'min' else row['value'] > before['value']
+
+
 def kpi(targets, scope, sla, report, weight, orders, evidence, capacities, previous=None):
     """previous: {'scope', 'rows'} for the window before, or {'scope', 'reason'} when it cannot be computed."""
     rows, meta = kpi_rows(targets, scope, sla, report, weight, orders, evidence, capacities)
@@ -348,12 +366,14 @@ def kpi(targets, scope, sla, report, weight, orders, evidence, capacities, previ
         delta = kpi_delta(r, before.get(r['key'])) if before else None
         trend = f'; so với kỳ trước {delta}' if delta else ''
         lines.append(f'• {r["name"]}: {kpi_value(r)}{verdict}{trend}'+(f' ({r["why"]})' if r['why'] else ''))
-    misses = [r for r in rows if r['ok'] is False]
-    if misses:
-        lines.insert(1, 'Cảnh báo: '+'; '.join(f'{r["name"]} {kpi_value(r)}, {kpi_goal(r)}' for r in misses)+'.')
+    misses = [f'{r["name"]} {kpi_value(r)}, {kpi_goal(r)}' for r in rows if r['ok'] is False]
+    worse = [f'{r["name"]} {kpi_delta(r, before[r["key"]])} so với kỳ trước' for r in rows
+             if r['key'] in before and kpi_delta(r, before[r['key']]) and worsened(r, before[r['key']])]
+    if misses or worse:
+        lines.insert(1, 'Cảnh báo: '+'; '.join(misses+worse)+'.')
     if previous:
         ps = previous['scope']
-        lines.append(f'Kỳ trước để so sánh: {span(ps)} (cùng số ngày, đề xuất J7)'+
+        lines.append(f'Kỳ trước để so sánh: {span(ps)} (cùng số ngày, J7)'+
                      (f'; chưa so được vì {previous["reason"]}.' if previous.get('reason') else '. Chỉ số N/A ở một trong hai kỳ thì không so.'))
     if load is not None and missing:
         lines.append(f'Tỷ lệ tải tính trên {counted} lượt xe/ngày có tải trọng; {len(missing)} xe chưa có tải trọng nên chưa tính.')
@@ -448,7 +468,7 @@ def audit(report, evidence, sla, scope, today=None, reconciliation=None, km=None
 
 
 # ---------------- Điều phối ----------------
-# Suggested owners for each kind of action; OWNER J8 not answered yet, so the brief says "đề xuất".
+# Who acts on each kind of item (owner approved J8 on 05/11/2026; details in docs/DOMAIN_AGENTS.md).
 ROLE = {'decide': 'owner', 'booking': 'CS (Booking)', 'raw': 'điều phối GXT (Raw)', 'data': 'CS / điều phối GXT', 'overdue': 'điều phối GXT', 'kpi': 'owner', 'audit': 'owner',
         'ncc': 'kế toán', 'km': 'NCC', 'targets': 'owner (/muctieu)', 'capacity': 'owner (/taitrong)'}
 
@@ -519,7 +539,7 @@ def daily_brief(scope, report, missing, ops, kpi_result, checks, has_statement, 
     lines.append('Số chính:')
     for label, first in parts:
         lines.append(f'• {label}: {first}')
-    lines.append('Người phụ trách là đề xuất, chờ owner chốt (J8). Nhắn tên mảng để xem chi tiết.')
+    lines.append('Người phụ trách theo phân công owner đã duyệt (J8). Nhắn tên mảng để xem chi tiết.')
     return '\n'.join(lines)
 
 

@@ -5,7 +5,7 @@ header aliases like the NCC statement (one reader, ``ncc_invoice._find_header``)
 Required: plate, day, km. Optional: empty km, waiting hours, trips, route, note.
 Bad rows are held, never read as 0. Money by km stays N/A until the owner sends the
 km tariff (question 17); empty-km rate and waiting hours are shown with the
-definitions still to confirm (OWNER J4).
+totals only: owner J4 defines the empty/load ratio as goods ÷ capacity (load factor), not empty km.
 """
 from decimal import Decimal, localcontext
 
@@ -65,7 +65,6 @@ def summary(log, scope, evidence):
     logged = {(l['plate'], str(l['day'])) for l in lines}
     logged_plates = {p for p, _ in logged}
     return {'lines': len(lines), 'held_rows': [h['row'] for h in log.get('held', [])], 'km': km, 'empty_km': empty, 'wait_hours': wait,
-            'empty_rate_pct': (empty/km*100 if empty is not None and km else None),
             'logged_without_raw_rows': sorted(l['row'] for l in lines if (l['plate'], str(l['day'])) not in active
                                               and l['plate'] in {p for p, _ in active}),
             'raw_without_log': sorted(k for k in active if k[0] in logged_plates and k not in logged)}

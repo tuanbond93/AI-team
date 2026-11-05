@@ -205,3 +205,13 @@ J11. ℹ OT, năng suất, tỷ lệ lỗi từ file chấm công: dùng công t
 | R13 | Xe S chở lẫn đơn Supra nhiều mô hình; đơn lặp do giao thất bại hôm trước: lấy log ngày mới nhất, ghi nhận 1 lần | 29/10/2026 | Có: đơn GXT chia chi phí xe theo kg + lương giao; đơn Supra mô hình khác (BC/FTL/NCC/khai trương) tính vào hàng khác vì đã trả theo mô hình riêng; đơn chỉ tính ở ngày load mới nhất, lặp cùng chuyến tính 1 lần |
 | R14 | Thiếu kg: lấy cột L theo mã GHN, không có thì theo Raw | 29/10/2026 | Có: L của cùng GHN (một giá trị duy nhất) trước, rồi Raw; báo số đợt mượn L để kiểm tránh trùng |
 | R15 | 3 dòng chưa có dữ liệu: ghi chú CS bổ sung | 29/10/2026 | Có: nhãn "CS bổ sung cột L" |
+| J1 | Theo đơn giá của từng xe/nhà xe | 05/11/2026 | Có: `/tuyen` gán mỗi khoản theo giá xe đã tính (GXT theo đơn, điểm theo cửa hàng/ngày, FTL theo xe/ngày một tuyến); xe chở nhiều tuyến và pool để "chưa chia" |
+| J2 | Xe/ngày | 05/11/2026 | Có: `/doixe` chi phí/chuyến = tiền xe ÷ số xe/ngày |
+| J3 | Dựa vào file tồn và hàng sắp về (owner gửi sau) | 05/11/2026 | Chờ file mẫu |
+| J4 | Tỷ lệ hàng ÷ tổng tải trọng chở được | 05/11/2026 | Có: dùng tỷ lệ tải (kg ÷ tải trọng); bỏ tỷ lệ km rỗng |
+| J5 | Báo cáo tồn đọng (giữ định nghĩa A) | 05/11/2026 | Có: `/vanhanh` |
+| J6, J7 | So với kỳ trước | 05/11/2026 | Có: cảnh báo khi không đạt mục tiêu hoặc xấu đi so với kỳ trước cùng số ngày |
+| J8 | Đồng ý; gửi chi tiết để xem | 05/11/2026 | Có: bảng phân công trong `docs/DOMAIN_AGENTS.md` |
+| J9 | Không in số tiền trong tin nhóm | 05/11/2026 | Giữ nguyên |
+| J10 | Gán ID ai thì lương người đó | 05/11/2026 | Có: danh sách tài xế có cột mã đơn thì lương đơn đó cho đúng người; không gán thì giữ N/A |
+| J11 | Ghi ra để owner review | 05/11/2026 | Ghi công thức trong `docs/DOMAIN_AGENTS.md`, vẫn hiển thị "chờ owner review" |

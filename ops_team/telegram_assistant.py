@@ -608,7 +608,7 @@ class AssistantResponder:
         if command == "nhansu":
             return agents.workforce(report, scope, evidence=evidence, roster=monthly("taixe"), timesheet=monthly("chamcong"))
         if command == "doixe":
-            return agents.fleet(scope, evidence, KpiStore(self.state).capacities(), km_summary())
+            return agents.fleet(scope, evidence, KpiStore(self.state).capacities(), km_summary(), report)
         if command == "vanhanh":
             return agents.operations(data, scope, datetime.now(TZ), x["period"], x["cutoff"])
         if command == "kpi":
@@ -640,7 +640,7 @@ class AssistantResponder:
                             ("SLA", lambda: render_sla(sla_result, scope["start"], scope["end"]).split(": ", 1)[-1]),
                             ("Vận hành", lambda: agents.operations(data, scope, now, x["period"], x["cutoff"])),
                             ("Lương giao", lambda: agents.workforce(report, scope, evidence=evidence)),
-                            ("Đội xe", lambda: agents.fleet(scope, evidence, KpiStore(self.state).capacities(), km_summary())), ("KPI", kpi),
+                            ("Đội xe", lambda: agents.fleet(scope, evidence, KpiStore(self.state).capacities(), km_summary(), report)), ("KPI", kpi),
                             ("Kiểm toán", lambda: agents.audit(report, evidence, sla_result, scope)[2]),
                             ("Kế toán", accounting)):
             text = safe(make)
