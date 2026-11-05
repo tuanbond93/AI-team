@@ -365,3 +365,85 @@ def test_sla_rate_whole_equals_combined_halves_counts():
     on_time, late = sum(h['on_time'] for h in halves), sum(h['late'] for h in halves)
     assert (whole['on_time'], whole['late']) == (on_time, late) == (1, 1)
     assert whole['on_time_rate'] == on_time/(on_time+late) == 0.5
+
+
+def complete_report():
+    """A synthetic cost table where every in-scope part is complete, so projected totals exist."""
+    report = gxt_report(overlay={'available': True, 'revenue': {'complete': True, 'component_vnd': '5000000', 'eligible_vnd': '5000000'},
+                                 'known_cost_subtotal': '3000000', 'missing_s_gxt_rows': 0, 'scope_exclusions': {}},
+                        dc={'component_vnd': '100'}, warehouse={'shared_pool_vnd': '200'})
+    report['points'] = {'held': [], 'complete': True, 'counts': {}, 'eligible_vnd': None}
+    return report
+
+
+def test_accounting_shows_revenue_and_gross_profit_only_when_complete():
+    from ops_team.supra.manual_cost_overlay import projected_totals
+    total, gp, blockers = projected_totals(complete_report())
+    assert total == '3000000' and not blockers
+    assert Decimal(gp) == Decimal('5000000')-Decimal('3000000')  # independent: revenue - cost
+    text = agents.accounting(complete_report(), SCOPE, evidence=EVIDENCE)
+    assert 'Chi phí dự kiến 10/10–12/10: 3.000.000đ trước VAT, VAT 8% là 240.000đ, sau VAT 3.240.000đ.' in text
+    assert 'Doanh thu dự kiến 5.000.000đ trước VAT; lãi gộp dự kiến 2.000.000đ' in text
+    partial = agents.accounting(gxt_report(), SCOPE)
+    assert 'Doanh thu dự kiến' not in partial and 'Doanh thu và lãi gộp dự kiến cũng N/A' in partial
+
+
+def test_templates_are_readable_by_the_importers():
+    from pathlib import Path
+    from ops_team.supra.km_log import parse_log
+    root = Path(__file__).resolve().parents[1]/'docs'/'templates'
+    statement = parse_statement((root/'bang_ke_ncc_mau.csv').read_bytes(), 'bang_ke_ncc_mau.csv')
+    log = parse_log((root/'nhat_trinh_km_mau.csv').read_bytes(), 'nhat_trinh_km_mau.csv')
+    assert len(statement['lines']) == 1 and statement['lines'][0]['vat_vnd'] == Decimal(80000)
+    assert len(log['lines']) == 1 and log['lines'][0]['empty_km'] == Decimal(15) and log['lines'][0]['wait_hours'] == Decimal('1.5')
+
+
+def km_csv(rows, headers='Ngày,Biển số xe,Km,Km rỗng,Giờ chờ'):
+    return ('\n'.join([headers]+rows)).encode()
+
+
+def test_km_log_checks_and_full_equals_halves(tmp_path):
+    from ops_team.supra.km_log import parse_log, summary
+    log = parse_log(km_csv(['10/10/2026,29C-111.11,100,10,1', '11/10/2026,29C-222.22,50,5,0.5', '12/10/2026,29C-111.11,30,40,0',
+                            '12/10/2026,,20,0,0', '12/10/2026,29C-333.33,abc,0,0', '13/10/2026,29C-111.11,25,5,2']), 'km.csv')
+    assert [h['row'] for h in log['held']] == [4, 5, 6] and log['held'][0]['missing'] == ['empty_km']  # empty > km is held, not clipped
+    whole = summary(log, {'start': '2026-10-10', 'end': '2026-10-13'}, EVIDENCE)
+    halves = [summary(log, {'start': '2026-10-10', 'end': '2026-10-11'}, EVIDENCE), summary(log, {'start': '2026-10-12', 'end': '2026-10-13'}, EVIDENCE)]
+    assert whole['km'] == sum(h['km'] for h in halves) == Decimal(175)
+    assert whole['empty_km'] == sum(h['empty_km'] for h in halves) == Decimal(20) and whole['wait_hours'] == Decimal('3.5')
+    assert whole['empty_rate_pct'] == Decimal(20)/Decimal(175)*100
+    assert whole['logged_without_raw_rows'] == [7] and whole['raw_without_log'] == [('29C11111', '2026-10-12')]
+    text = agents.km_text(whole, EVIDENCE)
+    assert 'tổng 175 km' in text and 'nhật trình dòng 7' in text and 'V1 12/10' in text and '29C' not in text and 'biểu giá km' in text
+    no_empty = summary(parse_log(km_csv(['10/10/2026,29C-111.11,100'], 'Ngày,Biển số xe,Km'), 'k.csv'), SCOPE, EVIDENCE)
+    assert no_empty['km'] == Decimal(100) and no_empty['empty_km'] is None and no_empty['empty_rate_pct'] is None  # absent column = N/A
+    state = BusinessState(tmp_path/'v')
+    try:
+        save_statement(state, log, 'km')
+        loaded = load_statement(state, '2026-10', 'km')
+        assert loaded['lines'][0]['empty_km'] == Decimal(10) and load_statement(state, '2026-10') is None  # separate from NCC statements
+    finally:
+        state.close()
+
+
+def test_import_km_by_telegram_document_owner_only(tmp_path):
+    from ops_team.telegram_assistant import AssistantResponder
+    from ops_team.telegram_bridge import Incoming
+    from ops_team.telegram_state import GROUP_ID
+    data = km_csv(['10/10/2026,29C-111.11,100,10,1'])
+
+    class Api:
+        def call(self, method, **kw):
+            return {'file_path': 'x'}
+
+        def download(self, path):
+            return data
+    state = BusinessState(tmp_path/'vault')
+    try:
+        r = AssistantResponder(state, {'owner_id': 123, 'models': {}})
+        doc = {'file_name': 'nhat_trinh.csv', 'file_size': len(data), 'file_id': 'f'}
+        assert 'Chỉ owner' in r.document(Incoming(GROUP_ID, 456, 1, None, 'import', 'km'), doc, Api())
+        reply = r.document(Incoming(GROUP_ID, 123, 2, None, 'import', 'km'), doc, Api())
+        assert 'nhật trình km' in reply and '1 dòng hợp lệ' in reply and load_statement(state, '2026-10', 'km')
+    finally:
+        state.close()

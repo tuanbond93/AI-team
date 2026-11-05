@@ -36,7 +36,7 @@ def span(scope):
 
 
 # ---------------- Kế toán ----------------
-def accounting(report, scope, statement=None, reconciliation=None, evidence=None):
+def accounting(report, scope, statement=None, reconciliation=None, evidence=None, km=None):
     from .manual_cost_overlay import projected_totals
     from .ncc_invoice import VAT_RATE
     lines = []
@@ -45,10 +45,14 @@ def accounting(report, scope, statement=None, reconciliation=None, evidence=None
         vat = (Decimal(total)*VAT_RATE).quantize(Decimal(1))
         lines.append(f'Chi phí dự kiến {span(scope)}: {vnd(total)} trước VAT, VAT 8% là {vnd(vat)}, sau VAT {vnd(Decimal(total)+vat)}. '
                      'Đây là số dự kiến theo giá đã duyệt, chưa phải thực chi.')
+        gp = projected_totals(report)[1]
+        revenue = report['overlay']['revenue']['component_vnd']
+        lines.append(f'Doanh thu dự kiến {vnd(revenue)} trước VAT; lãi gộp dự kiến {vnd(gp)} (doanh thu trừ chi phí dự kiến, cùng bảng /chiphi).')
     else:
-        lines.append(f'Chi phí dự kiến {span(scope)} chưa chốt được tổng (N/A) vì: '+'; '.join(blockers[:4])+'.')
+        lines.append(f'Chi phí dự kiến {span(scope)} chưa chốt được tổng (N/A) vì: '+'; '.join(blockers[:4])+'. Doanh thu và lãi gộp dự kiến cũng N/A tới khi đủ nguồn.')
     if statement is None:
         lines.append('Chưa có bảng kê NCC cho tháng này nên chưa đối soát thực chi. Kế toán gửi file (Excel/CSV) vào nhóm kèm chú thích /import ncc là em đối soát ngay.')
+        lines.append(km_text(km, evidence))
         return '\n'.join(lines)
     r = reconciliation
     names = aliases(evidence)
@@ -78,8 +82,22 @@ def accounting(report, scope, statement=None, reconciliation=None, evidence=None
         lines.append('Cần kế toán kiểm lại:\n'+'\n'.join('• '+i for i in issues))
     else:
         lines.append('Không thấy lệch: VAT đúng 8%, không trùng dòng, ngày tính tiền khớp ngày xe chạy, tiền xe GXT khớp giá ngày đã duyệt.')
-    lines.append('Tiền FTL/NCC theo km chưa đối chiếu được vì chưa có nhật trình km.')
+    lines.append(km_text(km, evidence))
     return '\n'.join(lines)
+
+
+def km_text(km, evidence):
+    if km is None:
+        return 'Chưa có nhật trình km tháng này: NCC gửi file (Excel/CSV, chú thích /import km) để đối chiếu ngày chạy; tiền theo km còn chờ biểu giá km (câu 17).'
+    names = aliases(evidence)
+    parts = [f'Nhật trình km: {km["lines"]} dòng, tổng {_vi_money(km["km"])} km' if km['km'] is not None else f'Nhật trình km: {km["lines"]} dòng, tổng km N/A']
+    if km['logged_without_raw_rows']:
+        parts.append('có km nhưng Raw không thấy xe chạy ở nhật trình dòng '+', '.join(map(str, km['logged_without_raw_rows'][:10])))
+    if km['raw_without_log']:
+        parts.append('xe chạy trên Raw nhưng chưa có trong nhật trình: '+', '.join(f'{car(p, names)} {d[8:10]}/{d[5:7]}' for p, d in km['raw_without_log'][:8]))
+    if km['held_rows']:
+        parts.append('dòng thiếu biển/ngày/km hoặc km rỗng lớn hơn km chưa đọc: '+', '.join(map(str, km['held_rows'][:10])))
+    return '; '.join(parts)+'. Tiền theo km chưa tính vì chưa có biểu giá km (câu 17).'
 
 
 # ---------------- Nhân sự ----------------

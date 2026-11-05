@@ -52,6 +52,7 @@ MEMORY_HELP = """TRỢ LÝ AI TEAM — ONBOARDING VÀ TRÍ NHỚ NGHIỆP VỤ
 /tongquan — báo cáo ngày: việc ưu tiên, người phụ trách, dữ liệu cần bổ sung, số chính từng mảng; /ketoan — chi phí trước/sau VAT 8% và đối soát bảng kê NCC (gửi file kèm /import ncc)
 /nhansu — lương giao GXT theo xe/ngày; /kpi — chấm SLA, chi phí/kg, chi phí/đơn, tỷ lệ tải theo mục tiêu
 /vanhanh — sản lượng theo ngày xuất và tồn đọng (quá hạn/chưa tới hạn)
+/import km — gửi nhật trình km của NCC (Excel/CSV)
 /kiemtoan — kiểm tra lại các phép cộng, kg, điều kiện công bố tổng; /muctieu, /taitrong — owner đặt mục tiêu, tải trọng xe
 Nhắn tự nhiên cũng được: "chi phí tuần này", "còn thiếu gì không", "nhớ giúp anh là…"
 /reset — xóa hội thoại RAM của bạn trong chủ đề
@@ -494,6 +495,13 @@ class AssistantResponder:
                 return "Chỉ nhận .xlsx hoặc .csv tối đa 20 MB."
             info = api.call("getFile", file_id=document["file_id"])
             data = api.download(info["file_path"])
+            if request.text.strip().casefold() == "km":
+                from .supra.km_log import parse_log
+                from .supra.ncc_invoice import save_statement
+                log = parse_log(data, name)
+                months = save_statement(self.state, log, "km")
+                return (f"Đã nhận nhật trình km (mã hóa DPAPI): {len(log['lines'])} dòng hợp lệ, {len(log['held'])} dòng thiếu biển/ngày/km "
+                        f"hoặc km rỗng lớn hơn km chưa đọc. Tháng: {', '.join(m[5:]+'/'+m[:4] for m in months)}. Nhắn \"đối soát kế toán\" hoặc \"đội xe\" để xem.")
             if request.text.strip().casefold() == "ncc":
                 from .supra.ncc_invoice import parse_statement, save_statement
                 statement = parse_statement(data, name)
@@ -560,14 +568,21 @@ class AssistantResponder:
             except ValueError:
                 previous = {"scope": prev, "reason": "kỳ trước nằm ngoài tháng/kỳ dữ liệu đang chọn"}
             return agents.kpi(*kpi_args(scope, report), previous=previous)
-        def accounting():
-            from .supra.ncc_invoice import load_statement, reconcile
+        def monthly(folder):
+            from .supra.ncc_invoice import load_statement
             months = sorted({scope["start"][:7], scope["end"][:7]})
-            loaded = [m for m in (load_statement(self.state, month) for month in months) if m]
-            if not loaded:
-                return agents.accounting(report, scope)
-            statement = {"lines": [l for m in loaded for l in m["lines"]], "held": [h for m in loaded for h in m.get("held", [])]}
-            return agents.accounting(report, scope, statement, reconcile(statement, report, evidence, scope["start"], scope["end"]), evidence)
+            loaded = [m for m in (load_statement(self.state, month, folder) for month in months) if m]
+            return {"lines": [l for m in loaded for l in m["lines"]], "held": [h for m in loaded for h in m.get("held", [])]} if loaded else None
+        def km_summary():
+            from .supra.km_log import summary
+            log = monthly("km")
+            return summary(log, scope, evidence) if log else None
+        def accounting():
+            from .supra.ncc_invoice import reconcile
+            statement = monthly("ncc")
+            if not statement:
+                return agents.accounting(report, scope, evidence=evidence, km=km_summary())
+            return agents.accounting(report, scope, statement, reconcile(statement, report, evidence, scope["start"], scope["end"]), evidence, km_summary())
         if command == "ketoan":
             return accounting()
         if command == "nhansu":

@@ -39,3 +39,4 @@ Cột "Thiếu do": **code** nghĩa là làm được ngay; **dữ liệu** ngh�
 | — | Bảo mật: agent không in biển xe (mã V1/V2, số dòng) | xong | xem git log |
 | 3 | Điều phối: `/tongquan` thành báo cáo ngày | xong (dữ liệu giả); phụ trách chờ J8; lịch 13h giữ mẫu cũ | xem git log |
 | 4 | KPI: xu hướng so kỳ trước + cảnh báo lệch mục tiêu | xong (dữ liệu giả); OT, xe rỗng chờ dữ liệu; J6, J7 chờ xác nhận | xem git log |
+| 5 | Kế toán: lãi gộp khi đủ nguồn + nhật trình km (schema, mẫu, nhập, đối chiếu) | xong (dữ liệu giả); chờ bảng kê và nhật trình thật, biểu giá km | xem git log |

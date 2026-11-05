@@ -66,8 +66,9 @@ def _day(value):
     return parse_day(value)
 
 
-def _find_header(rows):
-    """(row index, {field: column}) for the first row naming plate, day and amount."""
+def _find_header(rows, columns=None, required=REQUIRED):
+    """(row index, {field: column}) for the first row naming every required field."""
+    columns = columns or COLUMNS
     for index, row in enumerate(rows[:20]):
         found = {}
         for col, cell in enumerate(row):
@@ -75,13 +76,13 @@ def _find_header(rows):
             if not name:
                 continue
             # Longest matching alias wins, so "thanh tien sau vat" is total, not amount.
-            hits = [(len(a), field) for field, aliases in COLUMNS.items() for a in aliases if name == a or name.startswith(a+' ')]
+            hits = [(len(a), field) for field, aliases in columns.items() for a in aliases if name == a or name.startswith(a+' ')]
             if hits:
                 field = max(hits)[1]
                 found.setdefault(field, col)
-        if all(f in found for f in REQUIRED):
+        if all(f in found for f in required):
             return index, found
-    raise ValueError('Không tìm thấy dòng tiêu đề có đủ cột biển số, ngày và thành tiền.')
+    raise ValueError('Không tìm thấy dòng tiêu đề có đủ cột: '+', '.join(required)+'.')
 
 
 def read_rows(data, name):
@@ -130,25 +131,26 @@ def _decode(text):
     statement = json.loads(text)
     for line in statement['lines']:
         line['day'] = date.fromisoformat(line['day'])
-        for k in ('amount_vnd', 'vat_vnd', 'total_vnd', 'trips', 'km'):
-            line[k] = Decimal(line[k]) if line[k] is not None else None
+        for k in ('amount_vnd', 'vat_vnd', 'total_vnd', 'trips', 'km', 'empty_km', 'wait_hours'):
+            if k in line:
+                line[k] = Decimal(line[k]) if line[k] is not None else None
     return statement
 
 
-def save_statement(state, statement):
+def save_statement(state, statement, folder='ncc'):
     """Encrypted in the vault, one file per month seen in the lines. Returns the months stored."""
     from ..telegram_secrets import save_protected
     months = defaultdict(list)
     for line in statement['lines']:
         months[line['day'].strftime('%Y-%m')].append(line)
     for month, lines in months.items():
-        save_protected(state.root/'ncc'/f'{month}.dpapi', _encode({**statement, 'lines': lines}).encode())
+        save_protected(state.root/folder/f'{month}.dpapi', _encode({**statement, 'lines': lines}).encode())
     return sorted(months)
 
 
-def load_statement(state, month):
+def load_statement(state, month, folder='ncc'):
     from ..telegram_secrets import load_protected
-    path = state.root/'ncc'/f'{month}.dpapi'
+    path = state.root/folder/f'{month}.dpapi'
     return _decode(load_protected(path).decode()) if path.exists() else None
 
 
