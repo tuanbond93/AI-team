@@ -630,12 +630,7 @@ class AssistantResponder:
                 return None  # one area failing never blocks the brief; it shows "chưa tính được"
         sla_result = safe(sla)
         ops = safe(lambda: agents.operations_stats(data, scope, now, x["period"], x["cutoff"]))
-        def kpi_inputs():
-            rows = data.rows[data.rows.dispatch_date.map(lambda d: d is not None and scope["start"] <= str(d) <= scope["end"])]
-            store = KpiStore(self.state)
-            return agents.kpi_rows(store.targets(), scope, sla_result, report, weight_summary(data, rows, x["period"], x["cutoff"]),
-                                   len(set(rows.order_id)-{""}), evidence, store.capacities())
-        kpi_result = safe(kpi_inputs)
+        kpi_result = safe(lambda: agents.kpi_rows(*kpi_args(scope, report)))
         checks = safe(lambda: agents.audit_checks(report, evidence, sla_result, scope))
         missing = safe(lambda: missing_checklist(report)) if report.get("available") else None
         months = sorted({scope["start"][:7], scope["end"][:7]})

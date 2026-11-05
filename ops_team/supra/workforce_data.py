@@ -13,10 +13,9 @@ formulas already in metrics.py for the legacy workforce table (OWNER J11 to conf
 from collections import defaultdict
 from decimal import Decimal, localcontext
 import hashlib
-import re
 
 from .booking_vehicles import plate as parse_plate
-from .ncc_invoice import _day, _find_header, _key, money, read_rows
+from .ncc_invoice import _day, money, table_rows
 
 ROSTER = {
     'day': ['ngay', 'ngay lam', 'ngay giao'],
@@ -34,25 +33,13 @@ TIMESHEET = {
 }
 
 
-def _rows(data, name, columns, required):
-    rows = read_rows(data, name)
-    header, cols = _find_header(rows, columns, required)
-    for offset, row in enumerate(rows[header+1:], start=header+2):
-        if not any(c not in (None, '') for c in row):
-            continue
-        get = lambda f: row[cols[f]] if f in cols and cols[f] < len(row) else None
-        if any(re.match(r'(tong|cong)\b', _key(c)) for c in row if isinstance(c, str)) and not _key(get('person') or ''):
-            continue
-        yield offset, get, cols
-
-
 def person_key(value):
     return ' '.join(str(value or '').split())[:80]
 
 
 def parse_roster(data, name):
     lines, held = [], []
-    for offset, get, cols in _rows(data, name, ROSTER, ('day', 'plate', 'person')):
+    for offset, get, cols in table_rows(data, name, ROSTER, ('day', 'plate', 'person'), ident='person'):
         line = {'row': offset, 'day': _day(get('day')), 'plate': parse_plate(get('plate')), 'person': person_key(get('person')),
                 'role': person_key(get('role'))}
         missing = [k for k in ('day', 'plate', 'person') if not line[k]]
@@ -64,7 +51,7 @@ def parse_roster(data, name):
 
 def parse_timesheet(data, name):
     lines, held = [], []
-    for offset, get, cols in _rows(data, name, TIMESHEET, ('day', 'person', 'regular_hours')):
+    for offset, get, cols in table_rows(data, name, TIMESHEET, ('day', 'person', 'regular_hours'), ident='person'):
         line = {'row': offset, 'day': _day(get('day')), 'person': person_key(get('person')), 'regular_hours': money(get('regular_hours'))}
         for field in ('ot_hours', 'processed', 'defects'):
             line[field] = money(get(field)) if field in cols else None

@@ -96,22 +96,31 @@ def read_rows(data, name):
     return [list(row) for row in sheet.iter_rows(values_only=True)]
 
 
-def parse_statement(data, name):
-    """Normalised lines + held rows. Raises ValueError if the layout is not recognisable."""
+def table_rows(data, name, columns=None, required=REQUIRED, ident='plate'):
+    """(sheet row, get, columns) for each data row after the header; blank and subtotal/total rows skipped.
+
+    Shared by the NCC statement, the km log, the driver roster and the timesheet.
+    """
     rows = read_rows(data, name)
-    header, cols = _find_header(rows)
-    lines, held = [], []
+    header, cols = _find_header(rows, columns, required)
     for offset, row in enumerate(rows[header+1:], start=header+2):
-        get = lambda f: row[cols[f]] if f in cols and cols[f] < len(row) else None
+        get = lambda f, row=row: row[cols[f]] if f in cols and cols[f] < len(row) else None
         if not any(c not in (None, '') for c in row):
             continue
-        if not parse_plate(get('plate')) and any(re.match(r'(tong|cong|tong cong)\b', _key(c)) for c in row if isinstance(c, str)):
-            continue  # subtotal/total rows of the statement
+        named = parse_plate(get(ident)) if ident == 'plate' else _key(get(ident) or '')
+        if not named and any(re.match(r'(tong|cong)\b', _key(c)) for c in row if isinstance(c, str)):
+            continue
+        yield offset, get, cols
+
+
+def parse_statement(data, name):
+    """Normalised lines + held rows. Raises ValueError if the layout is not recognisable."""
+    lines, held = [], []
+    for offset, get, cols in table_rows(data, name):
         line = {'row': offset, 'plate': parse_plate(get('plate')), 'day': _day(get('day')), 'amount_vnd': money(get('amount')),
                 'vat_vnd': money(get('vat')), 'total_vnd': money(get('total')), 'trips': money(get('trips')), 'km': money(get('km')),
                 'note': str(get('note') or '')[:120]}
-        problems = [k for k, label in (('plate', 'biển số'), ('day', 'ngày'), ('amount_vnd', 'thành tiền')) if not line[k]
-                    and not (k == 'amount_vnd' and line[k] == 0)]
+        problems = [k for k in ('plate', 'day', 'amount_vnd') if line[k] in (None, '')]  # an amount of 0 is a value
         if problems:
             held.append({'row': offset, 'missing': problems})
             continue

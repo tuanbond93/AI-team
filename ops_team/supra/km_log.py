@@ -10,7 +10,7 @@ definitions still to confirm (OWNER J4).
 from decimal import Decimal, localcontext
 
 from .booking_vehicles import plate as parse_plate
-from .ncc_invoice import _day, _find_header, _key, money, read_rows
+from .ncc_invoice import _day, money, table_rows
 
 COLUMNS = {
     'plate': ['bien so', 'bien so xe', 'bien xe', 'so xe', 'bks', 'xe'],
@@ -28,16 +28,8 @@ TEMPLATE_HEADERS = ['Ngày', 'Biển số xe', 'Tuyến', 'Số chuyến', 'Km',
 
 def parse_log(data, name):
     import hashlib
-    import re
-    rows = read_rows(data, name)
-    header, cols = _find_header(rows, COLUMNS, REQUIRED)
     lines, held = [], []
-    for offset, row in enumerate(rows[header+1:], start=header+2):
-        get = lambda f: row[cols[f]] if f in cols and cols[f] < len(row) else None
-        if not any(c not in (None, '') for c in row):
-            continue
-        if not parse_plate(get('plate')) and any(re.match(r'(tong|cong)\b', _key(c)) for c in row if isinstance(c, str)):
-            continue
+    for offset, get, cols in table_rows(data, name, COLUMNS, REQUIRED):
         line = {'row': offset, 'plate': parse_plate(get('plate')), 'day': _day(get('day')), 'km': money(get('km')),
                 'empty_km': money(get('empty_km')) if 'empty_km' in cols else None,
                 'wait_hours': money(get('wait_hours')) if 'wait_hours' in cols else None,

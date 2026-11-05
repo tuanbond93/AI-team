@@ -531,11 +531,3 @@ def first_line(text):
     first = re.sub(r'^(KPI|Kiểm toán|Vận hành|Lương giao GXT|Chi phí dự kiến|Đội xe) [^:]+: ', '', first)
     return first[:1].lower()+first[1:] if first[1:2].islower() else first
 
-
-def overview(parts):
-    """parts: [(label, text)] from the other agents; first line of each, in one message."""
-    lines = ['Tổng quan nhanh từng mảng:']
-    for label, text in parts:
-        lines.append(f'• {label}: {first_line(text)}')
-    lines.append('Nhắn tên mảng (chi phí, SLA, xe, lương giao, KPI, kiểm toán, kế toán, còn thiếu gì) để xem chi tiết.')
-    return '\n'.join(lines)
